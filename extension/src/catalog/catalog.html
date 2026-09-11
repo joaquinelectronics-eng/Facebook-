@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Mi catalogo de Marketplace</title>
+<link rel="stylesheet" href="catalog.css">
+</head>
+<body>
+  <header>
+    <h1>Mi catalogo</h1>
+    <p class="sub">Todo lo que paso por tu pantalla queda aca, aunque Facebook ya no te lo muestre.</p>
+  </header>
+
+  <section class="controles">
+    <div class="campo ancho">
+      <label>Busqueda estricta</label>
+      <input type="text" id="consulta" placeholder='audi a5 -permuto   o   a4|a5   o   "linea nueva"' spellcheck="false">
+    </div>
+    <div class="campo">
+      <label>Desde (USD)</label>
+      <input type="number" id="pmin" placeholder="0">
+    </div>
+    <div class="campo">
+      <label>Hasta (USD)</label>
+      <input type="number" id="pmax" placeholder="sin tope">
+    </div>
+    <div class="campo">
+      <label>Ordenar por</label>
+      <select id="orden">
+        <option value="viejas">Mas viejas primero (joyitas)</option>
+        <option value="nuevas">Vistas mas recientemente</option>
+        <option value="descubiertas">Descubiertas hace poco</option>
+        <option value="baratas">Precio: mas barato</option>
+        <option value="caras">Precio: mas caro</option>
+        <option value="bajadas">Bajaron de precio</option>
+      </select>
+    </div>
+    <div class="campo chico">
+      <label>&nbsp;</label>
+      <label class="check"><input type="checkbox" id="soloBajadas"> Solo con baja</label>
+    </div>
+  </section>
+
+  <section class="resumen">
+    <span id="resumen">Cargando...</span>
+    <div class="acciones">
+      <button id="exportar" class="secundario">Exportar CSV</button>
+      <button id="vaciar" class="peligro">Vaciar catalogo</button>
+    </div>
+  </section>
+
+  <main id="grilla" class="grilla"></main>
+  <div id="vacio" class="vacio oculto">
+    <p>Todavia no hay nada guardado.</p>
+    <p class="tenue">Abri Facebook Marketplace y navega normalmente: la extension va a ir llenando esto sola.</p>
+  </div>
+
+  <script src="../lib/normalize.js"></script>
+  <script src="../lib/price.js"></script>
+  <script src="../lib/matcher.js"></script>
+  <script src="catalog.js"></script>
+</body>
+</html>

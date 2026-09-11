@@ -1,0 +1,12 @@
+{
+  "name": "marketplace-filtro-estricto",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Extension de Chrome para busqueda estricta en Facebook Marketplace",
+  "scripts": {
+    "test": "node tests/test-logica.js && node tests/test-dom.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.49.0"
+  }
+}
