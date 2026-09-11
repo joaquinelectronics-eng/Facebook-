@@ -42,6 +42,7 @@
     const pmin = $('pmin').value === '' ? null : Number($('pmin').value);
     const pmax = $('pmax').value === '' ? null : Number($('pmax').value);
     const soloBajadas = $('soloBajadas').checked;
+    const zona = $('zona').value;
 
     let lista = todos.filter((it) => {
       if (!filtro.vacia && !filtro.evaluar(it.titulo).coincide) return false;
@@ -49,6 +50,10 @@
       if (pmin != null && (p == null || p < pmin)) return false;
       if (pmax != null && (p == null || p > pmax)) return false;
       if (soloBajadas && !bajaDePrecio(it)) return false;
+      if (zona) {
+        const prov = it.provincia || MPF.zonas.detectarProvincia(it.ubicacion);
+        if (prov !== zona) return false;
+      }
       return true;
     });
 
@@ -76,6 +81,8 @@
     if (dias >= 30) etiquetas.push('<span class="etiqueta vieja">' + dias + ' dias en tu base</span>');
     if (it.anio) etiquetas.push('<span class="etiqueta">' + it.anio + '</span>');
     if (it.km) etiquetas.push('<span class="etiqueta">' + Math.round(it.km).toLocaleString('es-AR') + ' km</span>');
+    const prov = it.provincia || MPF.zonas.detectarProvincia(it.ubicacion);
+    if (prov) etiquetas.push('<span class="etiqueta">' + MPF.zonas.cortoDe(prov) + '</span>');
 
     /* Se avisa cuando el precio no vino limpio del campo de Facebook, para que
        sepas cual conviene verificar antes de escribirle al vendedor. */
@@ -144,13 +151,39 @@
     return '﻿' + filas.join('\r\n');   // BOM para que Excel respete los acentos
   }
 
+  /* El selector se arma con las provincias que aparecen en el catalogo, no con
+     las 24: no tiene sentido ofrecer una zona donde nunca miraste nada. */
+  function poblarZonas() {
+    const presentes = new Set();
+    for (const it of todos) {
+      const prov = it.provincia || MPF.zonas.detectarProvincia(it.ubicacion);
+      if (prov) presentes.add(prov);
+    }
+    const sel = $('zona');
+    const elegida = sel.value;
+    sel.textContent = '';
+    const todasOpt = document.createElement('option');
+    todasOpt.value = '';
+    todasOpt.textContent = 'Todas';
+    sel.appendChild(todasOpt);
+    for (const p of MPF.zonas.PROVINCIAS) {
+      if (!presentes.has(p.id)) continue;
+      const o = document.createElement('option');
+      o.value = p.id;
+      o.textContent = p.corto;
+      sel.appendChild(o);
+    }
+    sel.value = elegida;
+  }
+
   async function cargar() {
     const r = await pedir({ tipo: 'listar' });
     todos = (r && r.items) || [];
+    poblarZonas();
     pintar();
   }
 
-  for (const id of ['consulta', 'pmin', 'pmax', 'orden', 'soloBajadas']) {
+  for (const id of ['consulta', 'pmin', 'pmax', 'orden', 'soloBajadas', 'zona']) {
     const el = $(id);
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', pintar);
   }

@@ -8,27 +8,36 @@
 <div id="raiz">
   <div class="x78zum5 xdt5ytf">
     <!-- Grilla de resultados. Las clases imitan las ofuscadas reales de
-         Facebook a proposito: el scraper NO debe depender de ninguna. -->
+         Facebook a proposito: el scraper NO debe depender de ninguna.
+         La fila de abajo copia el formato real: "Usado - Olivos, BA" y
+         "128 mil km - Ciudad de Buenos Aires", con el separador que usa
+         Facebook. -->
     <div class="x1n2onr6" id="grilla"></div>
   </div>
 </div>
 <script>
 const items = [
-  {id:'101', t:'Audi A5 2.0 TFSI Quattro 2018', p:'US$ 23.500',    u:'Rosario, Santa Fe',  km:'85.000 km'},
-  {id:'102', t:'Audi A4 2.0 TFSI 2017',         p:'US$ 21.000',    u:'Cordoba, Cordoba',   km:'120.000 km'},
-  {id:'103', t:'Audi A3 Sportback 2016',        p:'US$ 18.000',    u:'Rosario, Santa Fe',  km:'95.000 km'},
-  {id:'104', t:'Audi A5 Coupe 2015',            p:'US$ 12.000',    u:'Santa Fe, Santa Fe', km:'150.000 km'},
-  {id:'105', t:'Audi A5 Sportback 2020',        p:'US$ 45.000',    u:'CABA',               km:'30.000 km'},
-  {id:'106', t:'AUDI A 5 impecable 2019',       p:'$ 24.500',      u:'Rosario, Santa Fe',  km:'60.000 km'},
-  {id:'107', t:'Volkswagen Vento 2.0 2018',     p:'US$ 20.000',    u:'Rosario, Santa Fe',  km:'70.000 km'},
-  {id:'108', t:'Audi A5 2019 full',             p:'$ 28.000.000',  u:'Funes, Santa Fe',    km:'55.000 km'},
-  {id:'109', t:'Audi A50 raro',                 p:'US$ 20.000',    u:'CABA',               km:'10.000 km'},
-  {id:'110', t:'Audi A5 2018 permuto menor',    p:'US$ 22.000',    u:'Rosario, Santa Fe',  km:'80.000 km'},
-  // Precios abreviados y trucos de vendedor, que es lo que rompe cualquier filtro.
-  {id:'111', t:'Audi A5 2017 impecable',        p:'$ 22',          u:'Rosario, Santa Fe',  km:'90.000 km'},
-  {id:'112', t:'Audi A5 2018 titular unico',    p:'$1',            u:'Rosario, Santa Fe',  km:'70.000 km'},
-  {id:'113', t:'Audi A5 2016 barato',           p:'$ 13',          u:'Santa Fe, Santa Fe', km:'180.000 km'},
-  {id:'114', t:'Audi A5 2020 full',             p:'26 palos',      u:'CABA',               km:'25.000 km'}
+  // titulo, precio, fila de estado/kilometraje/zona
+  {id:'101', t:'Audi A5 2.0 TFSI Quattro 2018', p:'US$ 23.500',   m:'Usado · Olivos, BA'},
+  {id:'102', t:'Audi A4 2.0 TFSI 2017',         p:'US$ 21.000',   m:'Usado · Martínez, BA'},
+  {id:'103', t:'Audi A3 Sportback 2016',        p:'US$ 18.000',   m:'Usado · Rosario, Santa Fe'},
+  {id:'104', t:'Audi A5 Coupe 2015',            p:'US$ 12.000',   m:'Usado · Santa Fe, SF'},
+  {id:'105', t:'Audi A5 Sportback 2020',        p:'US$ 45.000',   m:'Usado · Ciudad de Buenos Aires, CF'},
+  {id:'106', t:'AUDI A 5 impecable 2019',       p:'$ 24.500',     m:'128 mil km · Ciudad de Buenos Aires'},
+  {id:'107', t:'Volkswagen Vento 2.0 2018',     p:'US$ 20.000',   m:'Usado · Olivos, BA'},
+  {id:'108', t:'Audi A5 2019 full',             p:'$ 28.000.000', m:'Usado · Funes, SF'},
+  {id:'109', t:'Audi A50 raro',                 p:'US$ 20.000',   m:'Usado · Palermo'},
+  {id:'110', t:'Audi A5 2018 permuto menor',    p:'US$ 22.000',   m:'Usado · Tigre, BA'},
+  // precios abreviados y rellenos
+  {id:'111', t:'Audi A5 2017 impecable',        p:'$ 22',         m:'90 mil km · Paraná, ER'},
+  {id:'112', t:'Audi A5 2018 titular unico',    p:'$1',           m:'Usado · La Plata, BA'},
+  {id:'113', t:'Audi A5 2016 barato',           p:'$ 13',         m:'Usado · Santa Rosa, La Pampa'},
+  {id:'114', t:'Audi A5 2020 full',             p:'26 palos',     m:'Usado · Rosario, SF'},
+  // zonas de mas lejos, que hay que descartar
+  {id:'115', t:'Audi A5 2018 impecable',        p:'US$ 24.000',   m:'Usado · Villa Carlos Paz'},
+  {id:'116', t:'Audi A5 2019 nafta',            p:'US$ 25.000',   m:'Usado · Mendoza, MZ'},
+  // localidad que no esta en la lista: no se descarta, se muestra igual
+  {id:'117', t:'Audi A5 2018 unico',            p:'US$ 26.000',   m:'Usado · Pueblito Perdido'}
 ];
 const grilla = document.getElementById('grilla');
 for (const it of items) {
@@ -42,8 +51,7 @@ for (const it of items) {
           '<img alt="' + it.t + '" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">' +
           '<div class="xjbqb8w"><span>' + it.p + '</span></div>' +
           '<div class="x1lliihq"><span>' + it.t + '</span></div>' +
-          '<div class="x1lliihq"><span>' + it.u + '</span></div>' +
-          '<div class="x1lliihq"><span>' + it.km + '</span></div>' +
+          '<div class="x1lliihq"><span>' + it.m + '</span></div>' +
         '</div>' +
       '</a>' +
     '</div></div>';

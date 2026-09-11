@@ -46,7 +46,8 @@
   .primario.parar:hover { background: #cc4438; }
   .secundario { background: #232932; color: #cdd5e0; border-color: #333a45; }
   .secundario:hover { background: #2b323d; }
-  .check { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #b9c2cf; }
+  .check { display: flex; align-items: center; gap: 7px; font-size: 12px; color: #b9c2cf;
+           text-transform: none; letter-spacing: 0; margin-bottom: 0; }
   .check input { width: auto; }
   .marcador { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center; }
   .marcador div { background: #0f1216; border: 1px solid #262c35; border-radius: 7px; padding: 6px 3px; }
@@ -54,6 +55,27 @@
   .marcador span { font-size: 9.5px; color: #79828f; text-transform: uppercase; letter-spacing: .5px; }
   .estado { font-size: 11px; color: #8b94a3; min-height: 15px; text-align: center; }
   .sep { height: 1px; background: #262c35; margin: 1px 0; }
+  details { border: 1px solid #2c323c; border-radius: 8px; background: #14171c; }
+  summary {
+    cursor: pointer; padding: 7px 10px; font-size: 12px; color: #cdd5e0;
+    list-style: none; user-select: none;
+  }
+  summary::-webkit-details-marker { display: none; }
+  summary::before { content: '\\25b8'; display: inline-block; margin-right: 6px;
+                    transition: transform .12s; color: #7b8494; }
+  details[open] summary::before { transform: rotate(90deg); }
+  .provincias {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 2px 8px;
+    padding: 4px 10px 8px; max-height: 190px; overflow-y: auto;
+  }
+  .provincias label { display: flex; align-items: center; gap: 5px; font-size: 11.5px;
+                      text-transform: none; letter-spacing: 0; color: #b9c2cf;
+                      margin: 0; padding: 2px 0; cursor: pointer; }
+  .provincias input { width: auto; }
+  .provincias .destacada { color: #e9edf2; font-weight: 600; }
+  .zonaPie { padding: 0 10px 8px; }
+  .botoncito { background: none; border: none; color: #7fa8ff; font-size: 11px;
+               padding: 0; width: auto; cursor: pointer; text-decoration: underline; }
   `;
 
   const HTML = `
@@ -104,6 +126,17 @@
 
       <div class="sep"></div>
 
+      <details id="detZona">
+        <summary id="resZona">Zona: todas</summary>
+        <div class="provincias" id="provincias"></div>
+        <div class="zonaPie">
+          <label class="check"><input type="checkbox" id="zonaDesc" checked> Mostrar zona no reconocida</label>
+          <button class="botoncito" id="zonaLimpiar" type="button">buscar en todo el pais</button>
+        </div>
+      </details>
+
+      <div class="sep"></div>
+
       <label class="check"><input type="checkbox" id="ocultar" checked> Ocultar los que no coinciden</label>
       <label class="check"><input type="checkbox" id="sinPrecio"> Mostrar tambien los sin precio</label>
       <label class="check"><input type="checkbox" id="indexar" checked> Guardar todo en mi catalogo</label>
@@ -143,8 +176,38 @@
       sinPrecio: $('sinPrecio'), indexar: $('indexar'), barrer: $('barrer'),
       estado: $('estado'), catalogo: $('catalogo'), punto: $('punto'),
       mVistos: $('mVistos'), mOk: $('mOk'), mGuardados: $('mGuardados'),
-      cuerpo: $('cuerpo'), plegar: $('plegar'), barra: $('barra'), caja: shadow.querySelector('.caja')
+      cuerpo: $('cuerpo'), plegar: $('plegar'), barra: $('barra'), caja: shadow.querySelector('.caja'),
+      provincias: $('provincias'), resZona: $('resZona'), zonaDesc: $('zonaDesc'),
+      zonaLimpiar: $('zonaLimpiar')
     };
+
+    /* Lista de provincias. Las cuatro de la zona habitual van primero para no
+       tener que buscarlas entre veinticuatro. */
+    const DESTACADAS = ['BA', 'CABA', 'SF', 'ER', 'LP'];
+    const listaProvincias = (MPF.zonas ? MPF.zonas.PROVINCIAS : []).slice().sort((a, b) => {
+      const ia = DESTACADAS.indexOf(a.id), ib = DESTACADAS.indexOf(b.id);
+      if (ia >= 0 || ib >= 0) return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib);
+      return a.nombre.localeCompare(b.nombre, 'es');
+    });
+    for (const prov of listaProvincias) {
+      const lab = document.createElement('label');
+      if (DESTACADAS.indexOf(prov.id) >= 0) lab.className = 'destacada';
+      const inp = document.createElement('input');
+      inp.type = 'checkbox';
+      inp.value = prov.id;
+      inp.className = 'provCheck';
+      lab.appendChild(inp);
+      lab.appendChild(document.createTextNode(prov.corto));
+      el.provincias.appendChild(lab);
+    }
+    const checksProv = () => Array.from(el.provincias.querySelectorAll('.provCheck'));
+
+    function resumirZona(ids) {
+      if (!ids.length) return 'Zona: todo el pais';
+      const nombres = ids.map((id) => MPF.zonas.cortoDe(id) || id);
+      if (nombres.length <= 3) return 'Zona: ' + nombres.join(', ');
+      return 'Zona: ' + nombres.slice(0, 2).join(', ') + ' +' + (nombres.length - 2);
+    }
 
     // --- arrastrar el panel ---
     let arrastrando = false, dx = 0, dy = 0;
@@ -170,11 +233,21 @@
 
     // --- eventos hacia el orquestador ---
     const campos = [el.consulta, el.pmin, el.pmax, el.moneda, el.cotizacion,
-                    el.umbral, el.ocultar, el.sinPrecio, el.indexar];
+                    el.umbral, el.ocultar, el.sinPrecio, el.indexar, el.zonaDesc]
+                    .concat(checksProv());
     for (const c of campos) {
       const evento = c.type === 'checkbox' || c.tagName === 'SELECT' ? 'change' : 'input';
-      c.addEventListener(evento, () => callbacks.alCambiar(leerConfig()));
+      c.addEventListener(evento, () => {
+        const cfg = leerConfig();
+        el.resZona.textContent = resumirZona(cfg.provincias);
+        callbacks.alCambiar(cfg);
+      });
     }
+    el.zonaLimpiar.addEventListener('click', () => {
+      for (const c of checksProv()) c.checked = false;
+      el.resZona.textContent = resumirZona([]);
+      callbacks.alCambiar(leerConfig());
+    });
     el.barrer.addEventListener('click', () => callbacks.alBarrer());
     el.catalogo.addEventListener('click', () => callbacks.alAbrirCatalogo());
 
@@ -186,6 +259,8 @@
         moneda: el.moneda.value,
         cotizacion: Number(el.cotizacion.value) || 1000,
         umbralAmbiguo: Number(el.umbral.value) || 500000,
+        provincias: checksProv().filter((c) => c.checked).map((c) => c.value),
+        zonaDesconocida: el.zonaDesc.checked,
         ocultar: el.ocultar.checked,
         sinPrecio: el.sinPrecio.checked,
         indexar: el.indexar.checked
@@ -203,6 +278,10 @@
       el.ocultar.checked = c.ocultar !== false;
       el.sinPrecio.checked = !!c.sinPrecio;
       el.indexar.checked = c.indexar !== false;
+      const elegidas = Array.isArray(c.provincias) ? c.provincias : [];
+      for (const chk of checksProv()) chk.checked = elegidas.indexOf(chk.value) >= 0;
+      el.zonaDesc.checked = c.zonaDesconocida !== false;
+      el.resZona.textContent = resumirZona(elegidas);
     }
 
     function marcador(vistos, ok, guardados) {

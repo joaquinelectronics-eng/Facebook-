@@ -10,6 +10,8 @@
   const CONFIG_POR_DEFECTO = {
     consulta: '', pmin: null, pmax: null, moneda: 'USD',
     cotizacion: 1000, umbralAmbiguo: 500000,
+    provincias: ['BA', 'CABA', 'SF', 'ER', 'LP'],
+    zonaDesconocida: true,
     ocultar: true, sinPrecio: false, indexar: true
   };
 
@@ -34,6 +36,18 @@
     if (!filtro.vacia) {
       const r = filtro.evaluar(datos.titulo);
       if (!r.coincide) return { pasa: false, motivo: r.motivo };
+    }
+
+    /* Zona. Si no se pudo determinar la provincia, el aviso NO se descarta por
+       defecto: perder una publicacion buena por una localidad desconocida es
+       peor que ver una de mas. */
+    if (config.provincias && config.provincias.length) {
+      if (datos.provincia == null) datos.provincia = MPF.zonas.detectarProvincia(datos.ubicacion);
+      if (datos.provincia == null) {
+        if (!config.zonaDesconocida) return { pasa: false, motivo: 'zona no reconocida' };
+      } else if (config.provincias.indexOf(datos.provincia) < 0) {
+        return { pasa: false, motivo: 'fuera de zona: ' + (MPF.zonas.cortoDe(datos.provincia) || datos.provincia) };
+      }
     }
 
     const p = MPF.precio.parsearPrecio(datos.precioTexto,
@@ -124,7 +138,7 @@
         precio: d.precio ?? null, moneda: d.moneda ?? null,
         precioUSD: d.precioUSD ?? null, confianzaMoneda: d.confianzaMoneda ?? null,
         precioAbreviado: !!d.precioAbreviado,
-        ubicacion: d.ubicacion,
+        ubicacion: d.ubicacion, provincia: d.provincia ?? null,
         km: d.km, anio: d.anio, url: d.url, imagen: d.imagen, busqueda
       });
     }
@@ -168,8 +182,11 @@
         cache.clear();
       }
       const nuevas = leerNuevas();
-      if (nuevas.length) encolarParaIndexar(nuevas);
+      /* aplicarFiltros() es lo que completa precio, moneda y provincia sobre
+         cada tarjeta, asi que tiene que correr ANTES de encolar para guardar;
+         si no, el catalogo se llena de publicaciones sin precio. */
       aplicarFiltros();
+      if (nuevas.length) encolarParaIndexar(nuevas);
     });
   }
 

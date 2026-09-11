@@ -55,7 +55,35 @@
     if (!m) return false;
     return m[0].trim().length / l.length >= 0.6;
   }
-  const RE_KM = /([\d.,]+)\s*(km|kil[oó]metros?)\b/i;
+  /* El kilometraje tambien viene abreviado: Facebook muestra "128 mil km" y
+     "150mil k...". Se prueba primero la forma con "mil" para no leer 128. */
+  const RE_KM_MIL = /([\d.,]+)\s*mil\s*(?:km|k\b)/i;
+  const RE_KM = /([\d.,]+)\s*(?:km|kil[oó]metros?)\b/i;
+
+  function extraerKm(texto) {
+    const conMil = String(texto).match(RE_KM_MIL);
+    if (conMil) {
+      const n = MPF.precio.aNumero(conMil[1]);
+      return n == null ? null : n * 1000;
+    }
+    const suelto = String(texto).match(RE_KM);
+    return suelto ? MPF.precio.aNumero(suelto[1]) : null;
+  }
+
+  /* Facebook pega el estado y el kilometraje delante de la zona:
+       "Usado · Olivos, BA"
+       "128 mil km · Ciudad de Buenos Aires"
+     La zona es siempre lo que va despues del ultimo separador. */
+  const RE_SEPARADOR = /[\u00b7\u2022|]/;
+
+  function limpiarUbicacion(linea) {
+    const partes = String(linea || '').split(/\s*[\u00b7\u2022|]\s*/);
+    const l = partes[partes.length - 1].trim();
+    if (!l) return '';
+    if (/^(usado|nuevo|gratis)$/i.test(l)) return '';
+    if (/^[\d.,]+\s*(?:mil\s*)?(?:km|kil[oó]metros?)\.?$/i.test(l)) return '';
+    return l;
+  }
   const RE_ANIO = /\b(19[5-9]\d|20[0-4]\d)\b/;
   const RE_RUIDO = /^(nuevo|usado|ver m[aá]s|patrocinado|sponsored|gratis)$/i;
 
@@ -71,29 +99,33 @@
     const altImagen = img ? (img.getAttribute('alt') || '').trim() : '';
 
     let lineaPrecio = '';
-    const restantes = [];
+    const candidatosTitulo = [];
+    const candidatosZona = [];
     for (const linea of crudo) {
       if (!lineaPrecio && esLineaDePrecio(linea)) { lineaPrecio = linea; continue; }
       if (RE_RUIDO.test(linea)) continue;
-      restantes.push(linea);
+      /* Una linea con separador ("Usado · Olivos, BA") es siempre la fila de
+         estado y zona, nunca el titulo. Separarlas evita que una zona larga le
+         gane al titulo por cantidad de caracteres. */
+      if (RE_SEPARADOR.test(linea)) candidatosZona.push(linea);
+      else candidatosTitulo.push(linea);
     }
 
-    /* El titulo es la linea mas larga de las que quedan: la ubicacion y el
-       kilometraje son cortos, el titulo del auto siempre es el mas descriptivo.
-       Si el alt de la imagen es mas completo, gana el alt. */
-    let titulo = restantes.reduce((a, b) => (b.length > a.length ? b : a), '');
-    if (altImagen.length > titulo.length && !esLineaDePrecio(altImagen)) {
+    /* El titulo es el candidato mas descriptivo: la zona y el kilometraje son
+       cortos, el titulo del auto es el mas largo. El alt de la imagen compite
+       en igualdad de condiciones porque suele traerlo completo, sin recortar. */
+    let titulo = candidatosTitulo.reduce((a, b) => (b.length > a.length ? b : a), '');
+    if (altImagen && !esLineaDePrecio(altImagen) && altImagen.length > titulo.length) {
       titulo = altImagen;
     }
 
-    // La ubicacion suele ser la ultima linea corta que no es el titulo.
     let ubicacion = '';
-    for (let i = restantes.length - 1; i >= 0; i--) {
-      const l = restantes[i];
-      if (l !== titulo && l.length <= 60 && !RE_KM.test(l)) { ubicacion = l; break; }
+    for (const linea of candidatosZona.concat(candidatosTitulo).reverse()) {
+      if (linea === titulo) continue;
+      const limpia = limpiarUbicacion(linea);
+      if (limpia && limpia.length <= 70) { ubicacion = limpia; break; }
     }
 
-    const mKm = (caja.innerText || '').match(RE_KM);
     const mAnio = String(titulo).match(RE_ANIO);
 
     return {
@@ -101,8 +133,9 @@
       titulo: titulo || altImagen || '',
       precioTexto: lineaPrecio,
       ubicacion,
-      km: mKm ? MPF.precio.aNumero(mKm[1]) : null,
+      km: extraerKm(caja.innerText || ''),
       anio: mAnio ? Number(mAnio[1]) : null,
+      provincia: MPF.zonas ? MPF.zonas.detectarProvincia(ubicacion) : null,
       url: urlLimpia(link.getAttribute('href') || ''),
       imagen: img ? img.getAttribute('src') || '' : '',
       _nodo: caja,
@@ -146,5 +179,6 @@
   }
 
   MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio,
-                  cantidadEnPantalla, contenedorTarjeta, SELECTOR_ITEM };
+                  limpiarUbicacion, extraerKm, cantidadEnPantalla, contenedorTarjeta,
+                  SELECTOR_ITEM };
 })();

@@ -13,7 +13,7 @@ header h1 { margin: 0 0 4px; font-size: 22px; letter-spacing: -.2px; }
 .sub { margin: 0 0 20px; color: var(--tenue); font-size: 13px; }
 
 .controles {
-  display: grid; grid-template-columns: 2fr 1fr 1fr 1.4fr auto;
+  display: grid; grid-template-columns: 2fr .8fr .8fr 1.1fr 1.3fr auto;
   gap: 10px; align-items: end; margin-bottom: 14px;
 }
 .campo label {

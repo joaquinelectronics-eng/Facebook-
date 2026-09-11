@@ -7,7 +7,8 @@ global.window = {};
 require(path.join(__dirname, '../extension/src/lib/normalize.js'));
 require(path.join(__dirname, '../extension/src/lib/price.js'));
 require(path.join(__dirname, '../extension/src/lib/matcher.js'));
-const { matcher, precio } = global.window.MPF;
+require(path.join(__dirname, '../extension/src/lib/zonas.js'));
+const { matcher, precio, zonas } = global.window.MPF;
 
 let ok = 0;
 function prueba(nombre, fn) {
@@ -105,5 +106,30 @@ prueba('pero "11" si es un precio real de 11.000', () =>
   assert.strictEqual(precio.parsearPrecio('$ 11').valor, 11000));
 prueba('nunca busca el precio en el titulo', () =>
   assert.strictEqual(typeof precio.buscarPrecioEnTexto, 'undefined'));
+
+
+console.log('\nZonas (formato real de Facebook Argentina)');
+const zonasCasos = [
+  ['Olivos, BA',                  'BA',   'abreviatura de provincia'],
+  ['Martinez, BA',                'BA',   'otra localidad del GBA'],
+  ['Ciudad de Buenos Aires',      'CABA', 'CABA escrita completa, sin abreviatura'],
+  ['Ciudad de Buenos Aires, CF',  'CABA', 'CABA con abreviatura'],
+  ['Rosario, Santa Fe',           'SF',   'provincia escrita completa'],
+  ['Funes, SF',                   'SF',   'Santa Fe abreviada'],
+  ['Parana, ER',                  'ER',   'Entre Rios abreviada'],
+  ['Santa Rosa, La Pampa',        'LP',   'La Pampa completa'],
+  ['Palermo',                     'CABA', 'barrio porteno sin provincia'],
+  ['Villa Carlos Paz',            'CB',   'localidad de Cordoba sin provincia'],
+  ['Mar del Plata, BA',           'BA',   'interior de Buenos Aires'],
+  ['Pueblito Perdido',            null,   'localidad desconocida no se adivina']
+];
+for (const [ubicacion, esperado, desc] of zonasCasos) {
+  prueba(desc + ': ' + ubicacion, () =>
+    assert.strictEqual(zonas.detectarProvincia(ubicacion), esperado));
+}
+prueba('"Ciudad de Buenos Aires" no se confunde con la provincia', () =>
+  assert.notStrictEqual(zonas.detectarProvincia('Ciudad de Buenos Aires'), 'BA'));
+prueba('estan las 24 jurisdicciones', () =>
+  assert.strictEqual(zonas.PROVINCIAS.length, 24));
 
 console.log('\n' + ok + ' pruebas de logica pasaron\n');

@@ -15,7 +15,7 @@ las publicaciones viejas que Facebook entierra no se te pierdan nunca más.
 |---|---|
 | Buscás "Audi A5" y te aparecen A1, A3, A4 y otras marcas | Coincidencia estricta en el título: si no dice A5, no aparece |
 | Las publicaciones viejas quedan enterradas en el fondo | Todo lo que ves queda guardado en tu PC y se puede ordenar **de la más vieja a la más nueva** |
-| Dice "resultados fuera de tu zona" pero son de tu zona | Filtrás vos, por título y precio; la zona la elegís en Marketplace |
+| Dice "resultados fuera de tu zona" pero son de tu zona | Filtrás vos por provincia, con una lista que elegís a mano |
 | Precios mezclados en dólares y pesos | Detecta la moneda y compara todo contra un mismo rango |
 | Vendedores que ponen `$1` para figurar arriba | Se descartan como relleno |
 | El que pone `13` en vez de 13.000, o `26 palos` | Lo entiende y lo mete en el rango en vez de perderlo |
@@ -89,6 +89,32 @@ En el catálogo, todo precio deducido queda marcado —*estaba abreviado*,
 *moneda deducida*— para que sepas cuál conviene confirmar antes de escribirle
 al vendedor.
 
+### Filtro por provincia
+
+Facebook escribe la zona de tres formas distintas en la misma página:
+
+```
+Usado · Olivos, BA
+128 mil km · Ciudad de Buenos Aires
+Usado · Ciudad de Buenos Aires, CF
+```
+
+Fijate que le pega adelante el estado (`Usado ·`) o el kilometraje
+(`128 mil km ·`). La extensión separa eso y se queda solo con la zona, después
+deduce la provincia de tres maneras: por la abreviatura que va después de la
+coma (`BA`, `CF`, `SF`, `ER`, `LP`…), por el nombre escrito completo, o por la
+localidad si es conocida (`Olivos` → Buenos Aires, `Palermo` → CABA,
+`Villa Carlos Paz` → Córdoba).
+
+En el panel abrís **Zona** y marcás las provincias que te sirven. Vienen
+marcadas Buenos Aires, CABA, Santa Fe, Entre Ríos y La Pampa; podés cambiarlas
+o tocar *buscar en todo el país* para desactivar el filtro.
+
+> **Una publicación cuya localidad no se reconoce NO se descarta.** Es a
+> propósito: la lista de localidades no puede ser completa, y perder una
+> publicación buena por un pueblo que no está en la lista es peor que ver una de
+> más. Si preferís lo contrario, destildá *Mostrar zona no reconocida*.
+
 ### El barrido automático
 
 El botón **Barrer hasta el fondo** hace el scroll por vos hasta que se acaban los
@@ -110,6 +136,7 @@ entierre en el fondo al día siguiente.
 
 Abrilo con **Abrir mi catálogo** (o con el ícono de la extensión). Adentro podés:
 
+- Filtrar por **provincia** (solo aparecen las zonas que realmente tenés guardadas).
 - Ordenar **de la más vieja a la más nueva** → ahí están las publicaciones que
   nadie mira hace meses, que es donde suele estar el precio bueno.
 - Ver **quién bajó el precio y cuánto** → la extensión guarda el historial de cada
@@ -160,7 +187,7 @@ Si algún día no detecta las tarjetas:
 
 ```bash
 npm install
-npm test          # 42 pruebas de lógica + 29 de navegador real
+npm test          # 56 pruebas de lógica + 34 de navegador real
 ```
 
 Las pruebas levantan Chromium contra una réplica del DOM de Marketplace y
@@ -176,6 +203,7 @@ extension/
       normalize.js    Texto sin tildes y en minúsculas
       price.js        Parseo de precios argentinos (USD y ARS mezclados)
       matcher.js      Coincidencia estricta de títulos  <- el corazón
+      zonas.js        Provincias argentinas y sus abreviaturas
     content/
       scraper.js      Lectura del DOM sin usar clases de Facebook
       panel.js        Panel flotante (shadow DOM)
