@@ -17,7 +17,7 @@ const CONFIG = {
 };
 
 // Lo que tiene que quedar visible con esa configuracion.
-const ESPERADOS = ['101', '106', '108'];
+const ESPERADOS = ['101', '106', '108', '111', '112', '114'];
 
 (async () => {
   const navegador = await chromium.launch({
@@ -72,7 +72,7 @@ const ESPERADOS = ['101', '106', '108'];
     km: d.km, anio: d.anio, url: d.url
   })));
 
-  prueba('encuentra las 10 publicaciones', () => assert.strictEqual(leidas.length, 10));
+  prueba('encuentra las 14 publicaciones', () => assert.strictEqual(leidas.length, 14));
   prueba('extrae el titulo completo', () => {
     const a = leidas.find((x) => x.id === '101');
     assert.strictEqual(a.titulo, 'Audi A5 2.0 TFSI Quattro 2018');
@@ -122,7 +122,7 @@ const ESPERADOS = ['101', '106', '108'];
     '102': 'falta: a5',                  '103': 'falta: a5',
     '104': 'barato fuera de rango',      '105': 'caro fuera de rango',
     '107': 'falta: audi',                '109': 'falta: a5',
-    '110': 'excluido: permuto'
+    '110': 'excluido: permuto',          '113': 'barato fuera de rango'
   };
   for (const [id, esperado] of Object.entries(motivosEsperados)) {
     prueba('descarta ' + id + ' por "' + esperado + '"', () =>
@@ -153,6 +153,37 @@ const ESPERADOS = ['101', '106', '108'];
 
   prueba('sin errores de javascript en la pagina', () =>
     assert.deepStrictEqual(errores, []));
+
+  console.log('\nPrecios abreviados y trucos de vendedor');
+  const detalle = await pagina.evaluate(() => {
+    const out = {};
+    for (const d of window.MPF.scraper.leerTodas()) {
+      const r = window.MPF.precio.resolverPrecio(d.precioTexto, d.titulo, { umbralAmbiguo: 500000 });
+      out[d.id] = { titulo: d.titulo, precioTexto: d.precioTexto, valor: r.valor,
+                    moneda: r.moneda, abreviado: r.abreviado, origen: r.origen };
+    }
+    return out;
+  });
+
+  prueba('"$ 22" se entiende como 22.000 dolares', () => {
+    assert.strictEqual(detalle['111'].valor, 22000);
+    assert.strictEqual(detalle['111'].moneda, 'USD');
+    assert.ok(detalle['111'].abreviado);
+  });
+  prueba('"26 palos" se entiende como 26 millones de pesos', () => {
+    assert.strictEqual(detalle['114'].valor, 26000000);
+    assert.strictEqual(detalle['114'].moneda, 'ARS');
+  });
+  prueba('"$ 13" se entiende como 13.000 dolares', () =>
+    assert.strictEqual(detalle['113'].valor, 13000));
+  prueba('con "$1" rescata el precio del titulo', () => {
+    assert.strictEqual(detalle['112'].valor, 19500);
+    assert.strictEqual(detalle['112'].origen, 'titulo');
+  });
+  prueba('un titulo con precio adentro sigue siendo el titulo', () =>
+    assert.strictEqual(detalle['112'].titulo, 'Audi A5 u$s 19.500 titular unico'));
+  prueba('el abreviado entra al rango en vez de perderse', () =>
+    assert.ok(visibles.includes('111') && visibles.includes('114')));
 
   await navegador.close();
 

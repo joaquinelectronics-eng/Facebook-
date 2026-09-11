@@ -77,8 +77,14 @@
     if (it.anio) etiquetas.push('<span class="etiqueta">' + it.anio + '</span>');
     if (it.km) etiquetas.push('<span class="etiqueta">' + Math.round(it.km).toLocaleString('es-AR') + ' km</span>');
 
-    const inferido = it.confianzaMoneda === 'inferida'
-      ? ' <span class="inferido">(moneda deducida)</span>' : '';
+    /* Se avisa cuando el precio no vino limpio del campo de Facebook, para que
+       sepas cual conviene verificar antes de escribirle al vendedor. */
+    const avisos = [];
+    if (it.confianzaMoneda === 'inferida') avisos.push('moneda deducida');
+    if (it.precioAbreviado) avisos.push('estaba abreviado');
+    if (it.origenPrecio === 'titulo') avisos.push('sacado del titulo');
+    const inferido = avisos.length
+      ? ' <span class="inferido">(' + avisos.join(', ') + ')</span>' : '';
     const precio = it.precio != null
       ? MPF.precio.formatear(it.precio, it.moneda) + inferido
       : '<span style="color:#8a94a3;font-size:14px">sin precio</span>';

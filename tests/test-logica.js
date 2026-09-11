@@ -74,4 +74,53 @@ prueba('convierte pesos a dolares', () => {
   assert.strictEqual(precio.aDolares(28000000, 'ARS', 1000), 28000);
 });
 
+
+console.log('\nPrecios abreviados (el vendedor pone 13 en vez de 13.000)');
+const abrev = [
+  ['$ 13',        13000,    'USD'],
+  ['$ 12',        12000,    'USD'],
+  ['u$s 13',      13000,    'USD'],
+  ['13',          13000,    'USD'],
+  ['$ 13.5',      13500,    'USD'],
+  ['$ 13,5',      13500,    'USD'],
+  ['13k',         13000,    'USD'],
+  ['13 mil',      13000,    'USD'],
+  ['13 palos',    13000000, 'ARS'],
+  ['13 millones', 13000000, 'ARS'],
+  ['$ 850',       850000,   'ARS']
+];
+for (const [texto, valor, moneda] of abrev) {
+  prueba(texto + ' -> ' + valor.toLocaleString('es-AR') + ' ' + moneda, () => {
+    const r = precio.parsearPrecio(texto);
+    assert.strictEqual(r.valor, valor);
+    assert.strictEqual(r.moneda, moneda);
+  });
+}
+prueba('descarta los rellenos $111 y $123', () => {
+  assert.strictEqual(precio.parsearPrecio('$111').confianza, 'sin_precio');
+  assert.strictEqual(precio.parsearPrecio('$123').confianza, 'sin_precio');
+});
+
+console.log('\nRescate del precio escrito en el titulo');
+prueba('lo saca del titulo cuando el campo dice $1', () => {
+  const r = precio.resolverPrecio('$1', 'Audi A5 u$s 19.500 titular unico');
+  assert.strictEqual(r.valor, 19500);
+  assert.strictEqual(r.moneda, 'USD');
+  assert.strictEqual(r.origen, 'titulo');
+});
+prueba('lee "13 palos" escrito en el titulo', () => {
+  const r = precio.resolverPrecio('', 'Audi A5 2019 full 13 palos');
+  assert.strictEqual(r.valor, 13000000);
+  assert.strictEqual(r.moneda, 'ARS');
+});
+prueba('NO confunde el anio ni los km con un precio', () => {
+  const r = precio.resolverPrecio('', 'Audi A5 2.0 TFSI 2018 85.000 km impecable');
+  assert.strictEqual(r.valor, null);
+});
+prueba('el campo de precio tiene prioridad sobre el titulo', () => {
+  const r = precio.resolverPrecio('US$ 23.500', 'Audi A5 u$s 19.500 titular');
+  assert.strictEqual(r.valor, 23500);
+  assert.strictEqual(r.origen, 'campo');
+});
+
 console.log('\n' + ok + ' pruebas de logica pasaron\n');

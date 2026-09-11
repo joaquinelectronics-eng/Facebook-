@@ -40,7 +40,21 @@
 
   /* El texto de la tarjeta viene en lineas sueltas y en orden variable.
      Se clasifica cada linea por lo que parece, no por su posicion. */
-  const RE_LINEA_PRECIO = /(^|\s)(u\$s|us\$|usd|ars|\$)\s*\d|d[oó]lares?/i;
+  /* Detectar "la linea del precio" no alcanza con buscar un signo $: un titulo
+     como "Audi A5 u$s 19.500 titular" tambien lo tiene, y si se lo toma como
+     precio se pierde el titulo. Por eso se mide cuanto de la linea ocupa el
+     monto: si es casi toda la linea, es el precio; si es una parte chica de un
+     texto largo, es un titulo que menciona el precio. */
+  const RE_PRECIO_CAPTURA = /(?:u\$s|us\$|usd|ars|\$)\s*\d[\d.,]*\s*(?:k\b|mil\b|palos?|millones?|lucas?)?|\d[\d.,]*\s*(?:d[oó]lares?|usd|u\$s|palos?|millones?|melones?|lucas?|k\b|mil\b)/i;
+
+  function esLineaDePrecio(linea) {
+    const l = String(linea || '').trim();
+    if (!l) return false;
+    if (/^\d[\d.,]*$/.test(l)) return true;   // solo el numero: precio abreviado
+    const m = l.match(RE_PRECIO_CAPTURA);
+    if (!m) return false;
+    return m[0].trim().length / l.length >= 0.6;
+  }
   const RE_KM = /([\d.,]+)\s*(km|kil[oó]metros?)\b/i;
   const RE_ANIO = /\b(19[5-9]\d|20[0-4]\d)\b/;
   const RE_RUIDO = /^(nuevo|usado|ver m[aá]s|patrocinado|sponsored|gratis)$/i;
@@ -59,7 +73,7 @@
     let lineaPrecio = '';
     const restantes = [];
     for (const linea of crudo) {
-      if (!lineaPrecio && RE_LINEA_PRECIO.test(linea)) { lineaPrecio = linea; continue; }
+      if (!lineaPrecio && esLineaDePrecio(linea)) { lineaPrecio = linea; continue; }
       if (RE_RUIDO.test(linea)) continue;
       restantes.push(linea);
     }
@@ -68,7 +82,7 @@
        kilometraje son cortos, el titulo del auto siempre es el mas descriptivo.
        Si el alt de la imagen es mas completo, gana el alt. */
     let titulo = restantes.reduce((a, b) => (b.length > a.length ? b : a), '');
-    if (altImagen.length > titulo.length && !RE_LINEA_PRECIO.test(altImagen)) {
+    if (altImagen.length > titulo.length && !esLineaDePrecio(altImagen)) {
       titulo = altImagen;
     }
 
@@ -127,5 +141,6 @@
     return document.querySelectorAll(SELECTOR_ITEM).length;
   }
 
-  MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, cantidadEnPantalla, contenedorTarjeta, SELECTOR_ITEM };
+  MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio,
+                  cantidadEnPantalla, contenedorTarjeta, SELECTOR_ITEM };
 })();
