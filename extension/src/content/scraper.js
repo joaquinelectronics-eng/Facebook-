@@ -126,8 +126,12 @@
     return encontradas;
   }
 
-  /* Vuelve a listar TODAS las tarjetas presentes (para reaplicar filtros
-     cuando el usuario cambia la busqueda sin recargar la pagina). */
+  /* Vuelve a listar TODAS las tarjetas presentes.
+
+     OJO: innerText devuelve vacio en un elemento con display:none, asi que esto
+     no relee una tarjeta que el filtro ya escondio. No es un problema en el uso
+     real porque cada tarjeta se lee y se guarda ANTES de ocultarse, y despues
+     se trabaja sobre esa copia en memoria. */
   function leerTodas() {
     const out = [];
     for (const link of document.querySelectorAll(SELECTOR_ITEM)) {

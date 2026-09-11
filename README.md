@@ -17,7 +17,7 @@ las publicaciones viejas que Facebook entierra no se te pierdan nunca más.
 | Las publicaciones viejas quedan enterradas en el fondo | Todo lo que ves queda guardado en tu PC y se puede ordenar **de la más vieja a la más nueva** |
 | Dice "resultados fuera de tu zona" pero son de tu zona | Filtrás vos, por título y precio; la zona la elegís en Marketplace |
 | Precios mezclados en dólares y pesos | Detecta la moneda y compara todo contra un mismo rango |
-| Vendedores que ponen `$1` para figurar arriba | Se descartan, y si el precio real está en el título, lo rescata de ahí |
+| Vendedores que ponen `$1` para figurar arriba | Se descartan como relleno |
 | El que pone `13` en vez de 13.000, o `26 palos` | Lo entiende y lo mete en el rango en vez de perderlo |
 | No te enterás cuando alguien baja el precio | El catálogo guarda el historial y te marca **cuánto bajó** |
 
@@ -80,23 +80,14 @@ quedan afuera del rango y los perdés justo a ellos. La extensión los entiende:
 | `26 palos` | 26.000.000 de pesos (≈ 26.000 dólares) |
 | `$ 850` | 850.000 pesos |
 
-Y el truco más común de todos: poner **`$1`** en el precio para aparecer primero
-en el orden por precio, con el precio real escrito en el título. La extensión
-descarta el `$1` y **busca el precio verdadero en el título**:
+Los precios de relleno para figurar primero en el orden por precio (`$1`, `$111`,
+`$123`) se descartan: el aviso queda **sin precio**, y lo ves solo si tildás
+*Mostrar también los sin precio*. El precio nunca se busca en el título ni se
+inventa de ningún otro lado.
 
-```
-Precio: $1
-Título: "Audi A5 u$s 19.500 titular único"
-        -> lo toma como 19.500 dólares
-```
-
-Para no confundirse, al leer el título solo acepta un número que tenga una marca
-de moneda pegada (`u$s`, `USD`, `$`, `dólares`, `palos`). Así nunca toma el año
-ni el kilometraje como si fueran el precio.
-
-En el catálogo, cualquier precio que haya sido deducido queda marcado
-—*estaba abreviado*, *sacado del título*, *moneda deducida*— para que sepas cuál
-conviene confirmar antes de escribirle al vendedor.
+En el catálogo, todo precio deducido queda marcado —*estaba abreviado*,
+*moneda deducida*— para que sepas cuál conviene confirmar antes de escribirle
+al vendedor.
 
 ### El barrido automático
 
@@ -169,7 +160,7 @@ Si algún día no detecta las tarjetas:
 
 ```bash
 npm install
-npm test          # 44 pruebas de lógica + 29 de navegador real
+npm test          # 42 pruebas de lógica + 29 de navegador real
 ```
 
 Las pruebas levantan Chromium contra una réplica del DOM de Marketplace y

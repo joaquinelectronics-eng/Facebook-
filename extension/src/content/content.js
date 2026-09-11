@@ -36,15 +36,12 @@
       if (!r.coincide) return { pasa: false, motivo: r.motivo };
     }
 
-    /* Se resuelve contra el campo de precio y, si ahi no hay nada usable (el
-       clasico "$1" para figurar arriba), contra el titulo del aviso. */
-    const p = MPF.precio.resolverPrecio(datos.precioTexto, datos.titulo,
-                                        { umbralAmbiguo: config.umbralAmbiguo });
+    const p = MPF.precio.parsearPrecio(datos.precioTexto,
+                                       { umbralAmbiguo: config.umbralAmbiguo });
     datos.precio = p.valor;
     datos.moneda = p.moneda;
     datos.confianzaMoneda = p.confianza;
     datos.precioAbreviado = p.abreviado;
-    datos.origenPrecio = p.origen;
     datos.precioUSD = MPF.precio.aDolares(p.valor, p.moneda, config.cotizacion);
 
     const hayRango = config.pmin != null || config.pmax != null;
@@ -126,7 +123,7 @@
         id: d.id, titulo: d.titulo, precioTexto: d.precioTexto,
         precio: d.precio ?? null, moneda: d.moneda ?? null,
         precioUSD: d.precioUSD ?? null, confianzaMoneda: d.confianzaMoneda ?? null,
-        precioAbreviado: !!d.precioAbreviado, origenPrecio: d.origenPrecio ?? null,
+        precioAbreviado: !!d.precioAbreviado,
         ubicacion: d.ubicacion,
         km: d.km, anio: d.anio, url: d.url, imagen: d.imagen, busqueda
       });

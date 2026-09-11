@@ -96,31 +96,14 @@ for (const [texto, valor, moneda] of abrev) {
     assert.strictEqual(r.moneda, moneda);
   });
 }
-prueba('descarta los rellenos $111 y $123', () => {
+prueba('descarta los rellenos $1, $111 y $123', () => {
+  assert.strictEqual(precio.parsearPrecio('$1').confianza, 'sin_precio');
   assert.strictEqual(precio.parsearPrecio('$111').confianza, 'sin_precio');
   assert.strictEqual(precio.parsearPrecio('$123').confianza, 'sin_precio');
 });
-
-console.log('\nRescate del precio escrito en el titulo');
-prueba('lo saca del titulo cuando el campo dice $1', () => {
-  const r = precio.resolverPrecio('$1', 'Audi A5 u$s 19.500 titular unico');
-  assert.strictEqual(r.valor, 19500);
-  assert.strictEqual(r.moneda, 'USD');
-  assert.strictEqual(r.origen, 'titulo');
-});
-prueba('lee "13 palos" escrito en el titulo', () => {
-  const r = precio.resolverPrecio('', 'Audi A5 2019 full 13 palos');
-  assert.strictEqual(r.valor, 13000000);
-  assert.strictEqual(r.moneda, 'ARS');
-});
-prueba('NO confunde el anio ni los km con un precio', () => {
-  const r = precio.resolverPrecio('', 'Audi A5 2.0 TFSI 2018 85.000 km impecable');
-  assert.strictEqual(r.valor, null);
-});
-prueba('el campo de precio tiene prioridad sobre el titulo', () => {
-  const r = precio.resolverPrecio('US$ 23.500', 'Audi A5 u$s 19.500 titular');
-  assert.strictEqual(r.valor, 23500);
-  assert.strictEqual(r.origen, 'campo');
-});
+prueba('pero "11" si es un precio real de 11.000', () =>
+  assert.strictEqual(precio.parsearPrecio('$ 11').valor, 11000));
+prueba('nunca busca el precio en el titulo', () =>
+  assert.strictEqual(typeof precio.buscarPrecioEnTexto, 'undefined'));
 
 console.log('\n' + ok + ' pruebas de logica pasaron\n');

@@ -9,7 +9,8 @@
       "13 palos" por 13.000.000. Si se leen literal, esos avisos se pierden.
 
    3) PRECIO TRUCHO. Ponen "$1" o "$111" para figurar arriba en el orden por
-      precio, y el precio de verdad lo escriben en el titulo.
+      precio. Esos valores de relleno se descartan: el aviso queda "sin precio"
+      y se muestra solo si pediste ver los sin precio.
 
    El orden de resolucion es: multiplicador explicito -> abreviatura ->
    moneda explicita -> inferencia por magnitud. */
@@ -23,7 +24,7 @@
   const UMBRAL_ABREVIADO = 1000;
 
   // Precios de relleno para figurar primero en el orden por precio.
-  const VALORES_TRUCHOS = new Set([1, 11, 111, 1111, 11111, 111111, 123, 1234, 12345, 123456]);
+  const VALORES_TRUCHOS = new Set([1, 111, 1111, 11111, 111111, 123, 1234, 12345, 123456]);
 
   const RE_USD = /(u\$s|us\$|usd|d[oó]lar)/i;
   const RE_ARS = /(ars|\bpesos?\b|\$ar|m\$n)/i;
@@ -123,46 +124,6 @@
     return { valor, moneda: valor >= umbral ? 'ARS' : 'USD', confianza: 'inferida', abreviado };
   }
 
-  /* Busca el precio dentro de un texto libre (el titulo del aviso).
-     Se usa cuando el campo de precio trae basura tipo "$1".
-
-     Es deliberadamente exigente: SOLO acepta un numero que tenga una marca de
-     moneda o un multiplicador pegado. Si no, en un titulo como
-     "Audi A5 2.0 TFSI 2018 85.000 km" tomaria el anio o el kilometraje. */
-  const RE_EN_TEXTO = [
-    /(?:u\$s|us\$|usd|ars)\s*([\d][\d.,]*)\s*(k|mil|palos?|millones?|lucas?)?/i,
-    /([\d][\d.,]*)\s*(?:d[oó]lares?|usd|u\$s)\b/i,
-    /([\d][\d.,]*)\s*(palos?|millones?|melones?|lucas?)\b/i,
-    /\$\s*([\d][\d.,]*)\s*(k|mil|palos?|millones?)?/i
-  ];
-
-  function buscarPrecioEnTexto(texto, opciones) {
-    const t = String(texto || '');
-    if (!t.trim()) return { valor: null, moneda: null, confianza: 'sin_precio', abreviado: false };
-
-    for (const re of RE_EN_TEXTO) {
-      const m = t.match(re);
-      if (!m) continue;
-      // Se le pasa el fragmento entero para que conserve la marca de moneda.
-      const r = parsearPrecio(m[0], opciones);
-      if (r.valor != null) return r;
-    }
-    return { valor: null, moneda: null, confianza: 'sin_precio', abreviado: false };
-  }
-
-  /* Resuelve el precio definitivo de una publicacion: primero el campo de
-     precio; si eso no da nada usable, se recurre al titulo.
-     Devuelve ademas 'origen' para poder avisarle al usuario de donde salio. */
-  function resolverPrecio(precioTexto, titulo, opciones) {
-    const delCampo = parsearPrecio(precioTexto, opciones);
-    if (delCampo.valor != null) return Object.assign({ origen: 'campo' }, delCampo);
-
-    const delTitulo = buscarPrecioEnTexto(titulo, opciones);
-    if (delTitulo.valor != null) return Object.assign({ origen: 'titulo' }, delTitulo);
-
-    return { valor: null, moneda: null, confianza: 'sin_precio', abreviado: false, origen: null };
-  }
-
   /* Lleva cualquier precio a dolares para poder comparar todo contra un rango. */
   function aDolares(valor, moneda, cotizacion) {
     if (valor == null) return null;
@@ -179,7 +140,7 @@
   }
 
   MPF.precio = {
-    parsearPrecio, buscarPrecioEnTexto, resolverPrecio, aDolares, aNumero, formatear,
+    parsearPrecio, aDolares, aNumero, formatear,
     UMBRAL_AMBIGUO_POR_DEFECTO, UMBRAL_ABREVIADO
   };
 })();

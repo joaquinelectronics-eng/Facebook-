@@ -17,7 +17,7 @@ const CONFIG = {
 };
 
 // Lo que tiene que quedar visible con esa configuracion.
-const ESPERADOS = ['101', '106', '108', '111', '112', '114'];
+const ESPERADOS = ['101', '106', '108', '111', '114'];
 
 (async () => {
   const navegador = await chromium.launch({
@@ -122,7 +122,8 @@ const ESPERADOS = ['101', '106', '108', '111', '112', '114'];
     '102': 'falta: a5',                  '103': 'falta: a5',
     '104': 'barato fuera de rango',      '105': 'caro fuera de rango',
     '107': 'falta: audi',                '109': 'falta: a5',
-    '110': 'excluido: permuto',          '113': 'barato fuera de rango'
+    '110': 'excluido: permuto',          '113': 'barato fuera de rango',
+    '112': 'sin precio'
   };
   for (const [id, esperado] of Object.entries(motivosEsperados)) {
     prueba('descarta ' + id + ' por "' + esperado + '"', () =>
@@ -156,11 +157,14 @@ const ESPERADOS = ['101', '106', '108', '111', '112', '114'];
 
   console.log('\nPrecios abreviados y trucos de vendedor');
   const detalle = await pagina.evaluate(() => {
+    // innerText no lee elementos escondidos, asi que para esta inspeccion se
+    // muestran todos de nuevo antes de releer el DOM.
+    for (const e of document.querySelectorAll('[data-mpf-oculto]')) e.style.display = '';
     const out = {};
     for (const d of window.MPF.scraper.leerTodas()) {
-      const r = window.MPF.precio.resolverPrecio(d.precioTexto, d.titulo, { umbralAmbiguo: 500000 });
+      const r = window.MPF.precio.parsearPrecio(d.precioTexto, { umbralAmbiguo: 500000 });
       out[d.id] = { titulo: d.titulo, precioTexto: d.precioTexto, valor: r.valor,
-                    moneda: r.moneda, abreviado: r.abreviado, origen: r.origen };
+                    moneda: r.moneda, abreviado: r.abreviado };
     }
     return out;
   });
@@ -176,12 +180,9 @@ const ESPERADOS = ['101', '106', '108', '111', '112', '114'];
   });
   prueba('"$ 13" se entiende como 13.000 dolares', () =>
     assert.strictEqual(detalle['113'].valor, 13000));
-  prueba('con "$1" rescata el precio del titulo', () => {
-    assert.strictEqual(detalle['112'].valor, 19500);
-    assert.strictEqual(detalle['112'].origen, 'titulo');
+  prueba('"$1" queda sin precio y no se inventa nada', () => {
+    assert.strictEqual(detalle['112'].valor, null);
   });
-  prueba('un titulo con precio adentro sigue siendo el titulo', () =>
-    assert.strictEqual(detalle['112'].titulo, 'Audi A5 u$s 19.500 titular unico'));
   prueba('el abreviado entra al rango en vez de perderse', () =>
     assert.ok(visibles.includes('111') && visibles.includes('114')));
 

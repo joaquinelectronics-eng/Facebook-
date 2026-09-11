@@ -82,7 +82,6 @@
     const avisos = [];
     if (it.confianzaMoneda === 'inferida') avisos.push('moneda deducida');
     if (it.precioAbreviado) avisos.push('estaba abreviado');
-    if (it.origenPrecio === 'titulo') avisos.push('sacado del titulo');
     const inferido = avisos.length
       ? ' <span class="inferido">(' + avisos.join(', ') + ')</span>' : '';
     const precio = it.precio != null
