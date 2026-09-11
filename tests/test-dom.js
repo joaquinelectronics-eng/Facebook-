@@ -43,6 +43,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117'];
       runtime: {
         lastError: undefined,
         getURL: (p) => p,
+        onMessage: { addListener: () => {} },
         sendMessage: (msg, cb) => {
           if (msg && msg.tipo === 'guardar') window.__guardados.push(...(msg.items || []));
           if (cb) cb({ ok: true, total: window.__guardados.length });

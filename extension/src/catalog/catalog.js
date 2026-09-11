@@ -4,6 +4,8 @@
    conviene mostrar, pero tu base local recuerda TODO lo que viste alguna vez.
    Por eso se puede ordenar por "mas viejas primero", que es exactamente donde
    estan las publicaciones enterradas que nadie mira. */
+import { corridasPorDia } from '../lib/agenda.mjs';
+
 (() => {
   const MPF = window.MPF;
   const $ = (id) => document.getElementById(id);
@@ -203,6 +205,133 @@
     await pedir({ tipo: 'vaciar' });
     await cargar();
   });
+
+
+  // ------------------------------------------------------ corridas automaticas
+
+  function cuando(ms) {
+    if (!ms) return 'nunca';
+    const d = new Date(ms);
+    const hoy = new Date();
+    const mismoDia = d.toDateString() === hoy.toDateString();
+    const hora = d.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+    return mismoDia ? hora : d.toLocaleDateString('es-AR', { day: '2-digit', month: 'short' }) + ' ' + hora;
+  }
+
+  function leerAuto() {
+    return {
+      activo: $('autoActivo').checked,
+      cadaMinutos: Number($('autoCada').value) || 60,
+      desdeHora: Math.min(23, Math.max(0, Number($('autoDesde').value))),
+      hastaHora: Math.min(24, Math.max(1, Number($('autoHasta').value))),
+      notificar: $('autoNotif').value
+    };
+  }
+
+  /* El aviso le dice al usuario cuanto se esta exponiendo, en corridas por dia.
+     La frecuencia alta no se bloquea: es su decision, pero tiene que verla. */
+  function pintarAviso(auto) {
+    const porDia = corridasPorDia(auto);
+    const el = $('autoAviso');
+    if (!auto.activo) {
+      el.textContent = 'Desactivadas. El catálogo solo crece cuando navegás vos.';
+      el.className = 'aviso tranquilo';
+      return;
+    }
+    if (porDia >= 10) {
+      el.textContent = porDia + ' corridas por día. Es mucho: ninguna persona entra a ' +
+        'Marketplace tantas veces. Funciona, pero es el patrón más expuesto. ' +
+        'Con 3 o 4 por día juntás casi lo mismo y sos invisible.';
+      el.className = 'aviso';
+    } else {
+      el.textContent = porDia + ' corridas por día, de ' + auto.desdeHora + ' a ' +
+        auto.hastaHora + ' hs. Ritmo indistinguible de una persona.';
+      el.className = 'aviso tranquilo';
+    }
+  }
+
+  function pintarBusquedas(busquedas) {
+    const cont = $('busquedas');
+    cont.textContent = '';
+    $('sinBusquedas').classList.toggle('oculto', busquedas.length > 0);
+    for (const b of busquedas) {
+      const fila = document.createElement('div');
+      fila.className = 'busq';
+      const nom = document.createElement('div');
+      nom.className = 'nom';
+      nom.textContent = b.nombre || b.url;
+      const det = document.createElement('div');
+      det.className = 'det';
+      const c = b.config || {};
+      const rango = c.pmin != null || c.pmax != null
+        ? (c.pmin ?? 0) + ' a ' + (c.pmax ?? 'sin tope') + ' ' + (c.moneda || 'USD') : 'sin rango';
+      det.textContent = rango;
+      const borrar = document.createElement('button');
+      borrar.textContent = '\u00d7';
+      borrar.title = 'Borrar esta búsqueda';
+      borrar.addEventListener('click', async () => {
+        await pedir({ tipo: 'borrarBusqueda', id: b.id });
+        cargarAjustes();
+      });
+      fila.appendChild(nom);
+      fila.appendChild(det);
+      fila.appendChild(borrar);
+      cont.appendChild(fila);
+    }
+  }
+
+  async function cargarAjustes() {
+    const r = await pedir({ tipo: 'leerAjustes' });
+    if (!r || !r.ok) return;
+    const a = r.auto;
+    $('autoActivo').checked = !!a.activo;
+    $('autoCada').value = String(a.cadaMinutos);
+    $('autoDesde').value = a.desdeHora;
+    $('autoHasta').value = a.hastaHora;
+    $('autoNotif').value = a.notificar;
+    pintarAviso(a);
+    const busquedas = r.busquedas || [];
+    pintarBusquedas(busquedas);
+    /* Si todavia no guardo ninguna busqueda, se abre solo: es la unica forma de
+       que se entere de que las corridas automaticas existen. */
+    if (!busquedas.length && !$('detAuto').dataset.tocado) $('detAuto').open = true;
+
+    const est = r.estado || {};
+    const res = est.ultimoResumen;
+    const partes = [];
+    if (a.activo && est.proximaCorrida) partes.push('próxima ' + cuando(est.proximaCorrida));
+    if (est.ultimaCorrida) {
+      let t = 'última ' + cuando(est.ultimaCorrida);
+      if (res) t += ' (' + res.nuevos + ' nuevos, ' + res.bajadas + ' bajaron)';
+      partes.push(t);
+    }
+    $('autoResumen').textContent = partes.length ? '\u00b7 ' + partes.join(' \u00b7 ') : '';
+  }
+
+  $('detAuto').addEventListener('toggle', () => { $('detAuto').dataset.tocado = '1'; });
+
+  for (const id of ['autoActivo', 'autoCada', 'autoDesde', 'autoHasta', 'autoNotif']) {
+    $(id).addEventListener('change', async () => {
+      const auto = leerAuto();
+      pintarAviso(auto);
+      await pedir({ tipo: 'guardarAuto', auto });
+      cargarAjustes();
+    });
+  }
+
+  $('correrAhora').addEventListener('click', async () => {
+    $('correrAhora').textContent = 'corriendo...';
+    $('correrAhora').disabled = true;
+    await pedir({ tipo: 'correrAhora' });
+    setTimeout(() => {
+      $('correrAhora').textContent = 'Correr ahora';
+      $('correrAhora').disabled = false;
+      cargar();
+      cargarAjustes();
+    }, 4000);
+  });
+
+  cargarAjustes();
 
   cargar();
 })();

@@ -1,6 +1,7 @@
 /* Genera capturas de pantalla del panel y del catalogo, para documentacion. */
 const { chromium } = require('playwright');
 const path = require('path');
+const { servir } = require('./servidor');
 
 const RAIZ = path.join(__dirname, '..');
 const archivo = (p) => path.join(RAIZ, 'extension', p);
@@ -50,6 +51,7 @@ const EJEMPLO = [
     window.chrome = {
       storage: { local: { get: (k, cb) => cb({ config }), set: () => {} } },
       runtime: { lastError: undefined, getURL: (x) => x,
+                 onMessage: { addListener: () => {} },
                  sendMessage: (m, cb) => cb && cb({ ok: true, total: 428 }) }
     };
   }, CONFIG);
@@ -68,15 +70,35 @@ const EJEMPLO = [
   await p1.screenshot({ path: path.join(salida, 'panel.png') });
 
   // --- catalogo con datos de ejemplo ---
-  const p2 = await navegador.newPage({ viewport: { width: 1180, height: 860 } });
-  await p2.addInitScript((items) => {
+  // Se sirve por http porque catalog.js usa modulos ES.
+  const { srv, base } = await servir(path.join(RAIZ, 'extension'));
+  const p2 = await navegador.newPage({ viewport: { width: 1180, height: 980 } });
+  const AHORA2 = Date.now();
+  await p2.addInitScript((datos) => {
     window.chrome = { runtime: { lastError: undefined,
-      sendMessage: (msg, cb) => { if (msg.tipo === 'listar') cb({ ok: true, items }); else cb({ ok: true }); } } };
-  }, EJEMPLO);
-  await p2.goto('file://' + archivo('src/catalog/catalog.html'));
+      sendMessage: (msg, cb) => {
+        if (msg.tipo === 'listar') return cb({ ok: true, items: datos.items });
+        if (msg.tipo === 'leerAjustes') return cb({ ok: true, auto: datos.auto,
+          busquedas: datos.busquedas, estado: datos.estado });
+        cb({ ok: true });
+      } } };
+  }, { items: EJEMPLO,
+       auto: { activo: true, cadaMinutos: 60, desdeHora: 8, hastaHora: 23, notificar: 'ambos' },
+       busquedas: [
+         { id: 'b1', nombre: 'audi a5 -permuto hasta 30000 USD',
+           config: { consulta: 'audi a5 -permuto', pmin: 15000, pmax: 30000, moneda: 'USD' } },
+         { id: 'b2', nombre: 'audi a4 hasta 22000 USD',
+           config: { consulta: 'audi a4', pmin: 12000, pmax: 22000, moneda: 'USD' } }
+       ],
+       estado: { ultimaCorrida: AHORA2 - 2400000, proximaCorrida: AHORA2 + 1100000,
+                 ultimoResumen: { nuevos: 2, bajadas: 1, vistos: 163 } } });
+  await p2.goto(base + '/src/catalog/catalog.html');
   await p2.waitForTimeout(700);
+  await p2.evaluate(() => { document.getElementById('detAuto').open = true; });
+  await p2.waitForTimeout(200);
   await p2.screenshot({ path: path.join(salida, 'catalogo.png') });
 
   await navegador.close();
+  srv.close();
   console.log('capturas listas en ' + salida);
 })();

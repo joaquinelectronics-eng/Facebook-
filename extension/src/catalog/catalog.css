@@ -73,5 +73,39 @@ button:hover { background: #2b323d; }
 }
 .tarjeta a.abrir:hover { background: #252c36; }
 .vacio { text-align: center; padding: 70px 20px; color: var(--tenue); }
-.vacio.oculto { display: none; }
+.oculto { display: none !important; }
 .tenue { color: #626b78; font-size: 12.5px; }
+
+/* --- corridas automaticas --- */
+.auto {
+  background: var(--panel); border: 1px solid var(--borde); border-radius: 10px;
+  margin-bottom: 18px;
+}
+.auto > summary {
+  cursor: pointer; padding: 11px 14px; font-size: 13.5px; list-style: none; user-select: none;
+}
+.auto > summary::-webkit-details-marker { display: none; }
+.auto > summary::before {
+  content: '\25b8'; display: inline-block; margin-right: 8px; color: var(--tenue);
+  transition: transform .12s;
+}
+.auto[open] > summary::before { transform: rotate(90deg); }
+.autoCuerpo { padding: 4px 14px 14px; border-top: 1px solid var(--borde); }
+.autoFila {
+  display: flex; flex-wrap: wrap; gap: 12px; align-items: end; padding-top: 12px;
+}
+.autoFila .campo { min-width: 96px; }
+.autoFila .check { padding-bottom: 8px; }
+.aviso { font-size: 12.5px; color: #ffb74d; margin: 12px 0 4px; min-height: 16px; }
+.aviso.tranquilo { color: var(--tenue); }
+.busquedas { display: grid; gap: 6px; margin: 10px 0 6px; }
+.busq {
+  display: flex; align-items: center; gap: 10px; background: #0e1115;
+  border: 1px solid var(--borde); border-radius: 7px; padding: 8px 11px; font-size: 12.5px;
+}
+.busq .nom { flex: 1; color: #dbe3ec; }
+.busq .det { color: var(--tenue); font-size: 11.5px; }
+.busq button {
+  background: none; border: none; color: #ff9d94; cursor: pointer; font-size: 16px;
+  padding: 0 4px; line-height: 1;
+}

@@ -19,6 +19,7 @@ las publicaciones viejas que Facebook entierra no se te pierdan nunca más.
 | Precios mezclados en dólares y pesos | Detecta la moneda y compara todo contra un mismo rango |
 | Vendedores que ponen `$1` para figurar arriba | Se descartan como relleno |
 | El que pone `13` en vez de 13.000, o `26 palos` | Lo entiende y lo mete en el rango en vez de perderlo |
+| No te enterás de nada si no entrás a mirar | Busca sola durante el día y te avisa con una notificación |
 | No te enterás cuando alguien baja el precio | El catálogo guarda el historial y te marca **cuánto bajó** |
 
 ![El catálogo histórico](docs/catalogo.png)
@@ -126,6 +127,49 @@ Si tocás el scroll vos, se aparta y espera a que termines.
 
 Podés dejarlo trabajando mientras hacés otra cosa.
 
+## Corridas automáticas
+
+La extensión puede buscar sola durante el día, sin que vos hagas nada.
+
+**Cómo funciona:** guardás tus búsquedas, y cada tanto la extensión abre
+Marketplace **en una pestaña de fondo** —no te interrumpe—, hace un barrido
+corto, guarda todo en el catálogo y cierra la pestaña. Sigue sin ser
+automatización detectable: es tu Chrome, tu sesión, tu IP, leyendo lo que la
+página ya cargó.
+
+Y cuando encuentra algo, **te avisa con una notificación**: un auto nuevo dentro
+de tu rango, o —lo más valioso— alguien que **bajó el precio** de un auto que ya
+tenías fichado.
+
+### Cómo dejarlo andando
+
+1. En Marketplace, armá la búsqueda como la querés (texto, precio, zona).
+2. Tocá **Guardar esta búsqueda** en el panel. Repetilo por cada búsqueda.
+3. Abrí el catálogo, desplegá **Corridas automáticas** y activalas.
+
+> Conviene que antes ordenes Marketplace por **fecha de publicación, más
+> recientes primero**. La corrida automática hace un barrido corto —lo nuevo
+> está arriba— así que con ese orden ve lo nuevo enseguida. El barrido profundo
+> lo hacés vos a mano cuando querés.
+
+### Dos límites que tenés que saber
+
+**Chrome tiene que estar abierto.** Si apagás la máquina o cerrás Chrome, no
+corre; retoma cuando lo abrís. No hay forma de evitarlo sin un servidor, y un
+servidor sí sería scraping detectable.
+
+**La frecuencia es el riesgo.** Tres o cuatro corridas al día es indistinguible
+de una persona que mira Marketplace varias veces. Cada quince minutos, o de
+madrugada, es un patrón que ninguna persona tiene. Por eso:
+
+- Nunca corre fuera de la franja horaria que elijas (8 a 23 por defecto).
+- El horario se mueve unos minutos al azar en cada corrida, para no ser un reloj.
+- El panel te dice cuántas corridas por día implica tu configuración, y te avisa
+  cuando te estás pasando.
+
+La elección es tuya y la extensión no te la bloquea. Pero si me preguntás,
+**3 corridas por día alcanzan**: el catálogo crece igual y sos invisible.
+
 ## El catálogo: de dónde salen las joyitas
 
 Este es el corazón del asunto.
@@ -187,11 +231,13 @@ Si algún día no detecta las tarjetas:
 
 ```bash
 npm install
-npm test          # 56 pruebas de lógica + 34 de navegador real
+npm test          # 66 pruebas de lógica y agenda + 47 de navegador real
 ```
 
 Las pruebas levantan Chromium contra una réplica del DOM de Marketplace y
-verifican que el filtrado deje exactamente las publicaciones correctas.
+verifican que el filtrado deje exactamente las publicaciones correctas. El
+catálogo se sirve por http porque usa módulos ES, igual que dentro de la
+extensión.
 
 ### Estructura
 
@@ -204,15 +250,19 @@ extension/
       price.js        Parseo de precios argentinos (USD y ARS mezclados)
       matcher.js      Coincidencia estricta de títulos  <- el corazón
       zonas.js        Provincias argentinas y sus abreviaturas
+      agenda.mjs      Cuándo toca la próxima corrida automática
     content/
       scraper.js      Lectura del DOM sin usar clases de Facebook
       panel.js        Panel flotante (shadow DOM)
       autoscroll.js   Barrido a ritmo humano
       content.js      Orquestador
     background/
-      background.js   Base de datos local (IndexedDB) e historial de precios
+      background.js   Base de datos local, corridas automáticas y notificaciones
     catalog/          La página del catálogo histórico
+  icons/            El ícono de la extensión y de las notificaciones
 tests/
-  test-logica.js      Matcher y precios
+  test-logica.js      Matcher, precios y zonas
+  test-agenda.mjs     Programación de las corridas automáticas
   test-dom.js         Integración en Chromium real
+  test-catalogo.js    La página del catálogo, servida por http
 ```

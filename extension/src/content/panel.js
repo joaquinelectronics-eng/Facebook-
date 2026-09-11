@@ -151,6 +151,8 @@
 
       <button class="primario" id="barrer">Barrer hasta el fondo</button>
       <div class="estado" id="estado">listo</div>
+      <button class="secundario" id="guardarBusq">Guardar esta busqueda</button>
+      <div class="estado" id="avisoBusq"></div>
       <button class="secundario" id="catalogo">Abrir mi catalogo</button>
     </div>
   </div>`;
@@ -178,7 +180,7 @@
       mVistos: $('mVistos'), mOk: $('mOk'), mGuardados: $('mGuardados'),
       cuerpo: $('cuerpo'), plegar: $('plegar'), barra: $('barra'), caja: shadow.querySelector('.caja'),
       provincias: $('provincias'), resZona: $('resZona'), zonaDesc: $('zonaDesc'),
-      zonaLimpiar: $('zonaLimpiar')
+      zonaLimpiar: $('zonaLimpiar'), guardarBusq: $('guardarBusq'), avisoBusq: $('avisoBusq')
     };
 
     /* Lista de provincias. Las cuatro de la zona habitual van primero para no
@@ -250,6 +252,7 @@
     });
     el.barrer.addEventListener('click', () => callbacks.alBarrer());
     el.catalogo.addEventListener('click', () => callbacks.alAbrirCatalogo());
+    el.guardarBusq.addEventListener('click', () => callbacks.alGuardarBusqueda());
 
     function leerConfig() {
       return {
@@ -297,7 +300,14 @@
       el.barrer.classList.toggle('parar', !!barriendo);
     }
 
-    return { leerConfig, escribirConfig, marcador, estado };
+    let borrarAviso = null;
+    function avisoBusqueda(texto) {
+      el.avisoBusq.textContent = texto;
+      clearTimeout(borrarAviso);
+      borrarAviso = setTimeout(() => { el.avisoBusq.textContent = ''; }, 4000);
+    }
+
+    return { leerConfig, escribirConfig, marcador, estado, avisoBusqueda };
   }
 
   MPF.panel = { crear };

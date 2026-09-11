@@ -121,6 +121,7 @@
       if (!datos) continue;
       vistos++;
       const veredicto = evaluar(datos);
+      datos.coincide = veredicto.pasa;
       if (veredicto.pasa) ok++;
       aplicarVisibilidad(link, datos, veredicto);
     }
@@ -139,6 +140,7 @@
         precioUSD: d.precioUSD ?? null, confianzaMoneda: d.confianzaMoneda ?? null,
         precioAbreviado: !!d.precioAbreviado,
         ubicacion: d.ubicacion, provincia: d.provincia ?? null,
+        coincide: !!d.coincide,
         km: d.km, anio: d.anio, url: d.url, imagen: d.imagen, busqueda
       });
     }
@@ -146,18 +148,29 @@
     temporizadorIndex = setTimeout(vaciarColaDeIndexado, 1500);
   }
 
+  /* Durante una corrida automatica se acumula lo nuevo y lo que bajo de precio,
+     para poder mandar un unico resumen al final en vez de avisar de a uno. */
+  let acumulado = null;
+
   function vaciarColaDeIndexado() {
-    if (!porIndexar.size) return;
+    if (!porIndexar.size) return Promise.resolve(null);
     const lote = Array.from(porIndexar.values());
     porIndexar.clear();
-    try {
-      chrome.runtime.sendMessage({ tipo: 'guardar', items: lote }, (resp) => {
-        if (chrome.runtime.lastError) return;  // el worker estaba dormido, no pasa nada
-        if (resp && resp.total != null && ui) ui.marcador(
-          Number(document.querySelectorAll(MPF.scraper.SELECTOR_ITEM).length), undefined, resp.total
-        );
-      });
-    } catch (e) { /* contexto invalidado tras recargar la extension */ }
+    return new Promise((resolver) => {
+      try {
+        chrome.runtime.sendMessage({ tipo: 'guardar', items: lote }, (resp) => {
+          if (chrome.runtime.lastError) return resolver(null);
+          if (resp && acumulado) {
+            acumulado.nuevos.push(...(resp.nuevos || []));
+            acumulado.bajadas.push(...(resp.bajadas || []));
+          }
+          if (resp && resp.total != null && ui) ui.marcador(
+            Number(document.querySelectorAll(MPF.scraper.SELECTOR_ITEM).length), undefined, resp.total
+          );
+          resolver(resp);
+        });
+      } catch (e) { resolver(null); }   // contexto invalidado tras recargar la extension
+    });
   }
 
   function pedirTotalCatalogo() {
@@ -190,6 +203,60 @@
     });
   }
 
+  /* ---------------------------------------------------------- corrida automatica
+     El service worker abre esta pagina en una pestania de fondo y manda un
+     mensaje para que se aplique la busqueda guardada y se barra un tramo corto.
+     El latido mantiene despierto al service worker mientras dura. */
+  async function correrAutomatica(busqueda, limiteTandas) {
+    config = Object.assign({}, CONFIG_POR_DEFECTO, busqueda.config || {});
+    filtro = MPF.matcher.compilar(config.consulta);
+    if (ui) { ui.escribirConfig(config); ui.estado('corrida automatica', true); }
+
+    acumulado = { nuevos: [], bajadas: [], vistos: 0 };
+    const latido = setInterval(() => {
+      try { chrome.runtime.sendMessage({ tipo: 'latido' }, () => chrome.runtime.lastError); }
+      catch (e) {}
+    }, 20000);
+
+    try {
+      pasada();
+      await MPF.autoscroll.iniciar(() => {}, { limiteTandas });
+      pasada();
+      await vaciarColaDeIndexado();
+      acumulado.vistos = MPF.scraper.cantidadEnPantalla();
+    } finally {
+      clearInterval(latido);
+    }
+
+    const resultado = acumulado;
+    acumulado = null;
+    return resultado;
+  }
+
+  /* Datos de la busqueda que se esta viendo, para poder guardarla. */
+  function busquedaActual() {
+    const texto = (config.consulta || '').trim();
+    const precio = config.pmax != null ? ' hasta ' + config.pmax + ' ' + config.moneda : '';
+    return {
+      url: location.href,
+      nombre: (texto || 'busqueda sin texto') + precio,
+      config: Object.assign({}, config)
+    };
+  }
+
+  chrome.runtime.onMessage.addListener((msg, remitente, responder) => {
+    if (!msg || msg.tipo !== 'corridaAutomatica') return;
+    correrAutomatica(msg.busqueda, msg.limiteTandas)
+      .then((resultado) => {
+        try { chrome.runtime.sendMessage({ tipo: 'corridaTerminada', resultado }); } catch (e) {}
+      })
+      .catch(() => {
+        try { chrome.runtime.sendMessage({ tipo: 'corridaTerminada', resultado: null }); } catch (e) {}
+      });
+    responder({ ok: true });
+    return true;
+  });
+
   function guardarConfig() {
     try { chrome.storage.local.set({ config }); } catch (e) {}
   }
@@ -216,6 +283,14 @@
       },
       alAbrirCatalogo() {
         try { chrome.runtime.sendMessage({ tipo: 'abrirCatalogo' }); } catch (e) {}
+      },
+      alGuardarBusqueda() {
+        try {
+          chrome.runtime.sendMessage({ tipo: 'guardarBusqueda', busqueda: busquedaActual() }, (r) => {
+            if (chrome.runtime.lastError || !r || !r.ok) return ui.avisoBusqueda('no se pudo guardar');
+            ui.avisoBusqueda('guardada (' + r.busquedas.length + ' en total)');
+          });
+        } catch (e) { ui.avisoBusqueda('no se pudo guardar'); }
       }
     });
 

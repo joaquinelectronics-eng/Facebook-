@@ -66,8 +66,11 @@
     return resto < 900;
   }
 
-  /* onProgreso recibe { tanda, enPantalla, sinNovedad, estado } */
-  async function iniciar(onProgreso) {
+  /* onProgreso recibe { tanda, enPantalla, sinNovedad, estado }.
+     opciones.limiteTandas permite un barrido mas corto: en las corridas
+     automaticas no hace falta llegar al fondo, lo nuevo esta arriba. */
+  async function iniciar(onProgreso, opciones) {
+    const limite = (opciones && opciones.limiteTandas) || CFG.limiteTandas;
     if (corriendo) return;
     corriendo = true;
     pedidoDeParar = false;
@@ -82,7 +85,7 @@
       onProgreso && onProgreso({ tanda, enPantalla: MPF.scraper.cantidadEnPantalla(), sinNovedad, estado });
 
     try {
-      while (!pedidoDeParar && tanda < CFG.limiteTandas) {
+      while (!pedidoDeParar && tanda < limite) {
         // Espera a que el usuario suelte la pagina antes de seguir.
         if (pausadoPorUsuario) {
           avisar('en espera (estas scrolleando vos)');
@@ -118,7 +121,7 @@
         }
       }
 
-      if (tanda >= CFG.limiteTandas) avisar('listo: limite de la sesion alcanzado');
+      if (tanda >= limite) avisar('listo: limite de la sesion alcanzado');
       else if (pedidoDeParar) avisar('detenido');
     } finally {
       corriendo = false;
