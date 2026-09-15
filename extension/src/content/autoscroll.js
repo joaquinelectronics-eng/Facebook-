@@ -38,10 +38,25 @@
 
   const azar = (min, max) => min + Math.random() * (max - min);
   const azarInt = (par) => Math.round(azar(par[0], par[1]));
-  const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+  /* Espera cancelable: si se pide parar, corta al instante en vez de quedarse
+     colgada hasta media hora en una pausa de descanso. */
+  function dormir(ms) {
+    return new Promise((resolver) => {
+      const t = setTimeout(() => { esperaEnCurso = null; resolver(); }, ms);
+      esperaEnCurso = () => { clearTimeout(t); esperaEnCurso = null; resolver(); };
+    });
+  }
 
   let corriendo = false;
   let pedidoDeParar = false;
+
+  /* Token de corrida. Cada barrido se queda con un numero; si ese numero deja
+     de ser el actual, el barrido se apaga solo en el proximo paso. Sirve para
+     matar de verdad cualquier barrido en vuelo, incluso uno de otra instancia
+     del script que haya quedado dando vueltas: parar() invalida a todos. */
+  let corridaActual = 0;
+  const cancelados = new Set();
+  let esperaEnCurso = null;
   let pausadoPorUsuario = false;
   let ultimoScrollDelUsuario = 0;
   let scrollPropioEnCurso = false;
@@ -61,10 +76,10 @@
     return Date.now() - ultimoScrollDelUsuario < 4000;
   }
 
-  async function unaTanda(perfil) {
+  async function unaTanda(perfil, token) {
     const pasos = azarInt(perfil.pasosPorTanda);
     for (let i = 0; i < pasos; i++) {
-      if (pedidoDeParar) return;
+      if (pedidoDeParar || token !== corridaActual) return;
       scrollPropioEnCurso = true;
       window.scrollBy(0, azarInt(perfil.pixelsPorPaso));
       // El flag se libera despues del frame para no confundir el scroll propio
@@ -87,6 +102,7 @@
     const limite = opts.limiteTandas || CFG.limiteTandas;
     const perfil = PERFILES[opts.velocidad] || PERFILES.tranquilo;
     if (corriendo) return;
+    const token = ++corridaActual;
     corriendo = true;
     pedidoDeParar = false;
     pausadoPorUsuario = false;
@@ -100,7 +116,7 @@
       onProgreso && onProgreso({ tanda, enPantalla: MPF.scraper.cantidadEnPantalla(), sinNovedad, estado });
 
     try {
-      while (!pedidoDeParar && tanda < limite) {
+      while (!pedidoDeParar && token === corridaActual && tanda < limite) {
         // Espera a que el usuario suelte la pagina antes de seguir.
         if (pausadoPorUsuario) {
           avisar('en espera (estas scrolleando vos)');
@@ -109,7 +125,7 @@
           if (pedidoDeParar) break;
         }
 
-        await unaTanda(perfil);
+        await unaTanda(perfil, token);
         tanda++;
 
         avisar('barriendo');
@@ -139,13 +155,25 @@
       if (tanda >= limite) avisar('listo: limite de la sesion alcanzado');
       else if (pedidoDeParar) avisar('detenido');
     } finally {
-      corriendo = false;
-      pedidoDeParar = false;
+      /* Solo la corrida vigente apaga las banderas. Una corrida vieja que
+         termina tarde no puede decir que "ya no hay nada corriendo". */
+      if (token === corridaActual) {
+        corriendo = false;
+        pedidoDeParar = false;
+      }
+      cancelados.delete(token);
       avisar('detenido');
     }
   }
 
-  function parar() { pedidoDeParar = true; }
+  /* Frena todo: la corrida vigente y cualquiera que haya quedado dando vueltas. */
+  function parar() {
+    pedidoDeParar = true;
+    cancelados.add(corridaActual);
+    corridaActual++;          // invalida cualquier barrido en vuelo
+    corriendo = false;
+    if (esperaEnCurso) esperaEnCurso();   // corta la espera al instante
+  }
   function estaCorriendo() { return corriendo; }
 
   MPF.autoscroll = { iniciar, parar, estaCorriendo, CFG, PERFILES };

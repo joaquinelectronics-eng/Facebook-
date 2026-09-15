@@ -5,7 +5,14 @@
    solo se decide si se muestra o se esconde, que es barato. */
 (() => {
   const MPF = window.MPF;
-  if (!MPF || document.getElementById('mpf-host')) return;
+  if (!MPF) return;
+
+  /* Candado de instancia unica. El panel se crea recien al entrar a
+     Marketplace, asi que mirar si existe el panel ya no alcanza como candado:
+     dos inyecciones antes de ese momento pasarian las dos, y despues habria
+     dos barridos scrolleando la misma pagina, uno de ellos invisible. */
+  if (window.__mpfActivo || document.getElementById('mpf-host')) return;
+  window.__mpfActivo = true;
 
   const CONFIG_POR_DEFECTO = {
     consulta: '', pmin: null, pmax: null, moneda: 'USD',
@@ -349,6 +356,14 @@
   }
 
   function arrancar() {
+    // Freno de emergencia: Escape corta el barrido pase lo que pase.
+    window.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && MPF.autoscroll.estaCorriendo()) {
+        MPF.autoscroll.parar();
+        if (ui) ui.estado('detenido con Escape', false);
+      }
+    }, true);
+
     new MutationObserver(pasada).observe(document.body, { childList: true, subtree: true });
     window.addEventListener('beforeunload', vaciarColaDeIndexado);
     /* Ademas del observer, se vigila la URL: Marketplace cambia de busqueda sin
