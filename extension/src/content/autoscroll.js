@@ -12,13 +12,26 @@
 (() => {
   const MPF = (window.MPF = window.MPF || {});
 
+  /* Tres ritmos. El lento es indistinguible de una persona; el rapido junta
+     mucho mas por minuto pero genera un patron de carga mas marcado. La
+     eleccion es del usuario, pero el ritmo siempre lleva variacion al azar:
+     lo que canta no es la velocidad, es la regularidad. */
+  const PERFILES = {
+    tranquilo: {
+      pasosPorTanda: [3, 7], pixelsPorPaso: [90, 190], pausaEntrePasos: [35, 110],
+      pausaEntreTandas: [2600, 6200], tandasHastaDescanso: [7, 12], pausaDescanso: [14000, 32000]
+    },
+    normal: {
+      pasosPorTanda: [4, 9], pixelsPorPaso: [120, 260], pausaEntrePasos: [22, 70],
+      pausaEntreTandas: [1000, 2400], tandasHastaDescanso: [11, 18], pausaDescanso: [5000, 12000]
+    },
+    rapido: {
+      pasosPorTanda: [6, 13], pixelsPorPaso: [180, 380], pausaEntrePasos: [10, 32],
+      pausaEntreTandas: [320, 900], tandasHastaDescanso: [20, 34], pausaDescanso: [1800, 4500]
+    }
+  };
+
   const CFG = {
-    pasosPorTanda: [3, 7],          // micro-scrolls por tanda
-    pixelsPorPaso: [90, 190],       // alto de cada micro-scroll
-    pausaEntrePasos: [35, 110],     // ms entre micro-scrolls
-    pausaEntreTandas: [2600, 6200], // ms de lectura entre tandas
-    tandasHastaDescanso: [7, 12],   // cada cuantas tandas hace una pausa larga
-    pausaDescanso: [14000, 32000],  // ms de la pausa larga
     tandasSinNovedadParaFrenar: 4,  // corta si la lista dejo de crecer
     limiteTandas: 140               // tope duro de seguridad por sesion
   };
@@ -48,16 +61,16 @@
     return Date.now() - ultimoScrollDelUsuario < 4000;
   }
 
-  async function unaTanda() {
-    const pasos = azarInt(CFG.pasosPorTanda);
+  async function unaTanda(perfil) {
+    const pasos = azarInt(perfil.pasosPorTanda);
     for (let i = 0; i < pasos; i++) {
       if (pedidoDeParar) return;
       scrollPropioEnCurso = true;
-      window.scrollBy(0, azarInt(CFG.pixelsPorPaso));
+      window.scrollBy(0, azarInt(perfil.pixelsPorPaso));
       // El flag se libera despues del frame para no confundir el scroll propio
       // con el del usuario.
       setTimeout(() => { scrollPropioEnCurso = false; }, 60);
-      await dormir(azarInt(CFG.pausaEntrePasos));
+      await dormir(azarInt(perfil.pausaEntrePasos));
     }
   }
 
@@ -70,7 +83,9 @@
      opciones.limiteTandas permite un barrido mas corto: en las corridas
      automaticas no hace falta llegar al fondo, lo nuevo esta arriba. */
   async function iniciar(onProgreso, opciones) {
-    const limite = (opciones && opciones.limiteTandas) || CFG.limiteTandas;
+    const opts = opciones || {};
+    const limite = opts.limiteTandas || CFG.limiteTandas;
+    const perfil = PERFILES[opts.velocidad] || PERFILES.tranquilo;
     if (corriendo) return;
     corriendo = true;
     pedidoDeParar = false;
@@ -79,7 +94,7 @@
     let tanda = 0;
     let sinNovedad = 0;
     let previos = MPF.scraper.cantidadEnPantalla();
-    let tandasHastaDescanso = azarInt(CFG.tandasHastaDescanso);
+    let tandasHastaDescanso = azarInt(perfil.tandasHastaDescanso);
 
     const avisar = (estado) =>
       onProgreso && onProgreso({ tanda, enPantalla: MPF.scraper.cantidadEnPantalla(), sinNovedad, estado });
@@ -94,11 +109,11 @@
           if (pedidoDeParar) break;
         }
 
-        await unaTanda();
+        await unaTanda(perfil);
         tanda++;
 
         avisar('barriendo');
-        await dormir(azarInt(CFG.pausaEntreTandas));
+        await dormir(azarInt(perfil.pausaEntreTandas));
 
         const ahora = MPF.scraper.cantidadEnPantalla();
         if (ahora > previos) {
@@ -115,9 +130,9 @@
         }
 
         if (--tandasHastaDescanso <= 0) {
-          tandasHastaDescanso = azarInt(CFG.tandasHastaDescanso);
+          tandasHastaDescanso = azarInt(perfil.tandasHastaDescanso);
           avisar('pausa (asi no llamamos la atencion)');
-          await dormir(azarInt(CFG.pausaDescanso));
+          await dormir(azarInt(perfil.pausaDescanso));
         }
       }
 
@@ -133,5 +148,5 @@
   function parar() { pedidoDeParar = true; }
   function estaCorriendo() { return corriendo; }
 
-  MPF.autoscroll = { iniciar, parar, estaCorriendo, CFG };
+  MPF.autoscroll = { iniciar, parar, estaCorriendo, CFG, PERFILES };
 })();

@@ -12,6 +12,7 @@
     cotizacion: 1000, umbralAmbiguo: 500000,
     provincias: ['BA', 'CABA', 'SF', 'ER', 'LP'],
     zonaDesconocida: true,
+    velocidad: 'tranquilo', soloBajadas: false,
     ocultar: true, sinPrecio: false, indexar: true
   };
 
@@ -66,6 +67,22 @@
     datos.confianzaMoneda = p.confianza;
     datos.precioAbreviado = p.abreviado;
     datos.precioUSD = MPF.precio.aDolares(p.valor, p.moneda, config.cotizacion);
+
+    /* Facebook ya muestra el precio viejo tachado cuando el vendedor lo baja.
+       Es la señal mas valiosa que hay y no cuesta nada leerla. */
+    if (datos.precioAnteriorTexto) {
+      const ant = MPF.precio.parsearPrecio(datos.precioAnteriorTexto,
+                                           { umbralAmbiguo: config.umbralAmbiguo });
+      datos.precioAnterior = ant.valor;
+      datos.precioAnteriorUSD = MPF.precio.aDolares(ant.valor, ant.moneda || p.moneda, config.cotizacion);
+      if (datos.precioAnteriorUSD && datos.precioUSD) {
+        datos.bajoPct = Math.round((1 - datos.precioUSD / datos.precioAnteriorUSD) * 100);
+      }
+    }
+
+    if (config.soloBajadas && !datos.bajoPct) {
+      return { pasa: false, motivo: 'no bajo de precio' };
+    }
 
     const hayRango = config.pmin != null || config.pmax != null;
     if (p.valor == null) {
@@ -148,6 +165,8 @@
         precio: d.precio ?? null, moneda: d.moneda ?? null,
         precioUSD: d.precioUSD ?? null, confianzaMoneda: d.confianzaMoneda ?? null,
         precioAbreviado: !!d.precioAbreviado,
+        precioAnterior: d.precioAnterior ?? null,
+        precioAnteriorUSD: d.precioAnteriorUSD ?? null,
         ubicacion: d.ubicacion, provincia: d.provincia ?? null,
         coincide: !!d.coincide,
         km: d.km, anio: d.anio, url: d.url, imagen: d.imagen, busqueda
@@ -300,7 +319,7 @@
           const corriendo = MPF.autoscroll.estaCorriendo();
           ui.estado(p.estado + ' · tanda ' + p.tanda, corriendo);
           if (!corriendo) { vaciarColaDeIndexado(); pedirTotalCatalogo(); }
-        });
+        }, { velocidad: config.velocidad });
       },
       alAbrirCatalogo() {
         try { chrome.runtime.sendMessage({ tipo: 'abrirCatalogo' }); } catch (e) {}

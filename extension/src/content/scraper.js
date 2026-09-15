@@ -47,13 +47,22 @@
      texto largo, es un titulo que menciona el precio. */
   const RE_PRECIO_CAPTURA = /(?:u\$s|us\$|usd|ars|\$)\s*\d[\d.,]*\s*(?:k\b|mil\b|palos?|millones?|lucas?)?|\d[\d.,]*\s*(?:d[oó]lares?|usd|u\$s|palos?|millones?|melones?|lucas?|k\b|mil\b)/i;
 
+  const RE_PRECIO_TODOS = new RegExp(RE_PRECIO_CAPTURA.source, 'gi');
+
+  function preciosEn(texto) {
+    return String(texto || '').match(RE_PRECIO_TODOS) || [];
+  }
+
   function esLineaDePrecio(linea) {
     const l = String(linea || '').trim();
     if (!l) return false;
     if (/^\d[\d.,]*$/.test(l)) return true;   // solo el numero: precio abreviado
-    const m = l.match(RE_PRECIO_CAPTURA);
-    if (!m) return false;
-    return m[0].trim().length / l.length >= 0.6;
+    const encontrados = preciosEn(l);
+    if (!encontrados.length) return false;
+    /* Se suman todos: "$11.000 $13.000" (precio nuevo y precio viejo tachado)
+       es una linea de precio, aunque ningun monto por separado llegue al 60%. */
+    const cubierto = encontrados.reduce((a, m) => a + m.trim().length, 0);
+    return cubierto / l.length >= 0.6;
   }
   /* El kilometraje tambien viene abreviado: Facebook muestra "128 mil km" y
      "150mil k...". Se prueba primero la forma con "mil" para no leer 128. */
@@ -99,10 +108,17 @@
     const altImagen = img ? (img.getAttribute('alt') || '').trim() : '';
 
     let lineaPrecio = '';
+    let lineaPrecioExtra = '';
     const candidatosTitulo = [];
     const candidatosZona = [];
     for (const linea of crudo) {
-      if (!lineaPrecio && esLineaDePrecio(linea)) { lineaPrecio = linea; continue; }
+      if (esLineaDePrecio(linea)) {
+        /* Cuando el vendedor baja el precio, Facebook muestra el viejo tachado.
+           Puede venir en la misma linea o en la de abajo; las dos se guardan. */
+        if (!lineaPrecio) lineaPrecio = linea;
+        else if (!lineaPrecioExtra) lineaPrecioExtra = linea;
+        continue;
+      }
       if (RE_RUIDO.test(linea)) continue;
       /* Una linea con separador ("Usado · Olivos, BA") es siempre la fila de
          estado y zona, nunca el titulo. Separarlas evita que una zona larga le
@@ -126,12 +142,27 @@
       if (limpia && limpia.length <= 70) { ubicacion = limpia; break; }
     }
 
+    /* De los montos que trae la tarjeta, el primero es el precio actual. Si hay
+       un segundo y es MAS ALTO, es el precio viejo tachado: el aviso bajo de
+       precio, y eso se sabe sin esperar a tener historial propio. */
+    const montos = preciosEn(lineaPrecio).concat(preciosEn(lineaPrecioExtra));
+    let precioTexto = montos[0] || lineaPrecio;
+    let precioAnteriorTexto = '';
+    if (montos.length > 1) {
+      const actual = MPF.precio.parsearPrecio(montos[0]);
+      const otro = MPF.precio.parsearPrecio(montos[1]);
+      if (actual.valor != null && otro.valor != null && otro.valor > actual.valor) {
+        precioAnteriorTexto = montos[1];
+      }
+    }
+
     const mAnio = String(titulo).match(RE_ANIO);
 
     return {
       id,
       titulo: titulo || altImagen || '',
-      precioTexto: lineaPrecio,
+      precioTexto,
+      precioAnteriorTexto,
       ubicacion,
       km: extraerKm(caja.innerText || ''),
       anio: mAnio ? Number(mAnio[1]) : null,
@@ -178,7 +209,7 @@
     return document.querySelectorAll(SELECTOR_ITEM).length;
   }
 
-  MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio,
+  MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio, preciosEn,
                   limpiarUbicacion, extraerKm, cantidadEnPantalla, contenedorTarjeta,
                   SELECTOR_ITEM };
 })();

@@ -20,6 +20,7 @@ las publicaciones viejas que Facebook entierra no se te pierdan nunca más.
 | Vendedores que ponen `$1` para figurar arriba | Se descartan como relleno |
 | El que pone `13` en vez de 13.000, o `26 palos` | Lo entiende y lo mete en el rango en vez de perderlo |
 | No te enterás de nada si no entrás a mirar | Busca sola durante el día y te avisa con una notificación |
+| No sabés quién bajó el precio | Lee el precio viejo tachado y te lo marca desde el primer día |
 | No te enterás cuando alguien baja el precio | El catálogo guarda el historial y te marca **cuánto bajó** |
 
 ![El catálogo histórico](docs/catalogo.png)
@@ -121,6 +122,26 @@ o tocar *buscar en todo el país* para desactivar el filtro.
 > publicación buena por un pueblo que no está en la lista es peor que ver una de
 > más. Si preferís lo contrario, destildá *Mostrar zona no reconocida*.
 
+### Quién bajó el precio
+
+Cuando un vendedor baja el precio, Facebook lo muestra así en la tarjeta:
+
+```
+$11.000  $̶1̶3̶.̶0̶0̶0̶
+```
+
+La extensión lee los dos: se queda con el actual para filtrar, y guarda el
+tachado como precio anterior. Eso significa que **el catálogo te marca las
+bajadas desde el primer día**, sin esperar a juntar historial propio.
+
+Tenés además un tilde **Solo los que bajaron de precio** en el panel: con eso
+la búsqueda te deja únicamente los vendedores que ya movieron el precio, que
+son los que están dispuestos a negociar.
+
+> Para distinguirlas, pasá el mouse por encima de la etiqueta verde en el
+> catálogo: te dice si la baja la informó Facebook o la detectamos nosotros
+> comparando contra lo que teníamos guardado.
+
 ### El barrido automático
 
 El botón **Barrer hasta el fondo** hace el scroll por vos hasta que se acaban los
@@ -131,6 +152,17 @@ con pausas de varios segundos entre tandas y pausas más largas cada tantas.
 Si tocás el scroll vos, se aparta y espera a que termines.
 
 Podés dejarlo trabajando mientras hacés otra cosa.
+
+Tiene tres velocidades, en **Velocidad del barrido**:
+
+| Velocidad | Ritmo | Cuándo usarla |
+|---|---|---|
+| **Tranquilo** | el más lento | Es el que viene puesto. Indistinguible de una persona |
+| **Normal** | unas 5 veces más rápido | El equilibrio razonable para barrer a mano |
+| **Rápido** | unas 29 veces más rápido | Junta muchísimo, pero es el patrón de carga más marcado |
+
+En las tres el ritmo lleva variación al azar: lo que delata a un robot no es la
+velocidad, es la regularidad.
 
 ## Corridas automáticas
 
@@ -236,7 +268,7 @@ Si algún día no detecta las tarjetas:
 
 ```bash
 npm install
-npm test          # 66 pruebas de lógica y agenda + 56 de navegador real
+npm test          # 66 pruebas de lógica y agenda + 61 de navegador real
 ```
 
 Las pruebas levantan Chromium contra una réplica del DOM de Marketplace y

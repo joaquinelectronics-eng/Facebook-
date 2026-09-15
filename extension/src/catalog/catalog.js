@@ -36,7 +36,10 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     const maximo = Math.max(...h.map((x) => x.precioUSD || 0));
     const ultimo = h[h.length - 1].precioUSD || 0;
     if (!maximo || ultimo >= maximo) return null;
-    return { desde: maximo, hasta: ultimo, pct: Math.round((1 - ultimo / maximo) * 100) };
+    // Marca si la bajada la informo Facebook (precio tachado) o la vimos nosotros.
+    const propia = h.some((x) => !x.segunFacebook && (x.precioUSD || 0) < maximo);
+    return { desde: maximo, hasta: ultimo, propia,
+             pct: Math.round((1 - ultimo / maximo) * 100) };
   }
 
   function filtrarYOrdenar() {
@@ -79,7 +82,12 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     const baja = bajaDePrecio(it);
     const dias = diasDesde(it.vistoPrimera);
     const etiquetas = [];
-    if (baja) etiquetas.push('<span class="etiqueta baja">bajo ' + baja.pct + '%</span>');
+    if (baja) {
+      etiquetas.push('<span class="etiqueta baja" title="' +
+        (baja.propia ? 'La baja la detectamos nosotros comparando con lo guardado'
+                     : 'Facebook muestra el precio anterior tachado') +
+        '">bajo ' + baja.pct + '%</span>');
+    }
     if (dias >= 30) etiquetas.push('<span class="etiqueta vieja">' + dias + ' dias en tu base</span>');
     if (it.anio) etiquetas.push('<span class="etiqueta">' + it.anio + '</span>');
     if (it.km) etiquetas.push('<span class="etiqueta">' + Math.round(it.km).toLocaleString('es-AR') + ' km</span>');

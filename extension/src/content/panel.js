@@ -137,6 +137,16 @@
 
       <div class="sep"></div>
 
+      <div>
+        <label>Velocidad del barrido</label>
+        <select id="velocidad">
+          <option value="tranquilo">Tranquilo &middot; invisible</option>
+          <option value="normal">Normal &middot; 5 veces mas rapido</option>
+          <option value="rapido">Rapido &middot; se nota mas</option>
+        </select>
+      </div>
+
+      <label class="check"><input type="checkbox" id="soloBajadas"> Solo los que bajaron de precio</label>
       <label class="check"><input type="checkbox" id="ocultar" checked> Ocultar los que no coinciden</label>
       <label class="check"><input type="checkbox" id="sinPrecio"> Mostrar tambien los sin precio</label>
       <label class="check"><input type="checkbox" id="indexar" checked> Guardar todo en mi catalogo</label>
@@ -175,6 +185,7 @@
     const el = {
       consulta: $('consulta'), pmin: $('pmin'), pmax: $('pmax'), moneda: $('moneda'),
       cotizacion: $('cotizacion'), umbral: $('umbral'), ocultar: $('ocultar'),
+      velocidad: $('velocidad'), soloBajadas: $('soloBajadas'),
       sinPrecio: $('sinPrecio'), indexar: $('indexar'), barrer: $('barrer'),
       estado: $('estado'), catalogo: $('catalogo'), punto: $('punto'),
       mVistos: $('mVistos'), mOk: $('mOk'), mGuardados: $('mGuardados'),
@@ -235,7 +246,8 @@
 
     // --- eventos hacia el orquestador ---
     const campos = [el.consulta, el.pmin, el.pmax, el.moneda, el.cotizacion,
-                    el.umbral, el.ocultar, el.sinPrecio, el.indexar, el.zonaDesc]
+                    el.umbral, el.ocultar, el.sinPrecio, el.indexar, el.zonaDesc,
+                    el.velocidad, el.soloBajadas]
                     .concat(checksProv());
     for (const c of campos) {
       const evento = c.type === 'checkbox' || c.tagName === 'SELECT' ? 'change' : 'input';
@@ -264,6 +276,8 @@
         umbralAmbiguo: Number(el.umbral.value) || 500000,
         provincias: checksProv().filter((c) => c.checked).map((c) => c.value),
         zonaDesconocida: el.zonaDesc.checked,
+        velocidad: el.velocidad.value,
+        soloBajadas: el.soloBajadas.checked,
         ocultar: el.ocultar.checked,
         sinPrecio: el.sinPrecio.checked,
         indexar: el.indexar.checked
@@ -278,6 +292,8 @@
       el.moneda.value = c.moneda || 'USD';
       el.cotizacion.value = c.cotizacion || 1000;
       el.umbral.value = c.umbralAmbiguo || 500000;
+      el.velocidad.value = c.velocidad || 'tranquilo';
+      el.soloBajadas.checked = !!c.soloBajadas;
       el.ocultar.checked = c.ocultar !== false;
       el.sinPrecio.checked = !!c.sinPrecio;
       el.indexar.checked = c.indexar !== false;

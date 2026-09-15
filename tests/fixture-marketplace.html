@@ -37,7 +37,10 @@ const items = [
   {id:'115', t:'Audi A5 2018 impecable',        p:'US$ 24.000',   m:'Usado · Villa Carlos Paz'},
   {id:'116', t:'Audi A5 2019 nafta',            p:'US$ 25.000',   m:'Usado · Mendoza, MZ'},
   // localidad que no esta en la lista: no se descarta, se muestra igual
-  {id:'117', t:'Audi A5 2018 unico',            p:'US$ 26.000',   m:'Usado · Pueblito Perdido'}
+  {id:'117', t:'Audi A5 2018 unico',            p:'US$ 26.000',   m:'Usado · Pueblito Perdido'},
+  // Bajadas de precio: Facebook muestra el precio viejo tachado al lado.
+  {id:'118', t:'Audi A5 2016 full',             p:'US$ 19.000',   p2:'US$ 23.000', m:'Usado · Villa Ballester, BA'},
+  {id:'119', t:'Audi A5 2019 impecable',        p:'US$ 27.000',   p2:'US$ 29.500', m:'Usado · Punta Alta, BA'}
 ];
 const grilla = document.getElementById('grilla');
 for (const it of items) {
@@ -49,7 +52,9 @@ for (const it of items) {
       '<a href="/marketplace/item/' + it.id + '/?ref=search&referral_code=null" class="x1i10hfl">' +
         '<div class="xt7dq6l">' +
           '<img alt="' + it.t + '" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">' +
-          '<div class="xjbqb8w"><span>' + it.p + '</span></div>' +
+          '<div class="xjbqb8w"><span>' + it.p + '</span>' +
+            (it.p2 ? '<span style="text-decoration:line-through;color:#888"> ' + it.p2 + '</span>' : '') +
+          '</div>' +
           '<div class="x1lliihq"><span>' + it.t + '</span></div>' +
           '<div class="x1lliihq"><span>' + it.m + '</span></div>' +
         '</div>' +

@@ -20,7 +20,7 @@ const CONFIG = {
 };
 
 // Lo que tiene que quedar visible con esa configuracion.
-const ESPERADOS = ['101', '106', '108', '111', '114', '117'];
+const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119'];
 
 (async () => {
   const navegador = await chromium.launch({
@@ -79,7 +79,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117'];
     km: d.km, anio: d.anio, url: d.url, provincia: d.provincia
   })));
 
-  prueba('encuentra las 17 publicaciones', () => assert.strictEqual(leidas.length, 17));
+  prueba('encuentra las 19 publicaciones', () => assert.strictEqual(leidas.length, 19));
   prueba('extrae el titulo completo', () => {
     const a = leidas.find((x) => x.id === '101');
     assert.strictEqual(a.titulo, 'Audi A5 2.0 TFSI Quattro 2018');
@@ -213,6 +213,32 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117'];
     assert.ok(!visibles.includes('115') && !visibles.includes('116')));
   prueba('una localidad desconocida NO se descarta', () =>
     assert.ok(visibles.includes('117')));
+
+  console.log('\nBajadas de precio que informa el propio Facebook');
+  const conBaja = await pagina.evaluate(() => {
+    for (const e of document.querySelectorAll('[data-mpf-oculto]')) e.style.display = '';
+    const out = {};
+    for (const d of window.MPF.scraper.leerTodas()) {
+      if (['118', '119', '101'].includes(d.id)) {
+        const p = window.MPF.precio.parsearPrecio(d.precioTexto);
+        const a = window.MPF.precio.parsearPrecio(d.precioAnteriorTexto);
+        out[d.id] = { actual: p.valor, anterior: a.valor };
+      }
+    }
+    return out;
+  });
+  prueba('lee el precio actual, no el tachado', () =>
+    assert.strictEqual(conBaja['118'].actual, 19000));
+  prueba('captura el precio anterior tachado', () =>
+    assert.strictEqual(conBaja['118'].anterior, 23000));
+  prueba('calcula bien la segunda bajada', () => {
+    assert.strictEqual(conBaja['119'].actual, 27000);
+    assert.strictEqual(conBaja['119'].anterior, 29500);
+  });
+  prueba('un aviso sin baja no inventa un precio anterior', () =>
+    assert.strictEqual(conBaja['101'].anterior, null));
+  prueba('los avisos con baja entran igual al filtro', () =>
+    assert.ok(visibles.includes('118') && visibles.includes('119')));
 
   console.log('\nActivacion segun la URL');
   const fuera = await navegador.newPage();

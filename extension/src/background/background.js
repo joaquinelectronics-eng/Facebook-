@@ -68,14 +68,22 @@ async function guardarItems(items) {
     const previo = await comoPromesa(store.get(nuevo.id)).catch(() => null);
 
     if (!previo) {
+      /* Si Facebook mostraba el precio viejo tachado, el historial arranca ya
+         con esa bajada: el catalogo la marca desde el primer dia en vez de
+         tener que esperar semanas a detectarla por cuenta propia. */
+      const historial = [];
+      if (nuevo.precioAnteriorUSD != null) {
+        historial.push({ t: ahora - 1, precioUSD: nuevo.precioAnteriorUSD,
+                         precio: nuevo.precioAnterior, moneda: nuevo.moneda, segunFacebook: true });
+      }
+      if (nuevo.precioUSD != null) {
+        historial.push({ t: ahora, precioUSD: nuevo.precioUSD, precio: nuevo.precio, moneda: nuevo.moneda });
+      }
       store.put(Object.assign({}, nuevo, {
-        vistoPrimera: ahora,
-        vistoUltima: ahora,
-        veces: 1,
-        historial: nuevo.precioUSD != null
-          ? [{ t: ahora, precioUSD: nuevo.precioUSD, precio: nuevo.precio, moneda: nuevo.moneda }]
-          : []
+        vistoPrimera: ahora, vistoUltima: ahora, veces: 1, historial
       }));
+      /* Se avisa como "nuevo", nunca como "bajada": en la primera corrida
+         media Marketplace tiene precio tachado y seria una avalancha. */
       if (nuevo.coincide) nuevos.push(nuevo);
       continue;
     }
