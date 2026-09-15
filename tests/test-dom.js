@@ -20,7 +20,7 @@ const CONFIG = {
 };
 
 // Lo que tiene que quedar visible con esa configuracion.
-const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119'];
+const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120', '121'];
 
 (async () => {
   const navegador = await chromium.launch({
@@ -79,7 +79,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119'];
     km: d.km, anio: d.anio, url: d.url, provincia: d.provincia
   })));
 
-  prueba('encuentra las 19 publicaciones', () => assert.strictEqual(leidas.length, 19));
+  prueba('encuentra las 21 publicaciones', () => assert.strictEqual(leidas.length, 21));
   prueba('extrae el titulo completo', () => {
     const a = leidas.find((x) => x.id === '101');
     assert.strictEqual(a.titulo, 'Audi A5 2.0 TFSI Quattro 2018');
@@ -105,6 +105,29 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119'];
   prueba('limpia la url de parametros de rastreo', () => {
     assert.strictEqual(leidas.find((x) => x.id === '101').url,
       'https://www.facebook.com/marketplace/item/101/');
+  });
+
+  console.log('\nTitulo y zona: Facebook los manda pegados o partidos');
+  prueba('separa el titulo de la zona en el alt de la foto', () => {
+    const a = leidas.find((x) => x.id === '121');
+    assert.strictEqual(a.titulo, '2017 Audi a5 2.0 t fsi quattro');
+    assert.strictEqual(a.ubicacion, 'Nordelta, BA');
+  });
+  prueba('lee el titulo aunque la foto no haya cargado', () => {
+    const a = leidas.find((x) => x.id === '120');
+    assert.strictEqual(a.titulo, 'Audi A5 Sportback 2.0t');
+    assert.strictEqual(a.ubicacion, 'Tigre, BA');
+  });
+  prueba('nunca toma la zona como si fuera el titulo', () => {
+    for (const d of leidas) {
+      assert.ok(!/^en\s/i.test(d.titulo), 'titulo mal leido: ' + JSON.stringify(d.titulo));
+    }
+  });
+  prueba('ningun titulo se queda con la zona pegada', () => {
+    for (const d of leidas) {
+      assert.ok(!/\sen\s+[A-Z]\w+,\s*\w+$/.test(d.titulo),
+        'zona pegada al titulo: ' + JSON.stringify(d.titulo));
+    }
   });
 
   console.log('\nFiltrado en vivo: "audi a5 -permuto" entre 15.000 y 30.000 USD');
@@ -257,7 +280,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119'];
 
   const antes = await leerContadores();
   prueba('antes del cambio de URL cuenta todas las tarjetas', () =>
-    assert.strictEqual(antes.vistos, 19));
+    assert.strictEqual(antes.vistos, 21));
   prueba('antes del cambio de URL coinciden las esperadas', () =>
     assert.strictEqual(antes.ok, ESPERADOS.length));
 
@@ -269,7 +292,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119'];
 
   const despues = await leerContadores();
   prueba('despues del cambio sigue contando todas', () =>
-    assert.strictEqual(despues.vistos, 19));
+    assert.strictEqual(despues.vistos, 21));
   prueba('despues del cambio el filtro sigue aplicado', () =>
     assert.strictEqual(despues.ok, ESPERADOS.length));
 
@@ -301,7 +324,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119'];
     assert.ok((porMotivo['barato fuera de rango'] || 0) >= 2, JSON.stringify(porMotivo)));
   prueba('todo lo descartado suma lo que no coincide', () => {
     const suma = desglose.reduce((a, d) => a + d.n, 0);
-    assert.strictEqual(suma, 19 - ESPERADOS.length);
+    assert.strictEqual(suma, 21 - ESPERADOS.length);
   });
   prueba('guarda ejemplos de titulo para poder mirarlos', () => {
     const faltaA5 = desglose.find((d) => d.motivo === 'falta: a5');
@@ -322,7 +345,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119'];
              filas: sh.querySelectorAll('.motivo').length };
   });
   prueba('el panel muestra cuantas se ocultaron', () =>
-    assert.match(enPanel.titulo, new RegExp(String(19 - ESPERADOS.length))));
+    assert.match(enPanel.titulo, new RegExp(String(21 - ESPERADOS.length))));
   prueba('el panel lista los motivos', () => assert.ok(enPanel.filas >= 3));
 
   console.log('\nBoton de detener');

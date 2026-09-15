@@ -40,7 +40,12 @@ const items = [
   {id:'117', t:'Audi A5 2018 unico',            p:'US$ 26.000',   m:'Usado · Pueblito Perdido'},
   // Bajadas de precio: Facebook muestra el precio viejo tachado al lado.
   {id:'118', t:'Audi A5 2016 full',             p:'US$ 19.000',   p2:'US$ 23.000', m:'Usado · Villa Ballester, BA'},
-  {id:'119', t:'Audi A5 2019 impecable',        p:'US$ 27.000',   p2:'US$ 29.500', m:'Usado · Punta Alta, BA'}
+  {id:'119', t:'Audi A5 2019 impecable',        p:'US$ 27.000',   p2:'US$ 29.500', m:'Usado · Punta Alta, BA'},
+  /* Los dos casos que rompian la lectura del titulo:
+     - foto sin cargar (no hay alt) y el texto partido en pedazos
+     - foto cargada, pero el titulo del texto partido con la zona pegada */
+  {id:'120', t:'Audi A5 Sportback 2.0t',        p:'US$ 25.000',   m:'Usado · Tigre, BA', sinFoto: true, partido: true},
+  {id:'121', t:'2017 Audi a5 2.0 t fsi quattro',p:'US$ 28.500',   m:'Usado · Nordelta, BA', partido: true}
 ];
 /* ?n=3000 repite los avisos hasta llegar a esa cantidad, para medir como se
    comporta la extension con una busqueda larga de verdad. */
@@ -60,12 +65,18 @@ for (const it of lista) {
     '<div class="x1lliihq"><div class="x78zum5">' +
       '<a href="/marketplace/item/' + it.id + '/?ref=search&referral_code=null" class="x1i10hfl">' +
         '<div class="xt7dq6l">' +
-          '<img alt="' + it.t + '" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">' +
+          // Facebook arma el alt como "Titulo en Ciudad, Provincia".
+          (it.sinFoto ? '' :
+            '<img alt="' + it.t + ' en ' + it.m.split('\u00b7').pop().trim() +
+            '" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">') +
           '<div class="xjbqb8w"><span>' + it.p + '</span>' +
             (it.p2 ? '<span style="text-decoration:line-through;color:#888"> ' + it.p2 + '</span>' : '') +
           '</div>' +
-          '<div class="x1lliihq"><span>' + it.t + '</span></div>' +
-          '<div class="x1lliihq"><span>' + it.m + '</span></div>' +
+          (it.partido
+            ? '<div class="x1lliihq"><span><span>' + it.t + '</span>' +
+              '<span> en ' + it.m.split('\u00b7').pop().trim() + '</span></span></div>'
+            : '<div class="x1lliihq"><span>' + it.t + '</span></div>' +
+              '<div class="x1lliihq"><span>' + it.m + '</span></div>') +
         '</div>' +
       '</a>' +
     '</div></div>';

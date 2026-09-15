@@ -24,13 +24,37 @@
      escondido, asi que una tarjeta ya filtrada no se podia releer. Asi si. */
   function lineasDe(caja) {
     const out = [];
-    const paso = document.createTreeWalker(caja, NodeFilter.SHOW_TEXT);
-    let nodo;
-    while ((nodo = paso.nextNode())) {
-      const t = (nodo.nodeValue || '').trim();
+    /* Se agrupa por elemento, no por nodo suelto. Recorrer los nodos de texto
+       de a uno partia los titulos que Facebook arma con varios pedazos, y
+       despues el pedazo mas largo podia ser la zona en vez del titulo. */
+    const paso = document.createTreeWalker(caja, NodeFilter.SHOW_ELEMENT);
+    let el;
+    while ((el = paso.nextNode())) {
+      let hijoConTexto = false;
+      for (const hijo of el.children) {
+        if ((hijo.textContent || '').trim()) { hijoConTexto = true; break; }
+      }
+      if (hijoConTexto) continue;          // no es una hoja de texto
+      const t = (el.textContent || '').trim();
       if (t) out.push(t);
     }
     return out;
+  }
+
+  /* Facebook arma el alt de la foto como "Titulo en Ciudad, Provincia".
+     Hay que separarlos: si no, la zona queda pegada al titulo y ensucia todo. */
+  const RE_TITULO_CON_ZONA = /^(.{3,}?)\s+en\s+([^,]{2,40}(?:,\s*[^,]{2,40})?)$/i;
+
+  function partirTituloYZona(texto) {
+    const t = String(texto || '').trim();
+    const m = t.match(RE_TITULO_CON_ZONA);
+    if (!m) return { titulo: t, zona: '' };
+    return { titulo: m[1].trim(), zona: m[2].trim() };
+  }
+
+  /* Una linea que arranca con "en " es un pedazo de zona, no un titulo. */
+  function pareceZonaSuelta(linea) {
+    return /^en\s+\S/i.test(String(linea || '').trim());
   }
 
   function idDesdeUrl(href) {
@@ -169,33 +193,45 @@
         continue;
       }
       if (RE_RUIDO.test(linea)) continue;
-      /* Una linea con separador ("Usado · Olivos, BA") es siempre la fila de
-         estado y zona, nunca el titulo. Separarlas evita que una zona larga le
-         gane al titulo por cantidad de caracteres. */
-      if (RE_SEPARADOR.test(linea)) candidatosZona.push(linea);
+      /* Una linea con separador ("Usado · Olivos, BA") o que arranca con
+         "en " es la fila de estado y zona, nunca el titulo. */
+      if (RE_SEPARADOR.test(linea) || pareceZonaSuelta(linea)) candidatosZona.push(linea);
       else candidatosTitulo.push(linea);
     }
 
-    /* El titulo es el candidato mas descriptivo: la zona y el kilometraje son
-       cortos, el titulo del auto es el mas largo. El alt de la imagen compite
-       en igualdad de condiciones porque suele traerlo completo, sin recortar. */
-    let titulo = candidatosTitulo.reduce((a, b) => (b.length > a.length ? b : a), '');
-    if (altImagen && !esLineaDePrecio(altImagen) && altImagen.length > titulo.length) {
-      titulo = altImagen;
+    /* El alt de la foto es la fuente mas confiable del titulo: viene completo,
+       sin recortar, aunque el texto de la tarjeta este partido en pedazos. */
+    const delAlt = partirTituloYZona(altImagen);
+    let titulo = '';
+    let zonaDelAlt = delAlt.zona;
+
+    if (delAlt.titulo && !esLineaDePrecio(delAlt.titulo)) {
+      titulo = delAlt.titulo;
+    }
+    // Si no hubo alt, se usa el candidato mas descriptivo del texto.
+    const mejorLinea = candidatosTitulo.reduce((a, b) => (b.length > a.length ? b : a), '');
+    if (!titulo || mejorLinea.length > titulo.length + 4) {
+      const partido = partirTituloYZona(mejorLinea);
+      if (partido.titulo.length > titulo.length) {
+        titulo = partido.titulo;
+        if (!zonaDelAlt) zonaDelAlt = partido.zona;
+      }
     }
 
-    let ubicacion = '';
-    for (const linea of candidatosZona.concat(candidatosTitulo).reverse()) {
-      if (linea === titulo) continue;
-      const limpia = limpiarUbicacion(linea);
-      if (limpia && limpia.length <= 70) { ubicacion = limpia; break; }
+    let ubicacion = zonaDelAlt;
+    if (!ubicacion) {
+      for (const linea of candidatosZona.concat(candidatosTitulo).reverse()) {
+        if (linea === titulo) continue;
+        const limpia = limpiarUbicacion(linea.replace(/^en\s+/i, ''));
+        if (limpia && limpia.length <= 70) { ubicacion = limpia; break; }
+      }
     }
 
     /* De los montos que trae la tarjeta, el primero es el precio actual. Si hay
        un segundo y es MAS ALTO, es el precio viejo tachado: el aviso bajo de
        precio, y eso se sabe sin esperar a tener historial propio. */
     const montos = preciosEn(lineaPrecio).concat(preciosEn(lineaPrecioExtra));
-    let precioTexto = montos[0] || lineaPrecio;
+    const precioTexto = montos[0] || lineaPrecio;
     let precioAnteriorTexto = '';
     if (montos.length > 1) {
       const actual = MPF.precio.parsearPrecio(montos[0]);
@@ -254,6 +290,7 @@
   }
 
   MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio, preciosEn, lineasDe,
+                  partirTituloYZona, pareceZonaSuelta,
                   limpiarUbicacion, extraerKm, cantidadEnPantalla, contenedorTarjeta,
                   SELECTOR_ITEM };
 })();
