@@ -42,8 +42,17 @@ const items = [
   {id:'118', t:'Audi A5 2016 full',             p:'US$ 19.000',   p2:'US$ 23.000', m:'Usado · Villa Ballester, BA'},
   {id:'119', t:'Audi A5 2019 impecable',        p:'US$ 27.000',   p2:'US$ 29.500', m:'Usado · Punta Alta, BA'}
 ];
+/* ?n=3000 repite los avisos hasta llegar a esa cantidad, para medir como se
+   comporta la extension con una busqueda larga de verdad. */
+const cuantos = Number(new URLSearchParams(location.search).get('n')) || items.length;
+const lista = [];
+for (let i = 0; lista.length < cuantos; i++) {
+  const base = items[i % items.length];
+  lista.push(i < items.length ? base
+    : Object.assign({}, base, { id: String(1000 + i) }));
+}
 const grilla = document.getElementById('grilla');
-for (const it of items) {
+for (const it of lista) {
   // Anidamiento profundo, como el real: celda > wrapper > wrapper > <a>
   const celda = document.createElement('div');
   celda.className = 'x9f619 x1n2onr6 x1ja2u2z';

@@ -31,6 +31,11 @@
   let temporizadorIndex = null;
   let urlPrevia = location.href;
 
+  /* Cada cambio de configuracion sube este numero. Las tarjetas recuerdan con
+     que version fueron evaluadas, asi una pasada sobre miles de resultados no
+     vuelve a correr el matcher y el parseo de precios por cada una. */
+  let versionConfig = 0;
+
   /* El content script se inyecta en todo facebook.com, no solo en /marketplace.
      Tiene que ser asi: Marketplace se abre navegando por dentro del sitio (sin
      recargar), y Chrome no reinyecta nada en esas navegaciones. Si el script
@@ -174,8 +179,13 @@
         cache.set(datos.id, datos);
       }
       vistos++;
-      const veredicto = evaluar(datos);
-      datos.coincide = veredicto.pasa;
+      let veredicto = datos._version === versionConfig ? datos._veredicto : null;
+      if (!veredicto) {
+        veredicto = evaluar(datos);
+        datos._version = versionConfig;
+        datos._veredicto = veredicto;
+        datos.coincide = veredicto.pasa;
+      }
       if (veredicto.pasa) ok++;
       aplicarVisibilidad(link, datos, veredicto);
     }
@@ -243,11 +253,18 @@
 
   // --- ciclo principal, disparado por las mutaciones del DOM ---
   let pendiente = false;
+  let ultimaPasada = 0;
+  const MINIMO_ENTRE_PASADAS = 250;   // ms
+
+  /* Facebook muta el DOM constantemente; sin este freno la pasada corria
+     decenas de veces por segundo y le robaba el hilo principal al scroll. */
   function pasada() {
     if (pendiente) return;
     pendiente = true;
-    requestAnimationFrame(() => {
+    const espera = Math.max(0, MINIMO_ENTRE_PASADAS - (Date.now() - ultimaPasada));
+    setTimeout(() => requestAnimationFrame(() => {
       pendiente = false;
+      ultimaPasada = Date.now();
       /* Marketplace cambia su propia URL mientras scrolleas (le agrega el id
          de ciudad, el locale, parametros de seguimiento). Antes eso vaciaba el
          cache, y como las tarjetas ya quedaban marcadas como leidas nadie las
@@ -270,8 +287,16 @@
          si no, el catalogo se llena de publicaciones sin precio. */
       aplicarFiltros();
       if (nuevas.length) encolarParaIndexar(nuevas);
-    });
+    }), espera);
   }
+
+  /* Expuesto para medir y diagnosticar desde la consola del navegador. */
+  MPF.diagnostico = {
+    aplicarFiltros,
+    pasada,
+    cuantasEnCache: () => cache.size,
+    config: () => config
+  };
 
   /* ---------------------------------------------------------- corrida automatica
      El service worker abre esta pagina en una pestania de fondo y manda un
@@ -280,6 +305,7 @@
   async function correrAutomatica(busqueda, limiteTandas) {
     config = Object.assign({}, CONFIG_POR_DEFECTO, busqueda.config || {});
     filtro = MPF.matcher.compilar(config.consulta);
+    versionConfig++;
     if (ui) { ui.escribirConfig(config); ui.estado('corrida automatica', true); }
 
     acumulado = { nuevos: [], bajadas: [], vistos: 0 };
@@ -339,6 +365,7 @@
       alCambiar(nueva) {
         config = Object.assign({}, config, nueva);
         filtro = MPF.matcher.compilar(config.consulta);
+        versionConfig++;          // obliga a reevaluar todo con los filtros nuevos
         guardarConfig();
         aplicarFiltros();
       },
@@ -371,6 +398,7 @@
       chrome.storage.local.get('config', (guardada) => {
         config = Object.assign({}, CONFIG_POR_DEFECTO, (guardada && guardada.config) || {});
         filtro = MPF.matcher.compilar(config.consulta);
+        versionConfig++;
         ui.escribirConfig(config);
         pasada();
         pedirTotalCatalogo();

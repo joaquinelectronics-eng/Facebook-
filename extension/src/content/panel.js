@@ -143,6 +143,7 @@
           <option value="tranquilo">Tranquilo &middot; invisible</option>
           <option value="normal">Normal &middot; 5 veces mas rapido</option>
           <option value="rapido">Rapido &middot; se nota mas</option>
+          <option value="turbo">Turbo &middot; lo maximo util</option>
         </select>
       </div>
 

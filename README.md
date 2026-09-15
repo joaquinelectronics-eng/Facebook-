@@ -160,9 +160,15 @@ Tiene tres velocidades, en **Velocidad del barrido**:
 | **Tranquilo** | el más lento | Es el que viene puesto. Indistinguible de una persona |
 | **Normal** | unas 5 veces más rápido | El equilibrio razonable para barrer a mano |
 | **Rápido** | unas 29 veces más rápido | Junta muchísimo, pero es el patrón de carga más marcado |
+| **Turbo** | el máximo útil | Más allá de esto el freno deja de ser el scroll y pasa a ser cuánto tarda Facebook en cargar |
 
-En las tres el ritmo lleva variación al azar: lo que delata a un robot no es la
-velocidad, es la regularidad.
+En las cuatro el ritmo lleva variación al azar: lo que delata a un robot no es
+la velocidad, es la regularidad.
+
+> Si el barrido se siente lento, fijate primero cuántos resultados tenés en
+> pantalla antes de subir la velocidad. Con miles de tarjetas el cuello de
+> botella suele ser el navegador, no el scroll. Para medirlo:
+> `npm run bench 5000`
 
 ## Corridas automáticas
 
@@ -298,6 +304,7 @@ extension/
     catalog/          La página del catálogo histórico
   icons/            El ícono de la extensión y de las notificaciones
 tests/
+  bench.js            Cuánto tarda la extensión con miles de resultados
   test-logica.js      Matcher, precios y zonas
   test-agenda.mjs     Programación de las corridas automáticas
   test-dom.js         Integración en Chromium real

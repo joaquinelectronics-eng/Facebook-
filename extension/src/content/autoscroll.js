@@ -28,6 +28,12 @@
     rapido: {
       pasosPorTanda: [6, 13], pixelsPorPaso: [180, 380], pausaEntrePasos: [10, 32],
       pausaEntreTandas: [320, 900], tandasHastaDescanso: [20, 34], pausaDescanso: [1800, 4500]
+    },
+    /* Todo lo que se puede pedir sin dejar de esperar a que Facebook cargue.
+       Mas alla de esto el cuello de botella deja de ser el scroll. */
+    turbo: {
+      pasosPorTanda: [10, 22], pixelsPorPaso: [420, 950], pausaEntrePasos: [4, 16],
+      pausaEntreTandas: [90, 320], tandasHastaDescanso: [40, 70], pausaDescanso: [700, 2000]
     }
   };
 
