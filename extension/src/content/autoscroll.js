@@ -136,10 +136,16 @@
         }
 
         await unaTanda(perfil, token);
+        /* Hay que mirar el freno DESPUES de cada espera, no solo al empezar la
+           vuelta: si se pide parar justo mientras scrollea, sin este chequeo se
+           entraba igual a la pausa larga y seguia bajando varios segundos mas
+           con el boton ya en "detenido". */
+        if (pedidoDeParar || token !== corridaActual) break;
         tanda++;
 
         avisar('barriendo');
         await dormir(azarInt(perfil.pausaEntreTandas));
+        if (pedidoDeParar || token !== corridaActual) break;
 
         const ahora = MPF.scraper.cantidadEnPantalla();
         if (ahora > previos) {
@@ -153,12 +159,14 @@
           }
           // Al fondo sin novedades: Facebook puede estar cargando, se le da aire.
           await dormir(azarInt([1800, 3600]));
+          if (pedidoDeParar || token !== corridaActual) break;
         }
 
         if (--tandasHastaDescanso <= 0) {
           tandasHastaDescanso = azarInt(perfil.tandasHastaDescanso);
           avisar('pausa (asi no llamamos la atencion)');
           await dormir(azarInt(perfil.pausaDescanso));
+          if (pedidoDeParar || token !== corridaActual) break;
         }
       }
 

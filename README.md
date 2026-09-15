@@ -166,6 +166,13 @@ Si tocás el scroll vos, se aparta y espera a que termines.
 
 Podés dejarlo trabajando mientras hacés otra cosa.
 
+Para frenarlo tenés tres formas, y todas cortan al instante:
+
+- El botón grande, que mientras barre dice **Detener barrido**
+- El botón rojo **Detener** en la barra de título del panel, que se ve siempre,
+  incluso con el panel plegado o scrolleado
+- La tecla **Escape**
+
 Tiene tres velocidades, en **Velocidad del barrido**:
 
 | Velocidad | Ritmo | Cuándo usarla |

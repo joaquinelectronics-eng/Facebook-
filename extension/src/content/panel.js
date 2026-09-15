@@ -22,6 +22,15 @@
   .titulo { font-weight: 650; font-size: 12.5px; letter-spacing: .2px; flex: 1; }
   .plegar { cursor: pointer; opacity: .6; padding: 0 4px; font-size: 15px; }
   .plegar:hover { opacity: 1; }
+  /* Freno en la barra de titulo: se ve siempre, aunque el panel este plegado
+     o scrolleado hasta arriba. */
+  .frenar {
+    display: none; width: auto; padding: 3px 10px; font-size: 11px;
+    background: #b3392f; color: #fff; border-radius: 5px; border: none;
+    cursor: pointer; font-weight: 700; letter-spacing: .3px; flex: none;
+  }
+  .frenar:hover { background: #cc4438; }
+  .frenar.visible { display: block; }
   .cuerpo { padding: 11px; display: grid; gap: 9px; max-height: 72vh; overflow-y: auto; }
   .cuerpo.oculto { display: none; }
   label { display: block; font-size: 10.5px; text-transform: uppercase;
@@ -54,6 +63,13 @@
   .marcador b { display: block; font-size: 16px; color: #fff; font-variant-numeric: tabular-nums; }
   .marcador span { font-size: 9.5px; color: #79828f; text-transform: uppercase; letter-spacing: .5px; }
   .estado { font-size: 11px; color: #8b94a3; min-height: 15px; text-align: center; }
+  /* El boton de barrer/detener queda pegado abajo del panel: antes habia que
+     scrollear el panel para llegar a el, justo cuando uno quiere frenar ya. */
+  .pie {
+    position: sticky; bottom: 0; background: #171a20; z-index: 2;
+    padding: 9px 0 2px; margin-top: 2px; display: grid; gap: 6px;
+    box-shadow: 0 -10px 14px -10px rgba(0,0,0,.75);
+  }
   .sep { height: 1px; background: #262c35; margin: 1px 0; }
   details { border: 1px solid #2c323c; border-radius: 8px; background: #14171c; }
   summary {
@@ -83,6 +99,7 @@
     <div class="barra" id="barra">
       <div class="punto" id="punto"></div>
       <div class="titulo">Filtro Estricto</div>
+      <button class="frenar" id="frenar" type="button">Detener</button>
       <div class="plegar" id="plegar">−</div>
     </div>
     <div class="cuerpo" id="cuerpo">
@@ -160,9 +177,12 @@
         <div><b id="mGuardados">0</b><span>catalogo</span></div>
       </div>
 
-      <button class="primario" id="barrer">Barrer hasta el fondo</button>
-      <div class="estado" id="estado">listo</div>
-      <div class="estado" id="costo"></div>
+      <div class="pie">
+        <button class="primario" id="barrer">Barrer hasta el fondo</button>
+        <div class="estado" id="estado">listo</div>
+        <div class="estado" id="costo"></div>
+      </div>
+
       <button class="secundario" id="guardarBusq">Guardar esta busqueda</button>
       <div class="estado" id="avisoBusq"></div>
       <button class="secundario" id="catalogo">Abrir mi catalogo</button>
@@ -194,7 +214,7 @@
       cuerpo: $('cuerpo'), plegar: $('plegar'), barra: $('barra'), caja: shadow.querySelector('.caja'),
       provincias: $('provincias'), resZona: $('resZona'), zonaDesc: $('zonaDesc'),
       zonaLimpiar: $('zonaLimpiar'), guardarBusq: $('guardarBusq'), avisoBusq: $('avisoBusq'),
-      costo: $('costo')
+      costo: $('costo'), frenar: $('frenar')
     };
 
     /* Lista de provincias. Las cuatro de la zona habitual van primero para no
@@ -228,7 +248,7 @@
     // --- arrastrar el panel ---
     let arrastrando = false, dx = 0, dy = 0;
     el.barra.addEventListener('mousedown', (e) => {
-      if (e.target === el.plegar) return;
+      if (e.target === el.plegar || e.target === el.frenar) return;
       arrastrando = true;
       const r = el.caja.getBoundingClientRect();
       dx = e.clientX - r.left; dy = e.clientY - r.top;
@@ -268,6 +288,7 @@
     el.barrer.addEventListener('click', () => callbacks.alBarrer());
     el.catalogo.addEventListener('click', () => callbacks.alAbrirCatalogo());
     el.guardarBusq.addEventListener('click', () => callbacks.alGuardarBusqueda());
+    el.frenar.addEventListener('click', (e) => { e.stopPropagation(); callbacks.alBarrer(); });
 
     function leerConfig() {
       return {
@@ -318,6 +339,8 @@
       el.punto.classList.toggle('activo', !!barriendo);
       el.barrer.textContent = barriendo ? 'Detener barrido' : 'Barrer hasta el fondo';
       el.barrer.classList.toggle('parar', !!barriendo);
+      // El freno de la barra de titulo se ve aunque el panel este plegado.
+      el.frenar.classList.toggle('visible', !!barriendo);
     }
 
     let borrarAviso = null;

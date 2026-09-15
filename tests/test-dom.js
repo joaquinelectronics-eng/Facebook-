@@ -288,6 +288,64 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119'];
     document.querySelectorAll('a[href*="/marketplace/item/"]:not([data-mpf-id])').length);
   prueba('no quedan tarjetas sin leer', () => assert.strictEqual(huerfanas, 0));
 
+  console.log('\nBoton de detener');
+
+  function panel(fn) { return pagina.evaluate(fn); }
+
+  const antesDeBarrer = await panel(() => {
+    const sh = document.getElementById('mpf-host').shadowRoot;
+    return { frenoVisible: sh.getElementById('frenar').classList.contains('visible'),
+             textoBoton: sh.getElementById('barrer').textContent };
+  });
+  prueba('sin barrido no se muestra el freno', () =>
+    assert.strictEqual(antesDeBarrer.frenoVisible, false));
+  prueba('sin barrido el boton invita a barrer', () =>
+    assert.match(antesDeBarrer.textoBoton, /Barrer/));
+
+  await panel(() => document.getElementById('mpf-host').shadowRoot.getElementById('barrer').click());
+  await pagina.waitForTimeout(500);
+
+  const barriendo = await panel(() => {
+    const sh = document.getElementById('mpf-host').shadowRoot;
+    const freno = sh.getElementById('frenar');
+    return { frenoVisible: freno.classList.contains('visible'),
+             frenoSeVe: getComputedStyle(freno).display !== 'none',
+             textoBoton: sh.getElementById('barrer').textContent,
+             corriendo: window.MPF.autoscroll.estaCorriendo() };
+  });
+  prueba('al barrer aparece el freno en la barra de titulo', () =>
+    assert.ok(barriendo.frenoVisible && barriendo.frenoSeVe));
+  prueba('al barrer el boton principal pasa a Detener', () =>
+    assert.match(barriendo.textoBoton, /Detener/));
+  prueba('el barrido esta realmente corriendo', () =>
+    assert.strictEqual(barriendo.corriendo, true));
+
+  /* El freno tiene que seguir a la vista con el panel plegado: es justo cuando
+     uno lo necesita y no quiere ponerse a desplegar nada. */
+  const plegado = await panel(() => {
+    const sh = document.getElementById('mpf-host').shadowRoot;
+    sh.getElementById('plegar').click();
+    return getComputedStyle(sh.getElementById('frenar')).display !== 'none';
+  });
+  prueba('el freno se ve aunque el panel este plegado', () => assert.ok(plegado));
+
+  await panel(() => document.getElementById('mpf-host').shadowRoot.getElementById('frenar').click());
+  await pagina.waitForTimeout(600);
+
+  const frenado = await panel(() => {
+    const sh = document.getElementById('mpf-host').shadowRoot;
+    sh.getElementById('plegar').click();   // se vuelve a desplegar
+    return { frenoVisible: sh.getElementById('frenar').classList.contains('visible'),
+             corriendo: window.MPF.autoscroll.estaCorriendo(),
+             estado: sh.getElementById('estado').textContent };
+  });
+  prueba('el freno detiene el barrido', () =>
+    assert.strictEqual(frenado.corriendo, false));
+  prueba('detenido el freno se esconde', () =>
+    assert.strictEqual(frenado.frenoVisible, false));
+  prueba('dice que lo detuviste vos', () =>
+    assert.match(frenado.estado, /detenido por vos/));
+
   console.log('\nActivacion segun la URL');
   const fuera = await navegador.newPage();
   await fuera.goto(base + '/otra-cosa.html').catch(() => {});
