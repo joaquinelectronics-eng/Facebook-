@@ -96,6 +96,19 @@ En el catálogo, todo precio deducido queda marcado —*estaba abreviado*,
 *moneda deducida*— para que sepas cuál conviene confirmar antes de escribirle
 al vendedor.
 
+### Importante: el radio de Facebook
+
+Antes de filtrar, Facebook decide qué te muestra según el radio que tengas
+puesto a la izquierda (`Olivos · En un radio de 15 km`). Si lo dejás chico, te
+trae un puñado de resultados reales y después llena la pantalla con
+**"Resultados relacionados fuera de tu búsqueda"**, que son otros autos
+cualesquiera.
+
+**Poné el radio de Facebook al máximo y filtrá la zona desde la extensión.**
+Facebook te trae todo, y el selector de provincias de acá abajo te deja solo lo
+que te sirve. Al revés no funciona: ningún filtro puede recuperar publicaciones
+que Facebook nunca te mandó.
+
 ### Filtro por provincia
 
 Facebook escribe la zona de tres formas distintas en la misma página:

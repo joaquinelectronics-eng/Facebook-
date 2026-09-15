@@ -117,6 +117,10 @@
     let sinNovedad = 0;
     let previos = MPF.scraper.cantidadEnPantalla();
     let tandasHastaDescanso = azarInt(perfil.tandasHastaDescanso);
+    /* Por que termino el barrido. Antes el mensaje util ("se acabaron los
+       resultados") se pisaba al instante con un "detenido" pelado, y desde
+       afuera parecia que se habia trabado. */
+    let motivoFinal = 'detenido';
 
     const avisar = (estado) =>
       onProgreso && onProgreso({ tanda, enPantalla: MPF.scraper.cantidadEnPantalla(), sinNovedad, estado });
@@ -144,7 +148,7 @@
         } else if (alFondo()) {
           sinNovedad++;
           if (sinNovedad >= CFG.tandasSinNovedadParaFrenar) {
-            avisar('listo: se acabaron los resultados');
+            motivoFinal = 'listo: Facebook no tiene mas resultados';
             break;
           }
           // Al fondo sin novedades: Facebook puede estar cargando, se le da aire.
@@ -158,8 +162,8 @@
         }
       }
 
-      if (tanda >= limite) avisar('listo: limite de la sesion alcanzado');
-      else if (pedidoDeParar) avisar('detenido');
+      if (tanda >= limite) motivoFinal = 'listo: limite de la sesion alcanzado';
+      else if (pedidoDeParar) motivoFinal = 'detenido por vos';
     } finally {
       /* Solo la corrida vigente apaga las banderas. Una corrida vieja que
          termina tarde no puede decir que "ya no hay nada corriendo". */
@@ -168,7 +172,7 @@
         pedidoDeParar = false;
       }
       cancelados.delete(token);
-      avisar('detenido');
+      avisar(motivoFinal);
     }
   }
 
