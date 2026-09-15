@@ -303,9 +303,10 @@
       el.resZona.textContent = resumirZona(elegidas);
     }
 
+    // Cada contador se actualiza solo si se le pasa un valor; null lo deja como esta.
     function marcador(vistos, ok, guardados) {
-      el.mVistos.textContent = vistos;
-      el.mOk.textContent = ok;
+      if (vistos != null) el.mVistos.textContent = vistos;
+      if (ok != null) el.mOk.textContent = ok;
       if (guardados != null) el.mGuardados.textContent = guardados;
     }
 

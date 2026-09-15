@@ -122,9 +122,14 @@
         delete caja.dataset.mpfDisplayPrevio;
       }
       caja.removeAttribute('data-mpf-motivo');
-    } else if (!caja.dataset.mpfOculto) {
-      caja.dataset.mpfDisplayPrevio = caja.style.display || '';
-      caja.dataset.mpfOculto = '1';
+    } else if (caja.style.display !== 'none') {
+      /* Se mira el display de verdad, no solo nuestra marca: si Facebook
+         redibuja la tarjeta y le pierde el estilo, hay que volver a
+         esconderla. Fiarse de la marca dejaba pasar tarjetas descartadas. */
+      if (!caja.dataset.mpfOculto) {
+        caja.dataset.mpfDisplayPrevio = caja.style.display || '';
+        caja.dataset.mpfOculto = '1';
+      }
       caja.setAttribute('data-mpf-motivo', veredicto.motivo);
       caja.style.display = 'none';
     }
@@ -150,8 +155,24 @@
     let vistos = 0, ok = 0;
     for (const link of document.querySelectorAll(MPF.scraper.SELECTOR_ITEM)) {
       const id = link.getAttribute('data-mpf-id');
-      const datos = id ? cache.get(id) : null;
-      if (!datos) continue;
+      let datos = id ? cache.get(id) : null;
+
+      /* Red de seguridad: si una tarjeta quedo marcada pero sin datos, se
+         vuelve a leer en vez de saltearla. Saltearla la dejaba visible sin
+         pasar por el filtro, que es justo lo que no queremos. */
+      if (!datos) {
+        const caja = MPF.scraper.contenedorTarjeta(link);
+        if (caja && caja.dataset.mpfOculto) {
+          // innerText no lee nada de un elemento escondido: primero se muestra.
+          caja.style.display = caja.dataset.mpfDisplayPrevio || '';
+          delete caja.dataset.mpfOculto;
+          delete caja.dataset.mpfDisplayPrevio;
+        }
+        datos = MPF.scraper.extraerDeTarjeta(link);
+        if (!datos || !datos.titulo) continue;
+        link.setAttribute('data-mpf-id', datos.id);
+        cache.set(datos.id, datos);
+      }
       vistos++;
       const veredicto = evaluar(datos);
       datos.coincide = veredicto.pasa;
@@ -199,9 +220,11 @@
             acumulado.nuevos.push(...(resp.nuevos || []));
             acumulado.bajadas.push(...(resp.bajadas || []));
           }
-          if (resp && resp.total != null && ui) ui.marcador(
-            Number(document.querySelectorAll(MPF.scraper.SELECTOR_ITEM).length), undefined, resp.total
-          );
+          /* Solo se actualiza el total del catalogo. Antes se pisaba tambien
+             "en pantalla" con el conteo crudo del DOM, y quedaba al lado de un
+             "coinciden" calculado sobre otra cosa: dos numeros que no se podian
+             comparar entre si. */
+          if (resp && resp.total != null && ui) ui.marcador(null, null, resp.total);
           resolver(resp);
         });
       } catch (e) { resolver(null); }   // contexto invalidado tras recargar la extension
@@ -225,10 +248,13 @@
     pendiente = true;
     requestAnimationFrame(() => {
       pendiente = false;
-      if (location.href !== urlPrevia) {  // navegaste a otra busqueda
-        urlPrevia = location.href;
-        cache.clear();
-      }
+      /* Marketplace cambia su propia URL mientras scrolleas (le agrega el id
+         de ciudad, el locale, parametros de seguimiento). Antes eso vaciaba el
+         cache, y como las tarjetas ya quedaban marcadas como leidas nadie las
+         volvia a mirar: quedaban huerfanas, sin filtrar y sin contar. El cache
+         esta indexado por id de publicacion y esos datos no cambian porque uno
+         navegue, asi que no hay ninguna razon para tirarlo. */
+      urlPrevia = location.href;
 
       // Fuera de Marketplace la extension no toca nada de la pagina.
       if (!enMarketplace()) {

@@ -240,6 +240,49 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119'];
   prueba('los avisos con baja entran igual al filtro', () =>
     assert.ok(visibles.includes('118') && visibles.includes('119')));
 
+  console.log('\nMarketplace cambia su URL mientras scrolleas');
+
+  function leerContadores() {
+    return pagina.evaluate(() => {
+      const sh = document.getElementById('mpf-host').shadowRoot;
+      return { vistos: Number(sh.getElementById('mVistos').textContent),
+               ok: Number(sh.getElementById('mOk').textContent) };
+    });
+  }
+
+  const antes = await leerContadores();
+  prueba('antes del cambio de URL cuenta todas las tarjetas', () =>
+    assert.strictEqual(antes.vistos, 19));
+  prueba('antes del cambio de URL coinciden las esperadas', () =>
+    assert.strictEqual(antes.ok, ESPERADOS.length));
+
+  // Esto es lo que hace Facebook solo: le agrega el id de ciudad y el locale.
+  await pagina.evaluate(() => {
+    history.replaceState({}, '', '/marketplace/115456271801133/search/?query=audi%20a5&locale=es_LA');
+  });
+  await pagina.waitForTimeout(3000);
+
+  const despues = await leerContadores();
+  prueba('despues del cambio sigue contando todas', () =>
+    assert.strictEqual(despues.vistos, 19));
+  prueba('despues del cambio el filtro sigue aplicado', () =>
+    assert.strictEqual(despues.ok, ESPERADOS.length));
+
+  const visiblesDespues = await pagina.evaluate(() => {
+    const out = [];
+    for (const a of document.querySelectorAll('a[href*="/marketplace/item/"]')) {
+      const caja = window.MPF.scraper.contenedorTarjeta(a);
+      if (caja.style.display !== 'none') out.push(a.getAttribute('data-mpf-id'));
+    }
+    return out;
+  });
+  prueba('ninguna tarjeta queda sin filtrar tras el cambio de URL', () =>
+    assert.deepStrictEqual(visiblesDespues.sort(), ESPERADOS.slice().sort()));
+
+  const huerfanas = await pagina.evaluate(() =>
+    document.querySelectorAll('a[href*="/marketplace/item/"]:not([data-mpf-id])').length);
+  prueba('no quedan tarjetas sin leer', () => assert.strictEqual(huerfanas, 0));
+
   console.log('\nActivacion segun la URL');
   const fuera = await navegador.newPage();
   await fuera.goto(base + '/otra-cosa.html').catch(() => {});
