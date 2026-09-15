@@ -12,6 +12,27 @@
 
   const SELECTOR_ITEM = 'a[href*="/marketplace/item/"]';
 
+  /* Lee el texto de una tarjeta SIN usar innerText.
+
+     innerText obliga al navegador a recalcular el layout de la pagina entera
+     para saber que se ve y que no. Con miles de resultados en pantalla eso
+     cuesta milisegundos por tarjeta, y hay que leer cientos por pasada: medido,
+     1130 ms por pasada con 4000 avisos. Recorrer los nodos de texto da lo mismo
+     y no toca el layout.
+
+     De paso resuelve otra cosa: innerText devuelve vacio en un elemento
+     escondido, asi que una tarjeta ya filtrada no se podia releer. Asi si. */
+  function lineasDe(caja) {
+    const out = [];
+    const paso = document.createTreeWalker(caja, NodeFilter.SHOW_TEXT);
+    let nodo;
+    while ((nodo = paso.nextNode())) {
+      const t = (nodo.nodeValue || '').trim();
+      if (t) out.push(t);
+    }
+    return out;
+  }
+
   function idDesdeUrl(href) {
     const m = String(href).match(/\/marketplace\/item\/(\d+)/);
     return m ? m[1] : null;
@@ -42,9 +63,22 @@
     let saltos = 0;
     while (el.parentElement && el.parentElement !== document.body && saltos < 12) {
       const padre = el.parentElement;
-      if (padre.querySelectorAll(SELECTOR_ITEM).length > 1) {
-        cajaDe.set(link, el);
-        return el;
+
+      /* Se llego a la celda cuando el padre tiene varias y alguna vecina
+         tambien es una publicacion. Antes esto se resolvia preguntandole al
+         padre cuantas publicaciones tenia adentro, pero el ultimo padre es la
+         grilla entera: con miles de resultados eso escanea todo el documento
+         una vez por tarjeta. Mirar a los dos vecinos cuesta lo mismo tenga la
+         grilla diez avisos o diez mil. */
+      if (padre.childElementCount > 1) {
+        const previo = el.previousElementSibling;
+        const siguiente = el.nextElementSibling;
+        if ((previo && previo.querySelector(SELECTOR_ITEM)) ||
+            (siguiente && siguiente.querySelector(SELECTOR_ITEM)) ||
+            padre.childElementCount > 3) {
+          cajaDe.set(link, el);
+          return el;
+        }
       }
       el = padre;
       saltos++;
@@ -116,7 +150,7 @@
     if (!id) return null;
 
     const caja = contenedorTarjeta(link);
-    const crudo = (caja.innerText || '').split('\n').map((s) => s.trim()).filter(Boolean);
+    const crudo = lineasDe(caja);
 
     // El alt de la imagen suele traer el titulo completo sin recortar.
     const img = caja.querySelector('img[alt]');
@@ -179,7 +213,7 @@
       precioTexto,
       precioAnteriorTexto,
       ubicacion,
-      km: extraerKm(caja.innerText || ''),
+      km: extraerKm(crudo.join(' ')),
       anio: mAnio ? Number(mAnio[1]) : null,
       provincia: MPF.zonas ? MPF.zonas.detectarProvincia(ubicacion) : null,
       url: urlLimpia(link.getAttribute('href') || ''),
@@ -205,12 +239,7 @@
     return encontradas;
   }
 
-  /* Vuelve a listar TODAS las tarjetas presentes.
-
-     OJO: innerText devuelve vacio en un elemento con display:none, asi que esto
-     no relee una tarjeta que el filtro ya escondio. No es un problema en el uso
-     real porque cada tarjeta se lee y se guarda ANTES de ocultarse, y despues
-     se trabaja sobre esa copia en memoria. */
+  /* Vuelve a listar TODAS las tarjetas presentes, esten visibles o escondidas. */
   function leerTodas() {
     const out = [];
     for (const link of document.querySelectorAll(SELECTOR_ITEM)) {
@@ -224,7 +253,7 @@
     return document.querySelectorAll(SELECTOR_ITEM).length;
   }
 
-  MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio, preciosEn,
+  MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio, preciosEn, lineasDe,
                   limpiarUbicacion, extraerKm, cantidadEnPantalla, contenedorTarjeta,
                   SELECTOR_ITEM };
 })();

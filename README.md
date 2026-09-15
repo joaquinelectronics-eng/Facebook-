@@ -165,10 +165,13 @@ Tiene tres velocidades, en **Velocidad del barrido**:
 En las cuatro el ritmo lleva variación al azar: lo que delata a un robot no es
 la velocidad, es la regularidad.
 
-> Si el barrido se siente lento, fijate primero cuántos resultados tenés en
-> pantalla antes de subir la velocidad. Con miles de tarjetas el cuello de
-> botella suele ser el navegador, no el scroll. Para medirlo:
-> `npm run bench 5000`
+> Si el barrido se siente lento, **fijate primero el renglón que dice
+> `filtrado: X ms`** abajo del botón de barrer. Si ese número pasa de 120 ms se
+> pone naranja: ahí el freno es el navegador, no el scroll, y subir la velocidad
+> no va a servir de nada.
+>
+> Para medirlo con miles de resultados sin usar Facebook:
+> `npm run bench 6000` y `node tests/bench-progresivo.js 8000`.
 
 ## Corridas automáticas
 
@@ -305,6 +308,8 @@ extension/
   icons/            El ícono de la extensión y de las notificaciones
 tests/
   bench.js            Cuánto tarda la extensión con miles de resultados
+  bench-progresivo.js Lo mismo pero con las tarjetas llegando de a poco,
+                      que es como pasa de verdad al barrer
   test-logica.js      Matcher, precios y zonas
   test-agenda.mjs     Programación de las corridas automáticas
   test-dom.js         Integración en Chromium real

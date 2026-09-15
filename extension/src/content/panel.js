@@ -162,6 +162,7 @@
 
       <button class="primario" id="barrer">Barrer hasta el fondo</button>
       <div class="estado" id="estado">listo</div>
+      <div class="estado" id="costo"></div>
       <button class="secundario" id="guardarBusq">Guardar esta busqueda</button>
       <div class="estado" id="avisoBusq"></div>
       <button class="secundario" id="catalogo">Abrir mi catalogo</button>
@@ -192,7 +193,8 @@
       mVistos: $('mVistos'), mOk: $('mOk'), mGuardados: $('mGuardados'),
       cuerpo: $('cuerpo'), plegar: $('plegar'), barra: $('barra'), caja: shadow.querySelector('.caja'),
       provincias: $('provincias'), resZona: $('resZona'), zonaDesc: $('zonaDesc'),
-      zonaLimpiar: $('zonaLimpiar'), guardarBusq: $('guardarBusq'), avisoBusq: $('avisoBusq')
+      zonaLimpiar: $('zonaLimpiar'), guardarBusq: $('guardarBusq'), avisoBusq: $('avisoBusq'),
+      costo: $('costo')
     };
 
     /* Lista de provincias. Las cuatro de la zona habitual van primero para no
@@ -327,7 +329,15 @@
 
     function mostrar(visible) { host.style.display = visible ? '' : 'none'; }
 
-    return { leerConfig, escribirConfig, marcador, estado, avisoBusqueda, mostrar };
+    /* Cuanto tarda cada pasada de filtrado. Si ese numero se dispara, el
+       barrido se va a sentir lento por mas que se suba la velocidad. */
+    function costo(ms, tarjetas) {
+      const n = ms < 10 ? ms.toFixed(1) : String(Math.round(ms));
+      el.costo.textContent = 'filtrado: ' + n + ' ms \u00b7 ' + tarjetas + ' tarjetas';
+      el.costo.style.color = ms > 120 ? '#ffb74d' : '';
+    }
+
+    return { leerConfig, escribirConfig, marcador, estado, avisoBusqueda, mostrar, costo };
   }
 
   MPF.panel = { crear };

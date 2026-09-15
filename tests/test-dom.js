@@ -240,6 +240,11 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119'];
   prueba('los avisos con baja entran igual al filtro', () =>
     assert.ok(visibles.includes('118') && visibles.includes('119')));
 
+  /* La inspeccion de arriba desescondio tarjetas para poder leerlas; se
+     restaura el estado antes de seguir midiendo. */
+  await pagina.evaluate(() => window.MPF.diagnostico.aplicarFiltros(true));
+  await pagina.waitForTimeout(200);
+
   console.log('\nMarketplace cambia su URL mientras scrolleas');
 
   function leerContadores() {

@@ -35,6 +35,9 @@
      que version fueron evaluadas, asi una pasada sobre miles de resultados no
      vuelve a correr el matcher y el parseo de precios por cada una. */
   let versionConfig = 0;
+  let versionPintada = -1;
+  let contVistos = 0, contOk = 0;
+  let ultimoCostoMs = 0;
 
   /* El content script se inyecta en todo facebook.com, no solo en /marketplace.
      Tiene que ser asi: Marketplace se abre navegando por dentro del sitio (sin
@@ -155,10 +158,28 @@
     return nuevas;
   }
 
-  /* Recorre todo lo que hay en pantalla y decide que se ve y que no. */
-  function aplicarFiltros() {
-    let vistos = 0, ok = 0;
-    for (const link of document.querySelectorAll(MPF.scraper.SELECTOR_ITEM)) {
+  /* Recorre lo que hay en pantalla y decide que se ve y que no.
+
+     Clave para que el barrido no se frene: una tarjeta ya resuelta con la
+     configuracion vigente queda marcada en el DOM y no se vuelve a mirar. Sin
+     eso, cada pasada reprocesaba todo lo acumulado y el trabajo total crecia al
+     cuadrado: con 4000 avisos, una pasada tardaba mas de un segundo. */
+  function aplicarFiltros(completa) {
+    const t0 = performance.now();
+
+    // Al cambiar los filtros hay que reevaluar todo y recontar desde cero.
+    const desdeCero = completa || versionPintada !== versionConfig;
+    if (desdeCero) {
+      contVistos = 0;
+      contOk = 0;
+      versionPintada = versionConfig;
+    }
+
+    const selector = desdeCero
+      ? MPF.scraper.SELECTOR_ITEM
+      : MPF.scraper.SELECTOR_ITEM + ':not([data-mpf-v="' + versionConfig + '"])';
+
+    for (const link of document.querySelectorAll(selector)) {
       const id = link.getAttribute('data-mpf-id');
       let datos = id ? cache.get(id) : null;
 
@@ -166,19 +187,12 @@
          vuelve a leer en vez de saltearla. Saltearla la dejaba visible sin
          pasar por el filtro, que es justo lo que no queremos. */
       if (!datos) {
-        const caja = MPF.scraper.contenedorTarjeta(link);
-        if (caja && caja.dataset.mpfOculto) {
-          // innerText no lee nada de un elemento escondido: primero se muestra.
-          caja.style.display = caja.dataset.mpfDisplayPrevio || '';
-          delete caja.dataset.mpfOculto;
-          delete caja.dataset.mpfDisplayPrevio;
-        }
         datos = MPF.scraper.extraerDeTarjeta(link);
         if (!datos || !datos.titulo) continue;
         link.setAttribute('data-mpf-id', datos.id);
         cache.set(datos.id, datos);
       }
-      vistos++;
+
       let veredicto = datos._version === versionConfig ? datos._veredicto : null;
       if (!veredicto) {
         veredicto = evaluar(datos);
@@ -186,11 +200,19 @@
         datos._veredicto = veredicto;
         datos.coincide = veredicto.pasa;
       }
-      if (veredicto.pasa) ok++;
+
+      contVistos++;
+      if (veredicto.pasa) contOk++;
       aplicarVisibilidad(link, datos, veredicto);
+      link.setAttribute('data-mpf-v', versionConfig);
     }
-    if (ui) ui.marcador(vistos, ok);
-    return { vistos, ok };
+
+    ultimoCostoMs = performance.now() - t0;
+    if (ui) {
+      ui.marcador(contVistos, contOk);
+      ui.costo(ultimoCostoMs, contVistos);
+    }
+    return { vistos: contVistos, ok: contOk, ms: ultimoCostoMs };
   }
 
   // --- guardado en el catalogo, en lotes para no saturar el service worker ---
@@ -295,6 +317,7 @@
     aplicarFiltros,
     pasada,
     cuantasEnCache: () => cache.size,
+    ultimoCostoMs: () => ultimoCostoMs,
     config: () => config
   };
 
@@ -423,6 +446,11 @@
     /* Ademas del observer, se vigila la URL: Marketplace cambia de busqueda sin
        recargar y hay que darse cuenta igual. */
     setInterval(pasada, 2500);
+    /* Revision completa periodica. Las pasadas normales saltean las tarjetas
+       ya resueltas, asi que si algo externo le cambia el estilo a una tarjeta
+       nadie la corregiria; esta pasada la vuelve a poner en su lugar. Medida:
+       23 ms con 4000 avisos, o sea que cada 5 segundos no molesta a nadie. */
+    setInterval(() => { if (enMarketplace() && ui) aplicarFiltros(true); }, 5000);
     pasada();
   }
 
