@@ -96,6 +96,14 @@
   .motivo .cab b { color: #ffb74d; font-variant-numeric: tabular-nums; }
   .motivo ul { margin: 3px 0 0; padding-left: 14px; color: #79828f; font-size: 10.5px; }
   .motivo li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .buscador { padding: 6px 10px 2px; }
+  .hallazgos { padding: 0 10px 8px; display: grid; gap: 5px; max-height: 180px; overflow-y: auto; }
+  .hallazgo { font-size: 11px; border-left: 2px solid #3d4450; padding-left: 7px; }
+  .hallazgo.si { border-color: #35d07f; }
+  .hallazgo.no { border-color: #e5564a; }
+  .hallazgo .t { color: #dbe3ec; }
+  .hallazgo .m { color: #79828f; font-size: 10.5px; }
+  .nada { color: #ffb74d; font-size: 11px; padding: 4px 10px 8px; line-height: 1.45; }
   .botoncito { background: none; border: none; color: #7fa8ff; font-size: 11px;
                padding: 0; width: auto; cursor: pointer; text-decoration: underline; }
   `;
@@ -177,6 +185,11 @@
 
       <details id="detMotivos">
         <summary id="resMotivos">Por que se ocultaron</summary>
+        <div class="buscador">
+          <input type="text" id="buscarLeidas" spellcheck="false"
+                 placeholder="¿esta esta publicacion? ej: coupe, udaondo">
+        </div>
+        <div class="hallazgos" id="hallazgos"></div>
         <div class="motivos" id="motivos"></div>
       </details>
 
@@ -226,7 +239,8 @@
       provincias: $('provincias'), resZona: $('resZona'), zonaDesc: $('zonaDesc'),
       zonaLimpiar: $('zonaLimpiar'), guardarBusq: $('guardarBusq'), avisoBusq: $('avisoBusq'),
       costo: $('costo'), frenar: $('frenar'),
-      motivos: $('motivos'), resMotivos: $('resMotivos'), detMotivos: $('detMotivos')
+      motivos: $('motivos'), resMotivos: $('resMotivos'), detMotivos: $('detMotivos'),
+      buscarLeidas: $('buscarLeidas'), hallazgos: $('hallazgos')
     };
 
     /* Lista de provincias. Las cuatro de la zona habitual van primero para no
@@ -407,6 +421,38 @@
         el.motivos.appendChild(caja);
       }
     }
+
+    /* Buscador de diagnostico: escribis parte de un titulo o de una zona y te
+       dice si esa publicacion llego a la pagina y que se hizo con ella. */
+    el.buscarLeidas.addEventListener('input', () => {
+      const texto = el.buscarLeidas.value.trim();
+      el.hallazgos.textContent = '';
+      if (texto.length < 3) return;
+
+      const encontradas = callbacks.alBuscarEnLeidas(texto);
+      if (!encontradas.length) {
+        const aviso = document.createElement('div');
+        aviso.className = 'nada';
+        aviso.textContent = 'No esta en la pagina. Facebook no la mando: ' +
+          'ningun filtro puede mostrar algo que nunca llego.';
+        el.hallazgos.appendChild(aviso);
+        return;
+      }
+      for (const h of encontradas.slice(0, 25)) {
+        const caja = document.createElement('div');
+        caja.className = 'hallazgo ' + (h.pasa ? 'si' : 'no');
+        const t = document.createElement('div');
+        t.className = 't';
+        t.textContent = h.titulo;                 // titulo ajeno: como texto
+        const m = document.createElement('div');
+        m.className = 'm';
+        m.textContent = (h.precio || 'sin precio') + ' \u00b7 ' + (h.ubicacion || 'sin zona') +
+                        ' \u00b7 ' + (h.pasa ? 'se muestra' : 'oculta: ' + h.motivo);
+        caja.appendChild(t);
+        caja.appendChild(m);
+        el.hallazgos.appendChild(caja);
+      }
+    });
 
     let ultimoMapa = new Map(), ultimoTotal = 0;
     function motivos(mapa, totalOcultos) {

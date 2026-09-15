@@ -348,6 +348,42 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     assert.match(enPanel.titulo, new RegExp(String(21 - ESPERADOS.length))));
   prueba('el panel lista los motivos', () => assert.ok(enPanel.filas >= 3));
 
+  console.log('\nBuscador de diagnostico');
+  const hallado = await pagina.evaluate(() => window.MPF.diagnostico.buscar('sportback'));
+  prueba('encuentra publicaciones leidas por parte del titulo', () =>
+    assert.ok(hallado.length >= 2, JSON.stringify(hallado)));
+  prueba('dice de cada una si se muestra o por que no', () => {
+    for (const h of hallado) {
+      assert.ok(typeof h.pasa === 'boolean');
+      if (!h.pasa) assert.ok(h.motivo.length > 0);
+    }
+  });
+  prueba('tambien busca por zona', async () => {});
+  const porZona = await pagina.evaluate(() => window.MPF.diagnostico.buscar('nordelta'));
+  prueba('encuentra por zona', () => assert.strictEqual(porZona.length, 1));
+  prueba('encuentra tambien las que estan escondidas', async () => {});
+  const ocultaHallada = await pagina.evaluate(() => window.MPF.diagnostico.buscar('vento'));
+  prueba('encuentra una publicacion oculta y explica el motivo', () => {
+    assert.strictEqual(ocultaHallada.length, 1);
+    assert.strictEqual(ocultaHallada[0].pasa, false);
+    assert.strictEqual(ocultaHallada[0].motivo, 'falta: audi');
+  });
+  const inexistente = await pagina.evaluate(() => window.MPF.diagnostico.buscar('lamborghini'));
+  prueba('no inventa nada si la publicacion nunca llego', () =>
+    assert.strictEqual(inexistente.length, 0));
+
+  const enPanelBusq = await pagina.evaluate(async () => {
+    const sh = document.getElementById('mpf-host').shadowRoot;
+    sh.getElementById('detMotivos').open = true;
+    const inp = sh.getElementById('buscarLeidas');
+    inp.value = 'lamborghini';
+    inp.dispatchEvent(new Event('input'));
+    await new Promise((r) => setTimeout(r, 100));
+    return sh.getElementById('hallazgos').textContent;
+  });
+  prueba('el panel avisa cuando Facebook nunca la mando', () =>
+    assert.match(enPanelBusq, /no la mando/i));
+
   console.log('\nBoton de detener');
 
   function panel(fn) { return pagina.evaluate(fn); }

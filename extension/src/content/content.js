@@ -326,9 +326,33 @@
   }
 
   /* Expuesto para medir y diagnosticar desde la consola del navegador. */
+  /* Busca entre TODAS las tarjetas leidas, esten visibles o escondidas, y dice
+     que paso con cada una. Sirve para contestar la unica pregunta que importa
+     cuando faltan resultados: la publicacion esta en la pagina y la escondi, o
+     Facebook nunca la mando. */
+  function buscarEnLeidas(texto) {
+    const t = MPF.normalizar(texto || '');
+    if (!t) return [];
+    const out = [];
+    for (const d of cache.values()) {
+      const enTitulo = MPF.normalizar(d.titulo || '').indexOf(t) >= 0;
+      const enZona = MPF.normalizar(d.ubicacion || '').indexOf(t) >= 0;
+      if (!enTitulo && !enZona) continue;
+      out.push({
+        titulo: d.titulo, ubicacion: d.ubicacion, precio: d.precioTexto,
+        pasa: d._veredicto ? d._veredicto.pasa : null,
+        motivo: d._veredicto ? d._veredicto.motivo : 'sin evaluar',
+        url: d.url
+      });
+    }
+    return out;
+  }
+
   MPF.diagnostico = {
     aplicarFiltros,
     pasada,
+    buscar: buscarEnLeidas,
+    titulos: () => Array.from(cache.values()).map((d) => d.titulo),
     cuantasEnCache: () => cache.size,
     motivos: () => Array.from(motivos.entries())
       .sort((a, b) => b[1].n - a[1].n)
@@ -422,6 +446,9 @@
       },
       alAbrirCatalogo() {
         try { chrome.runtime.sendMessage({ tipo: 'abrirCatalogo' }); } catch (e) {}
+      },
+      alBuscarEnLeidas(texto) {
+        return buscarEnLeidas(texto);
       },
       alGuardarBusqueda() {
         try {
