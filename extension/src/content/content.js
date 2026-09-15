@@ -23,6 +23,15 @@
   let temporizadorIndex = null;
   let urlPrevia = location.href;
 
+  /* El content script se inyecta en todo facebook.com, no solo en /marketplace.
+     Tiene que ser asi: Marketplace se abre navegando por dentro del sitio (sin
+     recargar), y Chrome no reinyecta nada en esas navegaciones. Si el script
+     solo se activara en /marketplace, entrando desde el inicio de Facebook el
+     panel no aparecia nunca. Entonces se inyecta siempre y decide aca si actua. */
+  function enMarketplace() {
+    return /^\/marketplace(\/|$)/.test(location.pathname);
+  }
+
   // --- busqueda actual, para saber en que contexto aparecio cada aviso ---
   function busquedaDeLaUrl() {
     try {
@@ -194,6 +203,15 @@
         urlPrevia = location.href;
         cache.clear();
       }
+
+      // Fuera de Marketplace la extension no toca nada de la pagina.
+      if (!enMarketplace()) {
+        if (ui) ui.mostrar(false);
+        return;
+      }
+      if (!ui) { montarPanel(); return; }   // recien entraste a Marketplace
+      ui.mostrar(true);
+
       const nuevas = leerNuevas();
       /* aplicarFiltros() es lo que completa precio, moneda y provincia sobre
          cada tarjeta, asi que tiene que correr ANTES de encolar para guardar;
@@ -261,7 +279,10 @@
     try { chrome.storage.local.set({ config }); } catch (e) {}
   }
 
-  function arrancar() {
+  /* El panel se crea la primera vez que entras a Marketplace, no antes: no
+     tiene sentido dibujarlo mientras mirás el muro. */
+  function montarPanel() {
+    if (ui) return;
     ui = MPF.panel.crear({
       alCambiar(nueva) {
         config = Object.assign({}, config, nueva);
@@ -306,10 +327,15 @@
       ui.escribirConfig(config);
       pasada();
     }
+  }
 
+  function arrancar() {
     new MutationObserver(pasada).observe(document.body, { childList: true, subtree: true });
     window.addEventListener('beforeunload', vaciarColaDeIndexado);
-    setInterval(pasada, 2500);  // red de seguridad por si el observer se pierde algo
+    /* Ademas del observer, se vigila la URL: Marketplace cambia de busqueda sin
+       recargar y hay que darse cuenta igual. */
+    setInterval(pasada, 2500);
+    pasada();
   }
 
   if (document.readyState === 'loading') {

@@ -45,8 +45,10 @@ const EJEMPLO = [
   });
 
   // --- panel sobre la replica de Marketplace ---
+  const { srv: srvFix, base: baseFix } = await servir(__dirname,
+    { '/marketplace/search': 'fixture-marketplace.html' });
   const p1 = await navegador.newPage({ viewport: { width: 1180, height: 760 } });
-  await p1.goto('file://' + path.join(__dirname, 'fixture-marketplace.html'));
+  await p1.goto(baseFix + '/marketplace/search/?query=audi%20a5');
   await p1.evaluate((config) => {
     window.chrome = {
       storage: { local: { get: (k, cb) => cb({ config }), set: () => {} } },
@@ -100,5 +102,6 @@ const EJEMPLO = [
 
   await navegador.close();
   srv.close();
+  srvFix.close();
   console.log('capturas listas en ' + salida);
 })();

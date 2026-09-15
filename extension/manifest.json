@@ -11,7 +11,8 @@
     "tabs"
   ],
   "host_permissions": [
-    "https://www.facebook.com/*"
+    "https://www.facebook.com/*",
+    "https://web.facebook.com/*"
   ],
   "background": {
     "service_worker": "src/background/background.js",
@@ -28,8 +29,8 @@
   "content_scripts": [
     {
       "matches": [
-        "https://www.facebook.com/marketplace/*",
-        "https://web.facebook.com/marketplace/*"
+        "https://www.facebook.com/*",
+        "https://web.facebook.com/*"
       ],
       "js": [
         "src/lib/normalize.js",

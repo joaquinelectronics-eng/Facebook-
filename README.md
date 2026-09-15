@@ -39,6 +39,11 @@ Es el procedimiento normal de Chrome y lleva un minuto.
    (la que tiene el archivo `manifest.json`).
 7. Listo. Entrá a Facebook Marketplace y vas a ver el panel arriba a la derecha.
 
+El panel aparece **solo dentro de Marketplace**. En el resto de Facebook la
+extensión no hace absolutamente nada, aunque tenga permiso para el sitio: ese
+permiso es necesario porque Marketplace se abre navegando por dentro de
+Facebook, sin recargar la página, y de otro modo el panel nunca se activaría.
+
 > Si usás **Edge**, es igual pero en `edge://extensions`.
 
 ## Cómo se usa
@@ -231,7 +236,7 @@ Si algún día no detecta las tarjetas:
 
 ```bash
 npm install
-npm test          # 66 pruebas de lógica y agenda + 47 de navegador real
+npm test          # 66 pruebas de lógica y agenda + 56 de navegador real
 ```
 
 Las pruebas levantan Chromium contra una réplica del DOM de Marketplace y

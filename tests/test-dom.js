@@ -5,6 +5,7 @@
 const { chromium } = require('playwright');
 const path = require('path');
 const assert = require('assert');
+const { servir } = require('./servidor');
 
 const RAIZ = path.join(__dirname, '..');
 const archivo = (p) => path.join(RAIZ, 'extension', p);
@@ -33,7 +34,10 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117'];
   const errores = [];
   pagina.on('pageerror', (e) => errores.push(String(e)));
 
-  await pagina.goto('file://' + path.join(__dirname, 'fixture-marketplace.html'));
+  /* El fixture se sirve bajo /marketplace/search porque el content script se
+     activa segun la ruta, igual que en Facebook. */
+  const { srv, base } = await servir(__dirname, { '/marketplace/search': 'fixture-marketplace.html' });
+  await pagina.goto(base + '/marketplace/search/?query=audi%20a5');
 
   // Stub de la API de extensiones: en una pagina normal chrome.* no existe.
   await pagina.evaluate((config) => {
@@ -210,7 +214,29 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117'];
   prueba('una localidad desconocida NO se descarta', () =>
     assert.ok(visibles.includes('117')));
 
+  console.log('\nActivacion segun la URL');
+  const fuera = await navegador.newPage();
+  await fuera.goto(base + '/otra-cosa.html').catch(() => {});
+  await fuera.evaluate(() => {
+    window.chrome = { storage: { local: { get: (k, cb) => cb({}), set: () => {} } },
+      runtime: { lastError: undefined, getURL: (p) => p,
+                 onMessage: { addListener: () => {} }, sendMessage: (m, cb) => cb && cb({ ok: true }) } };
+  });
+  for (const f of ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js', 'src/lib/zonas.js',
+                   'src/content/scraper.js', 'src/content/panel.js',
+                   'src/content/autoscroll.js', 'src/content/content.js']) {
+    await fuera.addScriptTag({ path: archivo(f) }).catch(() => {});
+  }
+  await fuera.waitForTimeout(600);
+  const panelFuera = await fuera.evaluate(() => {
+    const h = document.getElementById('mpf-host');
+    return !h || h.style.display === 'none';
+  });
+  prueba('fuera de Marketplace no dibuja el panel', () => assert.ok(panelFuera));
+  await fuera.close();
+
   await navegador.close();
+  srv.close();
 
   if (fallas) { console.error('\n' + fallas + ' pruebas de DOM fallaron\n'); process.exit(1); }
   console.log('\nTodas las pruebas de DOM pasaron\n');

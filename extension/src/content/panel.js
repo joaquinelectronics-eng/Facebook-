@@ -307,7 +307,9 @@
       borrarAviso = setTimeout(() => { el.avisoBusq.textContent = ''; }, 4000);
     }
 
-    return { leerConfig, escribirConfig, marcador, estado, avisoBusqueda };
+    function mostrar(visible) { host.style.display = visible ? '' : 'none'; }
+
+    return { leerConfig, escribirConfig, marcador, estado, avisoBusqueda, mostrar };
   }
 
   MPF.panel = { crear };

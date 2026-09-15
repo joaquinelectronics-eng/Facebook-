@@ -14,11 +14,15 @@ const TIPOS = {
   '.json': 'application/json'
 };
 
-function servir(raiz) {
+/* alias permite servir un archivo bajo una ruta inventada. Se usa para montar
+   el fixture en /marketplace/search, que es donde la extension espera estar:
+   el content script se activa segun la URL. */
+function servir(raiz, alias) {
   return new Promise((resolver) => {
     const srv = http.createServer((req, resp) => {
       const rel = decodeURIComponent(String(req.url).split('?')[0]);
-      const destino = path.join(raiz, rel);
+      const mapeado = alias && Object.keys(alias).find((k) => rel === k || rel === k + '/');
+      const destino = mapeado ? path.resolve(raiz, alias[mapeado]) : path.join(raiz, rel);
       if (!destino.startsWith(raiz)) { resp.writeHead(403); return resp.end(); }
       fs.readFile(destino, (err, datos) => {
         if (err) { resp.writeHead(404); return resp.end('no encontrado'); }
