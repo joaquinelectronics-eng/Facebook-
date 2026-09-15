@@ -236,6 +236,28 @@ madrugada, es un patrón que ninguna persona tiene. Por eso:
 La elección es tuya y la extensión no te la bloquea. Pero si me preguntás,
 **3 corridas por día alcanzan**: el catálogo crece igual y sos invisible.
 
+## Si sentís que faltan resultados
+
+Abrí **Por qué se ocultaron** en el panel. Te muestra el desglose completo de
+los descartes, ordenado por cantidad y con ejemplos de título:
+
+```
+falta: a5              1840   ← el título no dice el modelo
+fuera de zona: Cordoba  210   ← está fuera de las provincias marcadas
+sin precio              180   ← el aviso no tiene precio y hay rango puesto
+caro fuera de rango     129   ← se pasa del máximo
+```
+
+Con eso sabés en un vistazo si el problema es tu filtro o es Facebook:
+
+- **Casi todo en `falta: <modelo>`** → Facebook te está mandando otros autos.
+  Es lo normal: la mayoría de lo que carga son "resultados relacionados".
+- **Mucho en `fuera de zona`** → ampliá las provincias, o revisá si Facebook te
+  está trayendo de más lejos de lo que pensás.
+- **Mucho en `sin precio`** → tildá *Mostrar también los sin precio*.
+- **Pocos descartes y pocos resultados** → Facebook no te mandó nada; el
+  problema es el radio de búsqueda, no el filtro.
+
 ## El catálogo: de dónde salen las joyitas
 
 Este es el corazón del asunto.

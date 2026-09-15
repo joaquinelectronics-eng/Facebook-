@@ -90,6 +90,12 @@
   .provincias input { width: auto; }
   .provincias .destacada { color: #e9edf2; font-weight: 600; }
   .zonaPie { padding: 0 10px 8px; }
+  .motivos { padding: 2px 10px 9px; display: grid; gap: 7px; max-height: 210px; overflow-y: auto; }
+  .motivo { font-size: 11.5px; }
+  .motivo .cab { display: flex; justify-content: space-between; gap: 8px; color: #e9edf2; }
+  .motivo .cab b { color: #ffb74d; font-variant-numeric: tabular-nums; }
+  .motivo ul { margin: 3px 0 0; padding-left: 14px; color: #79828f; font-size: 10.5px; }
+  .motivo li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .botoncito { background: none; border: none; color: #7fa8ff; font-size: 11px;
                padding: 0; width: auto; cursor: pointer; text-decoration: underline; }
   `;
@@ -169,6 +175,11 @@
       <label class="check"><input type="checkbox" id="sinPrecio"> Mostrar tambien los sin precio</label>
       <label class="check"><input type="checkbox" id="indexar" checked> Guardar todo en mi catalogo</label>
 
+      <details id="detMotivos">
+        <summary id="resMotivos">Por que se ocultaron</summary>
+        <div class="motivos" id="motivos"></div>
+      </details>
+
       <div class="sep"></div>
 
       <div class="marcador">
@@ -214,7 +225,8 @@
       cuerpo: $('cuerpo'), plegar: $('plegar'), barra: $('barra'), caja: shadow.querySelector('.caja'),
       provincias: $('provincias'), resZona: $('resZona'), zonaDesc: $('zonaDesc'),
       zonaLimpiar: $('zonaLimpiar'), guardarBusq: $('guardarBusq'), avisoBusq: $('avisoBusq'),
-      costo: $('costo'), frenar: $('frenar')
+      costo: $('costo'), frenar: $('frenar'),
+      motivos: $('motivos'), resMotivos: $('resMotivos'), detMotivos: $('detMotivos')
     };
 
     /* Lista de provincias. Las cuatro de la zona habitual van primero para no
@@ -360,7 +372,51 @@
       el.costo.style.color = ms > 120 ? '#ffb74d' : '';
     }
 
-    return { leerConfig, escribirConfig, marcador, estado, avisoBusqueda, mostrar, costo };
+    /* El desglose de descartes. Si faltan resultados, aca se ve de una si los
+       tiro el filtro de titulo, el de precio, el de zona, o si directamente
+       Facebook no los mando. */
+    function pintarMotivos(mapa, totalOcultos) {
+      el.resMotivos.textContent = totalOcultos
+        ? 'Por que se ocultaron ' + totalOcultos
+        : 'Por que se ocultaron';
+      if (!el.detMotivos.open) return;   // no se dibuja si esta plegado
+
+      el.motivos.textContent = '';
+      const orden = Array.from(mapa.entries()).sort((a, b) => b[1].n - a[1].n).slice(0, 8);
+      for (const [motivo, datos] of orden) {
+        const caja = document.createElement('div');
+        caja.className = 'motivo';
+        const cab = document.createElement('div');
+        cab.className = 'cab';
+        const nom = document.createElement('span');
+        nom.textContent = motivo;
+        const num = document.createElement('b');
+        num.textContent = datos.n;
+        cab.appendChild(nom);
+        cab.appendChild(num);
+        caja.appendChild(cab);
+
+        const lista = document.createElement('ul');
+        for (const ej of datos.ejemplos) {
+          const li = document.createElement('li');
+          li.textContent = ej;          // titulo ajeno: siempre como texto
+          li.title = ej;
+          lista.appendChild(li);
+        }
+        caja.appendChild(lista);
+        el.motivos.appendChild(caja);
+      }
+    }
+
+    let ultimoMapa = new Map(), ultimoTotal = 0;
+    function motivos(mapa, totalOcultos) {
+      ultimoMapa = mapa;
+      ultimoTotal = totalOcultos;
+      pintarMotivos(mapa, totalOcultos);
+    }
+    el.detMotivos.addEventListener('toggle', () => pintarMotivos(ultimoMapa, ultimoTotal));
+
+    return { leerConfig, escribirConfig, marcador, estado, avisoBusqueda, mostrar, costo, motivos };
   }
 
   MPF.panel = { crear };

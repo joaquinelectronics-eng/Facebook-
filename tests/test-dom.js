@@ -288,6 +288,43 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119'];
     document.querySelectorAll('a[href*="/marketplace/item/"]:not([data-mpf-id])').length);
   prueba('no quedan tarjetas sin leer', () => assert.strictEqual(huerfanas, 0));
 
+  console.log('\nDesglose de por que se descarto cada tarjeta');
+  const desglose = await pagina.evaluate(() => window.MPF.diagnostico.motivos());
+  const porMotivo = Object.fromEntries(desglose.map((d) => [d.motivo, d.n]));
+
+  prueba('cuenta los descartes por falta del modelo', () =>
+    assert.ok(porMotivo['falta: a5'] >= 3, JSON.stringify(porMotivo)));
+  prueba('cuenta los descartes por zona', () =>
+    assert.strictEqual((porMotivo['fuera de zona: Cordoba'] || 0) +
+                       (porMotivo['fuera de zona: Mendoza'] || 0), 2));
+  prueba('cuenta los descartes por precio', () =>
+    assert.ok((porMotivo['barato fuera de rango'] || 0) >= 2, JSON.stringify(porMotivo)));
+  prueba('todo lo descartado suma lo que no coincide', () => {
+    const suma = desglose.reduce((a, d) => a + d.n, 0);
+    assert.strictEqual(suma, 19 - ESPERADOS.length);
+  });
+  prueba('guarda ejemplos de titulo para poder mirarlos', () => {
+    const faltaA5 = desglose.find((d) => d.motivo === 'falta: a5');
+    assert.ok(faltaA5.ejemplos.length > 0);
+    assert.ok(faltaA5.ejemplos.every((t) => typeof t === 'string' && t.length > 0));
+  });
+  prueba('el desglose se ordena por cantidad', () => {
+    for (let i = 1; i < desglose.length; i++) {
+      assert.ok(desglose[i - 1].n >= desglose[i].n);
+    }
+  });
+
+  const enPanel = await pagina.evaluate(() => {
+    const sh = document.getElementById('mpf-host').shadowRoot;
+    sh.getElementById('detMotivos').open = true;
+    window.MPF.diagnostico.aplicarFiltros(true);
+    return { titulo: sh.getElementById('resMotivos').textContent,
+             filas: sh.querySelectorAll('.motivo').length };
+  });
+  prueba('el panel muestra cuantas se ocultaron', () =>
+    assert.match(enPanel.titulo, new RegExp(String(19 - ESPERADOS.length))));
+  prueba('el panel lista los motivos', () => assert.ok(enPanel.filas >= 3));
+
   console.log('\nBoton de detener');
 
   function panel(fn) { return pagina.evaluate(fn); }

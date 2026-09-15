@@ -37,6 +37,10 @@
   let versionConfig = 0;
   let versionPintada = -1;
   let contVistos = 0, contOk = 0;
+  /* Cuenta por que se descarto cada tarjeta, con ejemplos. Es la unica forma
+     de saber si faltan resultados por culpa del filtro o porque Facebook no
+     los mando: sin esto hay que adivinar. */
+  let motivos = new Map();
   let ultimoCostoMs = 0;
 
   /* El content script se inyecta en todo facebook.com, no solo en /marketplace.
@@ -172,6 +176,7 @@
     if (desdeCero) {
       contVistos = 0;
       contOk = 0;
+      motivos = new Map();
       versionPintada = versionConfig;
     }
 
@@ -202,7 +207,14 @@
       }
 
       contVistos++;
-      if (veredicto.pasa) contOk++;
+      if (veredicto.pasa) {
+        contOk++;
+      } else {
+        let m = motivos.get(veredicto.motivo);
+        if (!m) { m = { n: 0, ejemplos: [] }; motivos.set(veredicto.motivo, m); }
+        m.n++;
+        if (m.ejemplos.length < 3) m.ejemplos.push(datos.titulo);
+      }
       aplicarVisibilidad(link, datos, veredicto);
       link.setAttribute('data-mpf-v', versionConfig);
     }
@@ -211,6 +223,7 @@
     if (ui) {
       ui.marcador(contVistos, contOk);
       ui.costo(ultimoCostoMs, contVistos);
+      ui.motivos(motivos, contVistos - contOk);
     }
     return { vistos: contVistos, ok: contOk, ms: ultimoCostoMs };
   }
@@ -317,6 +330,9 @@
     aplicarFiltros,
     pasada,
     cuantasEnCache: () => cache.size,
+    motivos: () => Array.from(motivos.entries())
+      .sort((a, b) => b[1].n - a[1].n)
+      .map(([motivo, m]) => ({ motivo, n: m.n, ejemplos: m.ejemplos })),
     ultimoCostoMs: () => ultimoCostoMs,
     config: () => config
   };
