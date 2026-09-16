@@ -65,18 +65,38 @@
     for (const hijo of caja.children) {
       const etiqueta = hijo.tagName.toLowerCase();
       const alt = hijo.getAttribute && hijo.getAttribute('alt');
+      const aria = hijo.getAttribute && hijo.getAttribute('aria-label');
+      const tit = hijo.getAttribute && hijo.getAttribute('title');
       const propio = Array.from(hijo.childNodes)
         .filter((n) => n.nodeType === 3 && (n.nodeValue || '').trim())
         .map((n) => n.nodeValue.trim()).join(' ');
       let linea = sangria + etiqueta;
       if (alt) linea += ' alt=' + JSON.stringify(alt.slice(0, 120));
+      if (aria) linea += ' aria-label=' + JSON.stringify(aria.slice(0, 160));
+      if (tit) linea += ' title=' + JSON.stringify(tit.slice(0, 120));
       if (propio) linea += ' "' + propio.slice(0, 120) + '"';
       lineas.push(linea);
-      if (hijo.children.length && (nivel || 0) < 7) {
+      if (hijo.children.length && (nivel || 0) < 14) {
         lineas.push(estructuraDe(hijo, (nivel || 0) + 1));
       }
     }
     return lineas.filter(Boolean).join('\n');
+  }
+
+  /* Facebook pone el titulo completo en el aria-label del enlace (el texto que
+     leen los lectores de pantalla) y ademas lo dibuja en la tarjeta. Pero el
+     texto visible lo dibuja recien cuando la tarjeta esta por entrar en
+     pantalla: hasta entonces la tarjeta solo tiene el precio y la zona, y el
+     titulo parece no existir. El aria-label, en cambio, esta siempre.
+
+     Suele venir con el precio y la zona adentro, asi que se limpian. */
+  function tituloDesdeEtiqueta(texto) {
+    let t = String(texto || '').trim();
+    if (!t) return '';
+    t = t.replace(new RegExp(RE_PRECIO_CAPTURA.source, 'gi'), ' ');
+    t = t.replace(/\s{2,}/g, ' ');
+    t = t.replace(/^[\s,;:.\u00b7\u2022|-]+|[\s,;:.\u00b7\u2022|-]+$/g, '');
+    return t.trim();
   }
 
   /* Facebook arma el alt de la foto como "Titulo en Ciudad, Provincia".
@@ -228,6 +248,11 @@
     const img = caja.querySelector('img[alt]');
     const altImagen = img ? (img.getAttribute('alt') || '').trim() : '';
 
+    /* La etiqueta de accesibilidad del enlace es la fuente mas confiable de
+       todas: esta aunque la tarjeta todavia no se haya dibujado. */
+    const etiquetaLink = tituloDesdeEtiqueta(
+      link.getAttribute('aria-label') || link.getAttribute('title') || '');
+
     let lineaPrecio = '';
     let lineaPrecioExtra = '';
     const candidatosTitulo = [];
@@ -247,16 +272,23 @@
       else candidatosTitulo.push(linea);
     }
 
-    /* El alt de la foto es la fuente mas confiable del titulo: viene completo,
-       sin recortar, aunque el texto de la tarjeta este partido en pedazos. */
+    /* Orden de confianza para el titulo: la etiqueta del enlace, despues el
+       alt de la foto, y por ultimo el texto de la tarjeta. */
+    const delEtiqueta = partirTituloYZona(etiquetaLink);
     const delAlt = partirTituloYZona(altImagen);
     let titulo = '';
-    let zonaDelAlt = delAlt.zona;
+    let zonaDelAlt = delEtiqueta.zona || delAlt.zona;
+
+    if (delEtiqueta.titulo && !esLineaDePrecio(delEtiqueta.titulo) &&
+        !pareceZonaSuelta(delEtiqueta.titulo) && !RE_RUIDO.test(delEtiqueta.titulo)) {
+      titulo = delEtiqueta.titulo;
+    }
 
     /* Ojo: a veces el alt trae SOLO la zona ("en Villa Gobernador Udaondo,
        BA"). Eso no es un titulo, y tomarlo como tal hacia que la publicacion
        se descartara por no contener el modelo. */
-    if (delAlt.titulo && !esLineaDePrecio(delAlt.titulo) && !pareceZonaSuelta(delAlt.titulo)) {
+    if (!titulo && delAlt.titulo && !esLineaDePrecio(delAlt.titulo) &&
+        !pareceZonaSuelta(delAlt.titulo) && !RE_RUIDO.test(delAlt.titulo)) {
       titulo = delAlt.titulo;
     } else if (pareceZonaSuelta(altImagen) && !zonaDelAlt) {
       zonaDelAlt = altImagen.replace(/^en\s+/i, '').trim();
@@ -278,6 +310,15 @@
         const limpia = limpiarUbicacion(linea.replace(/^en\s+/i, ''));
         if (limpia && limpia.length <= 70) { ubicacion = limpia; break; }
       }
+    }
+
+    /* La etiqueta de accesibilidad suele terminar con la zona separada por
+       coma ("Audi A5 Coupe 2012, Lanus Este, BA"). Si el titulo termina justo
+       con la zona que detectamos, se la saca. */
+    if (ubicacion && titulo) {
+      const sinZona = titulo.replace(
+        new RegExp('[\\s,;:\u00b7\u2022|-]+' + MPF.escaparRegex(ubicacion) + '$', 'i'), '');
+      if (sinZona.trim().length >= 3) titulo = sinZona.trim();
     }
 
     /* De los montos que trae la tarjeta, el primero es el precio actual. Si hay
@@ -368,6 +409,7 @@
   }
 
   MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio, preciosEn, lineasDe,
+                  tituloDesdeEtiqueta,
                   estructuraDe, esBloqueDeTexto,
                   MAX_REINTENTOS, convieneReintentar,
                   partirTituloYZona, pareceZonaSuelta,

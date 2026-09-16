@@ -58,7 +58,13 @@ const items = [
   /* Facebook le pega etiquetas a la tarjeta ("Recien publicado", "Cerca").
      Si no se filtran, terminan usandose como titulo. */
   {id:'124', t:'Audi A5 2016 quattro', p:'US$ 23.000', m:'Usado · Vicente Lopez, BA',
-   etiqueta: 'Recién publicado', sinFoto: true}
+   etiqueta: 'Recién publicado', sinFoto: true},
+  /* El caso mas comun de todos: Facebook todavia no dibujo el titulo, asi que
+     la tarjeta solo tiene precio y zona. El titulo esta unicamente en el
+     aria-label del enlace, que es lo que leen los lectores de pantalla. */
+  {id:'125', t:'', sinFoto: true, soloPrecioYZona: true,
+   aria: 'Audi A5 Coupe 2012 2.0tfsi, $18.000, Lanús Este, BA',
+   p:'US$ 18.000', m:'Usado · Lanús Este, BA'}
 ];
 /* ?n=3000 repite los avisos hasta llegar a esa cantidad, para medir como se
    comporta la extension con una busqueda larga de verdad. */
@@ -76,7 +82,8 @@ for (const it of lista) {
   celda.className = 'x9f619 x1n2onr6 x1ja2u2z';
   celda.innerHTML =
     '<div class="x1lliihq"><div class="x78zum5">' +
-      '<a href="/marketplace/item/' + it.id + '/?ref=search&referral_code=null" class="x1i10hfl">' +
+      '<a href="/marketplace/item/' + it.id + '/?ref=search&referral_code=null" class="x1i10hfl"' +
+        (it.aria ? ' aria-label="' + it.aria + '"' : '') + '>' +
         '<div class="xt7dq6l">' +
           // Facebook arma el alt como "Titulo en Ciudad, Provincia".
           (it.sinFoto ? '' :
@@ -86,7 +93,9 @@ for (const it of lista) {
           '<div class="xjbqb8w"><span>' + it.p + '</span>' +
             (it.p2 ? '<span style="text-decoration:line-through;color:#888"> ' + it.p2 + '</span>' : '') +
           '</div>' +
-          (it.soloZona
+          (it.soloPrecioYZona
+            ? '<div class="x1lliihq"><span>' + it.m.split('\u00b7').pop().trim() + '</span></div>'
+            : it.soloZona
             ? '<div class="x1lliihq"><span>' + it.soloZona + '</span></div>'
             : it.partido
             ? '<div class="x1lliihq"><span><span>' + it.t + '</span>' +

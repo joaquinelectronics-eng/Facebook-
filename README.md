@@ -236,12 +236,23 @@ madrugada, es un patrón que ninguna persona tiene. Por eso:
 La elección es tuya y la extensión no te la bloquea. Pero si me preguntás,
 **3 corridas por día alcanzan**: el catálogo crece igual y sos invisible.
 
-## Las tarjetas que todavía no se pueden leer
+## De dónde sale el título
 
-Facebook dibuja cada tarjeta por partes: el título puede aparecer unos segundos
-después que el precio y la zona. Si una tarjeta llega sin título, la extensión
-**la vuelve a mirar hasta seis veces** antes de resignarse, en vez de darla por
-perdida en el primer intento.
+Facebook dibuja el título visible de una tarjeta **recién cuando está por
+entrar en pantalla**. Hasta entonces la tarjeta solo tiene el precio y la zona:
+el título no está en ninguna parte del texto. Con miles de resultados cargados,
+eso es la mayoría de las tarjetas.
+
+Por eso el título se busca en tres lugares, en este orden:
+
+1. **El `aria-label` del enlace** — el texto que leen los lectores de pantalla.
+   Está siempre, dibujada o no la tarjeta. Es la fuente principal.
+2. **El `alt` de la foto**, que viene como `Título en Ciudad, Provincia`.
+3. **El texto de la tarjeta**, cuando ya se dibujó.
+
+Si una tarjeta igual llega sin título, la extensión **la vuelve a mirar hasta
+seis veces** antes de resignarse, en vez de darla por perdida en el primer
+intento.
 
 Las que aun así no se puedan leer aparecen en el desglose como *"no se pudo
 leer el título"*, con su cuenta. **Si ese número es alto, hay un botón para
