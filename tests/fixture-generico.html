@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Marketplace sin atributos conocidos</title>
+<style>body{margin:0;font-family:sans-serif}.fila{display:flex}.t{padding:4px}</style></head>
+<body>
+<!-- A proposito NO hay ni un atributo de Facebook: ni MContainer, ni
+     ServerTextArea, ni MScreen, ni enlaces con /item/. Solo divs, spans e
+     imagenes, y las publicaciones de a dos por fila como en el telefono.
+     Si la extension lee esto, es que no depende de como Facebook llame a sus
+     componentes: el dia que les cambie el nombre, sigue andando. -->
+<div id="raiz"></div>
+<script>
+const items = [
+  {p:'$9.500.000',  t:'Vendo barata cupe audi a5 2012', z:'Pilar, BA'},
+  {p:'$1.000',      t:'2008 audi A5 Cupe',              z:'Gualeguaychú, ER', extra:'100 mil km'},
+  {p:'$13.800',     t:'Audi A1 Sportback Único',        z:'Ciudad de Buenos Aires, CF'},
+  {p:'$19.500',     t:'Audi A5 Sportback 2.0t',         z:'Lanús Este, BA'},
+  {p:'$22.000',     p2:'$26.500', t:'Audi a5 quattro 3.2 At', z:'Quilmes, BA'},
+  {p:'$24.000',     t:'Audi A5 Coupe 2013',             z:'Villa Carlos Paz'}
+];
+const PIX = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+const raiz = document.getElementById('raiz');
+for (let i = 0; i < items.length; i += 2) {
+  const fila = document.createElement('div');
+  fila.className = 'fila';
+  for (const it of items.slice(i, i + 2)) {
+    const caja = document.createElement('div');
+    /* El precio partido en dos pedacitos, como lo manda Facebook de verdad:
+       el simbolo por un lado y el numero por otro. */
+    const partes = it.p.match(/^(\D+)(.+)$/);
+    caja.innerHTML =
+      '<div><img src="' + PIX + '"></div>' +
+      '<div class="t"><span>' + partes[1] + '</span><span>' + partes[2] + '</span></div>' +
+      (it.p2 ? '<div class="t"><s>' + it.p2 + '</s></div>' : '') +
+      '<div class="t">' + it.t + '</div>' +
+      (it.extra ? '<div class="t">' + it.extra + '</div>' : '') +
+      '<div class="t">' + it.z + '</div>';
+    fila.appendChild(caja);
+  }
+  raiz.appendChild(fila);
+}
+</script>
+</body></html>

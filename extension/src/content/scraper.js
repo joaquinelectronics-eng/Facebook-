@@ -50,10 +50,17 @@
     return 'm' + h.toString(36);
   }
 
+  /* Los textos de una tarjeta. Facebook los envuelve en ServerTextArea, pero no
+     siempre: hay pantallas donde ese componente no aparece. Cuando no esta se
+     agrupan igual que en la version de escritorio, mirando la forma del arbol y
+     ningun atributo. */
   function lineasMovil(caja) {
-    return Array.from(caja.querySelectorAll(SELECTOR_TEXTO_MOVIL))
+    const propias = Array.from(caja.querySelectorAll(SELECTOR_TEXTO_MOVIL))
       .map((e) => (e.textContent || '').trim())
       .filter(Boolean);
+    if (propias.length >= 2) return propias;
+    const genericas = lineasDe(caja);
+    return genericas.length >= propias.length ? genericas : propias;
   }
 
   /* No todo contenedor enfocable es una tarjeta: tambien lo son los botones de
@@ -61,6 +68,18 @@
   function esTarjetaMovil(el) {
     const lineas = lineasMovil(el);
     return lineas.length >= 2 && lineas.some(esLineaDePrecio);
+  }
+
+  /* Tres maneras de juntar las tarjetas, de la mas barata a la mas general. No
+     se elige por la direccion ni por si "parece movil": se prueba la primera y,
+     si no da nada, se pasa a la siguiente. Asi da igual como venga la pagina. */
+  function elementosTarjeta() {
+    const porEnlace = Array.from(document.querySelectorAll(SELECTOR_ITEM));
+    if (porEnlace.length) return porEnlace;
+    const porAtributo = Array.from(document.querySelectorAll(SELECTOR_MOVIL))
+      .filter(esTarjetaMovil);
+    if (porAtributo.length) return porAtributo;
+    return tarjetasPorPrecio();
   }
 
   /* SEGUNDA MANERA DE ENCONTRAR TARJETAS, sin depender de los atributos.
@@ -91,9 +110,9 @@
     for (let nivel = 0; n && nivel < 10; nivel++, n = n.parentElement) {
       if (n === document.body || n === document.documentElement) break;
       if (n.querySelectorAll(SELECTOR_FOTO).length > 1) break;
-      const dentro = n.querySelectorAll(SELECTOR_TEXTO_MOVIL);
-      if (dentro.length > TOPE_TEXTOS_TARJETA) break;
-      if (dentro.length < 2) continue;              // todavia falta el titulo
+      const cuantos = lineasMovil(n).length;
+      if (cuantos > TOPE_TEXTOS_TARJETA) break;
+      if (cuantos < 2) continue;                    // todavia falta el titulo
       elegida = n;   // sirve, pero se sigue subiendo por si la zona quedo afuera
     }
     return elegida;
@@ -102,12 +121,47 @@
   /* Las tarjetas ya reconocidas quedan marcadas, asi que cada pasada solo
      trabaja sobre los precios nuevos. Sin esto habria que volver a subir por
      cada precio de la pantalla en cada pasada. */
+  /* De donde salen los precios, sin pedirle nada a Facebook. Un precio es
+     texto, asi que se buscan los nodos de texto con signo de moneda. Se pide el
+     signo y NO el numero porque Facebook manda el precio partido en pedazos
+     -"$" por un lado y "19.500" por otro-, y pidiendo las dos cosas juntas no
+     se encontraba ninguno. El numero se confirma despues, mirando el texto del
+     elemento y el del padre, que es donde el precio vuelve a estar entero. */
+  const RE_ANCLA_PRECIO = /(?:u\$s|us\$|usd|ars|\$)/i;
+
+  function anclasDePrecio() {
+    const salida = [];
+    /* Se recorren elementos ademas de textos para poder saltear de una las
+       publicaciones ya reconocidas: rechazar su elemento saltea todo lo que
+       tiene adentro. Sin eso habria que volver a leer la pagina entera en cada
+       pasada, y con miles de resultados eso se siente en el scroll. */
+    const paso = document.createTreeWalker(
+      document.body, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT, {
+        acceptNode: (n) => {
+          if (n.nodeType === 1) {
+            return n.hasAttribute(MARCA_TARJETA)
+              ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_SKIP;
+          }
+          return n.nodeValue && RE_ANCLA_PRECIO.test(n.nodeValue)
+            ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+        }
+      });
+    for (let n = paso.nextNode(); n; n = paso.nextNode()) {
+      const e = n.parentElement;
+      if (!e) continue;
+      /* El precio puede venir partido en varios pedacitos, asi que se mira
+         tambien el texto del elemento y el del padre antes de descartarlo. */
+      const textos = [String(n.nodeValue).trim(), (e.textContent || '').trim()];
+      if (e.parentElement) textos.push((e.parentElement.textContent || '').trim());
+      if (textos.some(esLineaDePrecio)) salida.push(e);
+    }
+    return salida;
+  }
+
   function tarjetasPorPrecio() {
     const yaEstaban = Array.from(document.querySelectorAll('[' + MARCA_TARJETA + ']'));
-    for (const t of document.querySelectorAll(SELECTOR_TEXTO_MOVIL)) {
-      if (t.closest('[' + MARCA_TARJETA + ']')) continue;
-      if (!esLineaDePrecio((t.textContent || '').trim())) continue;
-      const caja = cajaDesdePrecio(t);
+    for (const e of anclasDePrecio()) {
+      const caja = cajaDesdePrecio(e);
       if (!caja || caja.hasAttribute(MARCA_TARJETA)) continue;
       caja.setAttribute(MARCA_TARJETA, '1');
       yaEstaban.push(caja);
@@ -115,25 +169,16 @@
     return yaEstaban;
   }
 
-  /* Cual de las dos maneras sirve depende de la pantalla, no de la sesion: se
-     decide una vez y se rehace sola si deja de dar resultados. */
-  let modoMovil = null;
-
-  function tarjetasMovil() {
-    if (modoMovil !== 'precio') {
-      const porAtributo = Array.from(document.querySelectorAll(SELECTOR_MOVIL))
-        .filter(esTarjetaMovil);
-      if (porAtributo.length) { modoMovil = 'atributos'; return porAtributo; }
-    }
-    const porPrecio = tarjetasPorPrecio();
-    modoMovil = porPrecio.length ? 'precio' : null;
-    return porPrecio;
-  }
-
   /* La version movil es una aplicacion que NO cambia la direccion al entrar a
      Marketplace: la URL se queda en facebook.com. Por eso no se puede saber
      por la ruta si estamos viendo publicaciones; hay que mirar si en la
-     pantalla hay tarjetas de verdad. */
+     pantalla hay publicaciones de verdad. */
+  function tarjetasMovil() {
+    const porAtributo = Array.from(document.querySelectorAll(SELECTOR_MOVIL))
+      .filter(esTarjetaMovil);
+    return porAtributo.length ? porAtributo : tarjetasPorPrecio();
+  }
+
   function hayTarjetasMovil() {
     return tarjetasMovil().length > 0;
   }
@@ -305,7 +350,11 @@
   const cajaDe = new WeakMap();
 
   function contenedorTarjeta(link) {
-    if (esVersionMovil()) return link;   // la tarjeta ya es el contenedor
+    /* Si la tarjeta no es un enlace, ya ES el contenedor: la encontramos
+       subiendo hasta la caja de la publicacion, no hay nada mas que buscar.
+       Antes esto se preguntaba con esVersionMovil(), y donde ese atributo no
+       estaba se terminaba escondiendo la fila entera en vez de la tarjeta. */
+    if (link.tagName !== 'A') return link;
     const recordado = cajaDe.get(link);
     if (recordado && recordado.isConnected) return recordado;
 
@@ -470,7 +519,9 @@
   }
 
   function extraerDeTarjeta(link) {
-    if (esVersionMovil()) {
+    /* La lectura de escritorio necesita el enlace con el id adentro. Si la
+       tarjeta no es un enlace, es de las otras, venga de donde venga. */
+    if (link.tagName !== 'A') {
       return esTarjetaMovil(link) ? extraerDeTarjetaMovil(link) : null;
     }
 
@@ -632,14 +683,6 @@
     return n < MAX_REINTENTOS;
   }
 
-  /* Una sola puerta de entrada: en movil las tarjetas no se pueden pedir con
-     un selector -hay pantallas donde hay que deducirlas-, asi que el resto del
-     codigo pregunta por aca y no por querySelectorAll. */
-  function elementosTarjeta() {
-    if (esVersionMovil()) return tarjetasMovil();
-    return Array.from(document.querySelectorAll(SELECTOR_ITEM));
-  }
-
   function leerNuevas() {
     const encontradas = [];
     const links = elementosTarjeta().filter((e) => !e.hasAttribute('data-mpf-leido'));
@@ -670,7 +713,7 @@
   MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio, preciosEn, lineasDe,
                   esVersionMovil, selectorItem, SELECTOR_MOVIL, lineasMovil,
                   hayTarjetasMovil, esTarjetaMovil, tarjetasMovil,
-                  tarjetasPorPrecio, cajaDesdePrecio, elementosTarjeta,
+                  tarjetasPorPrecio, cajaDesdePrecio, elementosTarjeta, anclasDePrecio,
                   textoCompletoDe,
                   tituloDesdeEtiqueta,
                   estructuraDe, esBloqueDeTexto,

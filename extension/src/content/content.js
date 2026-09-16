@@ -53,11 +53,16 @@
      recargar), y Chrome no reinyecta nada en esas navegaciones. Si el script
      solo se activara en /marketplace, entrando desde el inicio de Facebook el
      panel no aparecia nunca. Entonces se inyecta siempre y decide aca si actua. */
+  const MINIMO_PARA_ACTIVARSE = 3;
+
   function enMarketplace() {
     if (/(^|\/)marketplace(\/|$)/.test(location.pathname)) return true;
     /* La version movil no cambia la direccion al entrar a Marketplace: se queda
-       en facebook.com. Ahi hay que darse cuenta por lo que hay en pantalla. */
-    return MPF.scraper.esVersionMovil() && MPF.scraper.hayTarjetasMovil();
+       en facebook.com. Ahi hay que darse cuenta por lo que hay en pantalla, y
+       sin pedir que la pagina "parezca movil": eso tambien era adivinar.
+       Se piden varias publicaciones y no una para no confundir el inicio de
+       Facebook, donde puede colarse algun aviso suelto con precio y foto. */
+    return MPF.scraper.elementosTarjeta().length >= MINIMO_PARA_ACTIVARSE;
   }
 
   // --- busqueda actual, para saber en que contexto aparecio cada aviso ---
