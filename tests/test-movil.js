@@ -159,6 +159,69 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
   prueba('sin errores de javascript en la otra pagina', () =>
     assert.deepStrictEqual(erroresOtra, []));
 
+  /* La pantalla de busqueda arma las tarjetas de otra forma y el selector por
+     atributos no engancha nada: el panel aparecia leyendo cero publicaciones.
+     Aca se simula justamente eso, sacandole a las tarjetas los atributos en
+     los que se apoyaba el selector. */
+  console.log('\nPantalla donde el selector por atributos no engancha');
+  const rara = await navegador.newPage({ viewport: { width: 393, height: 852 } });
+  const erroresRara = [];
+  rara.on('pageerror', (e) => erroresRara.push(String(e)));
+  await rara.goto(base + '/');
+  await rara.evaluate(() => {
+    for (const e of document.querySelectorAll('[data-action-id]')) {
+      e.removeAttribute('data-action-id');
+      e.removeAttribute('tabindex');
+    }
+  });
+  await rara.evaluate((config) => {
+    window.chrome = {
+      storage: { local: { get: (k, cb) => cb({ config }), set: () => {} } },
+      runtime: { lastError: undefined, getURL: (p) => p,
+                 onMessage: { addListener: () => {} },
+                 sendMessage: (m, cb) => cb && cb(m && m.tipo === 'titulosConocidos'
+                   ? { ok: true, titulos: {} } : { ok: true, total: 0 }) }
+    };
+  }, CONFIG);
+  for (const f of ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js', 'src/lib/zonas.js',
+                   'src/content/scraper.js', 'src/content/panel.js',
+                   'src/content/autoscroll.js', 'src/content/content.js']) {
+    await rara.addScriptTag({ path: archivo(f) });
+  }
+  await rara.waitForTimeout(1500);
+
+  const sinSelector = await rara.evaluate(() =>
+    document.querySelectorAll(window.MPF.scraper.SELECTOR_MOVIL).length);
+  prueba('el selector por atributos no encuentra nada', () =>
+    assert.strictEqual(sinSelector, 0));
+
+  const cuantas = await rara.evaluate(() => window.MPF.scraper.cantidadEnPantalla());
+  prueba('igual cuenta las 6 publicaciones', () => assert.strictEqual(cuantas, 6));
+
+  const leidasRara = await rara.evaluate(() =>
+    window.MPF.scraper.leerTodas().map((d) => ({ t: d.titulo, p: d.precioTexto, z: d.ubicacion })));
+  prueba('y les saca titulo, precio y zona', () => {
+    const a = leidasRara.find((x) => x.t === 'Audi A5 Sportback 2.0t');
+    assert.ok(a, JSON.stringify(leidasRara));
+    assert.strictEqual(a.p, '$19.500');
+    assert.strictEqual(a.z, 'Lanús Este, BA');
+  });
+
+  const titulosRara = await rara.evaluate(() => {
+    const out = [];
+    for (const c of window.MPF.scraper.elementosTarjeta()) {
+      if (c.style.display === 'none') continue;
+      const t = window.MPF.scraper.lineasMovil(c);
+      if (t.length >= 2) out.push(t.find((x) => /audi/i.test(x)) || t[1]);
+    }
+    return out;
+  });
+  prueba('y filtra igual que siempre', () =>
+    assert.deepStrictEqual(titulosRara.sort(), ESPERADOS.slice().sort()));
+
+  prueba('sin errores de javascript en la pantalla rara', () =>
+    assert.deepStrictEqual(erroresRara, []));
+
   await navegador.close();
   srv.close();
   if (fallas) { console.error('\n' + fallas + ' pruebas de la version movil fallaron\n'); process.exit(1); }

@@ -210,7 +210,11 @@
   /* Lee las tarjetas que todavia no fueron procesadas y las agrega al cache. */
   function leerNuevas() {
     const nuevas = [];
-    for (const link of document.querySelectorAll(MPF.scraper.selectorItem() + ':not([data-mpf-id])')) {
+    /* Se pregunta por elementosTarjeta y no por un selector porque en la
+       pantalla de busqueda movil las tarjetas hay que deducirlas: no hay
+       ningun selector que las junte. */
+    for (const link of MPF.scraper.elementosTarjeta()) {
+      if (link.hasAttribute('data-mpf-id')) continue;
       const datos = MPF.scraper.extraerDeTarjeta(link);
       if (!datos) continue;              // todavia no se dibujo nada
       /* Sin titulo todavia: Facebook dibuja las tarjetas por partes, asi que se
@@ -241,11 +245,12 @@
       versionPintada = versionConfig;
     }
 
-    const selector = desdeCero
-      ? MPF.scraper.selectorItem()
-      : MPF.scraper.selectorItem() + ':not([data-mpf-v="' + versionConfig + '"])';
+    const todas = MPF.scraper.elementosTarjeta();
+    const aRevisar = desdeCero
+      ? todas
+      : todas.filter((e) => e.getAttribute('data-mpf-v') !== String(versionConfig));
 
-    for (const link of document.querySelectorAll(selector)) {
+    for (const link of aRevisar) {
       const id = link.getAttribute('data-mpf-id');
       let datos = id ? cache.get(id) : null;
 
@@ -371,7 +376,7 @@
     try {
       chrome.runtime.sendMessage({ tipo: 'stats' }, (resp) => {
         if (chrome.runtime.lastError || !resp || !ui) return;
-        const vistos = document.querySelectorAll(MPF.scraper.selectorItem()).length;
+        const vistos = MPF.scraper.cantidadEnPantalla();
         ui.marcador(vistos, undefined, resp.total);
       });
     } catch (e) {}
@@ -458,7 +463,7 @@
     const tope = cuantas || 2;
     /* Primero las que estan a la vista: si el usuario ve el titulo en pantalla
        y la extension no, esa tarjeta es la que hay que mirar. */
-    const links = Array.from(document.querySelectorAll(MPF.scraper.selectorItem()))
+    const links = MPF.scraper.elementosTarjeta()
       .sort((a, b) => (enPantalla(b) ? 1 : 0) - (enPantalla(a) ? 1 : 0));
     for (const link of links) {
       const id = link.getAttribute('data-mpf-id');

@@ -63,23 +63,79 @@
     return lineas.length >= 2 && lineas.some(esLineaDePrecio);
   }
 
+  /* SEGUNDA MANERA DE ENCONTRAR TARJETAS, sin depender de los atributos.
+
+     En la pantalla de recomendados la tarjeta es un contenedor enfocable con
+     accion propia y SELECTOR_MOVIL la encuentra. En la de busqueda no: ahi
+     Facebook arma la tarjeta de otra forma y el selector no engancha nada, asi
+     que el panel aparecia leyendo cero.
+
+     Adivinar el atributo de turno ya fallo dos veces. Esto no adivina: arranca
+     de algo que ninguna tarjeta puede no tener -el precio- y sube hasta la caja
+     mas grande que siga teniendo UN solo precio. Esa caja es la tarjeta: un
+     nivel mas arriba ya entra el precio de la de al lado. */
+  const MARCA_TARJETA = 'data-mpf-tar';
+  const TOPE_TEXTOS_TARJETA = 8;   // precio, titulo, km, zona y alguna chapita
+
+  /* Donde cortar al subir. El precio no sirve de limite: una publicacion con
+     rebaja tiene DOS -el de ahora y el tachado-, asi que cortar en "mas de un
+     precio" dejaba afuera justo las rebajas, que son las que mas le importan a
+     uno. La foto si sirve: una publicacion, una foto. Cuando aparece la
+     segunda, ya nos comimos la tarjeta de al lado. */
+  const SELECTOR_FOTO =
+    'img, [data-mcomponent="MImage"], [role="img"], [style*="background-image"]';
+
+  function cajaDesdePrecio(texto) {
+    let elegida = null;
+    let n = texto.parentElement;
+    for (let nivel = 0; n && nivel < 10; nivel++, n = n.parentElement) {
+      if (n === document.body || n === document.documentElement) break;
+      if (n.querySelectorAll(SELECTOR_FOTO).length > 1) break;
+      const dentro = n.querySelectorAll(SELECTOR_TEXTO_MOVIL);
+      if (dentro.length > TOPE_TEXTOS_TARJETA) break;
+      if (dentro.length < 2) continue;              // todavia falta el titulo
+      elegida = n;   // sirve, pero se sigue subiendo por si la zona quedo afuera
+    }
+    return elegida;
+  }
+
+  /* Las tarjetas ya reconocidas quedan marcadas, asi que cada pasada solo
+     trabaja sobre los precios nuevos. Sin esto habria que volver a subir por
+     cada precio de la pantalla en cada pasada. */
+  function tarjetasPorPrecio() {
+    const yaEstaban = Array.from(document.querySelectorAll('[' + MARCA_TARJETA + ']'));
+    for (const t of document.querySelectorAll(SELECTOR_TEXTO_MOVIL)) {
+      if (t.closest('[' + MARCA_TARJETA + ']')) continue;
+      if (!esLineaDePrecio((t.textContent || '').trim())) continue;
+      const caja = cajaDesdePrecio(t);
+      if (!caja || caja.hasAttribute(MARCA_TARJETA)) continue;
+      caja.setAttribute(MARCA_TARJETA, '1');
+      yaEstaban.push(caja);
+    }
+    return yaEstaban;
+  }
+
+  /* Cual de las dos maneras sirve depende de la pantalla, no de la sesion: se
+     decide una vez y se rehace sola si deja de dar resultados. */
+  let modoMovil = null;
+
+  function tarjetasMovil() {
+    if (modoMovil !== 'precio') {
+      const porAtributo = Array.from(document.querySelectorAll(SELECTOR_MOVIL))
+        .filter(esTarjetaMovil);
+      if (porAtributo.length) { modoMovil = 'atributos'; return porAtributo; }
+    }
+    const porPrecio = tarjetasPorPrecio();
+    modoMovil = porPrecio.length ? 'precio' : null;
+    return porPrecio;
+  }
+
   /* La version movil es una aplicacion que NO cambia la direccion al entrar a
      Marketplace: la URL se queda en facebook.com. Por eso no se puede saber
      por la ruta si estamos viendo publicaciones; hay que mirar si en la
-     pantalla hay tarjetas de verdad. Se revisan unas pocas, alcanza. */
+     pantalla hay tarjetas de verdad. */
   function hayTarjetasMovil() {
-    const candidatos = document.querySelectorAll(SELECTOR_MOVIL);
-    const tope = Math.min(candidatos.length, 60);
-    for (let i = 0; i < tope; i++) {
-      if (esTarjetaMovil(candidatos[i])) return true;
-    }
-    return false;
-  }
-
-  /* En movil solo cuentan las tarjetas de verdad: los botones de filtro y de
-     orden usan el mismo tipo de contenedor. */
-  function tarjetasMovil() {
-    return Array.from(document.querySelectorAll(SELECTOR_MOVIL)).filter(esTarjetaMovil);
+    return tarjetasMovil().length > 0;
   }
 
   /* Lee el texto de una tarjeta SIN usar innerText.
@@ -576,9 +632,17 @@
     return n < MAX_REINTENTOS;
   }
 
+  /* Una sola puerta de entrada: en movil las tarjetas no se pueden pedir con
+     un selector -hay pantallas donde hay que deducirlas-, asi que el resto del
+     codigo pregunta por aca y no por querySelectorAll. */
+  function elementosTarjeta() {
+    if (esVersionMovil()) return tarjetasMovil();
+    return Array.from(document.querySelectorAll(SELECTOR_ITEM));
+  }
+
   function leerNuevas() {
     const encontradas = [];
-    const links = document.querySelectorAll(selectorItem() + ':not([data-mpf-leido])');
+    const links = elementosTarjeta().filter((e) => !e.hasAttribute('data-mpf-leido'));
     for (const link of links) {
       const datos = extraerDeTarjeta(link);
       if (!datos) continue;                          // todavia no se dibujo nada
@@ -592,7 +656,7 @@
   /* Vuelve a listar TODAS las tarjetas presentes, esten visibles o escondidas. */
   function leerTodas() {
     const out = [];
-    for (const link of document.querySelectorAll(selectorItem())) {
+    for (const link of elementosTarjeta()) {
       const datos = extraerDeTarjeta(link);
       if (datos) out.push(datos);
     }
@@ -600,13 +664,13 @@
   }
 
   function cantidadEnPantalla() {
-    if (esVersionMovil()) return tarjetasMovil().length;
-    return document.querySelectorAll(selectorItem()).length;
+    return elementosTarjeta().length;
   }
 
   MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio, preciosEn, lineasDe,
                   esVersionMovil, selectorItem, SELECTOR_MOVIL, lineasMovil,
                   hayTarjetasMovil, esTarjetaMovil, tarjetasMovil,
+                  tarjetasPorPrecio, cajaDesdePrecio, elementosTarjeta,
                   textoCompletoDe,
                   tituloDesdeEtiqueta,
                   estructuraDe, esBloqueDeTexto,
