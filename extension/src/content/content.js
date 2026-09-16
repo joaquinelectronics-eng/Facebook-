@@ -54,7 +54,7 @@
      solo se activara en /marketplace, entrando desde el inicio de Facebook el
      panel no aparecia nunca. Entonces se inyecta siempre y decide aca si actua. */
   function enMarketplace() {
-    return /^\/marketplace(\/|$)/.test(location.pathname);
+    return /(^|\/)marketplace(\/|$)/.test(location.pathname);
   }
 
   // --- busqueda actual, para saber en que contexto aparecio cada aviso ---

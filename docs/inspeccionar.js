@@ -2,7 +2,7 @@
    resultados a la vista. No usa la extension: mira el DOM crudo y vuelca donde
    esta cada texto de las tarjetas que se ven en pantalla. */
 (() => {
-  const SEL = 'a[href*="/marketplace/item/"]';
+  const SEL = 'a[href*="/item/"]';
   const aLaVista = (el) => {
     const r = el.getBoundingClientRect();
     return r.top < innerHeight && r.bottom > 0 && r.width > 20;

@@ -12,7 +12,8 @@
   ],
   "host_permissions": [
     "https://www.facebook.com/*",
-    "https://web.facebook.com/*"
+    "https://web.facebook.com/*",
+    "https://m.facebook.com/*"
   ],
   "background": {
     "service_worker": "src/background/background.js",
@@ -30,7 +31,8 @@
     {
       "matches": [
         "https://www.facebook.com/*",
-        "https://web.facebook.com/*"
+        "https://web.facebook.com/*",
+        "https://m.facebook.com/*"
       ],
       "js": [
         "src/lib/normalize.js",

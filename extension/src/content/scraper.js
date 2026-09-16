@@ -11,7 +11,12 @@
   const MPF = (window.MPF = window.MPF || {});
   const normalizar = MPF.normalizar;
 
-  const SELECTOR_ITEM = 'a[href*="/marketplace/item/"]';
+  /* Vale para la version de escritorio y para la movil: "/marketplace/item/123"
+     tambien contiene "/item/". Tiene que ser UN solo selector, no dos separados
+     por coma: al agregarle despues un ":not(...)" para saltear lo ya procesado,
+     esa condicion se aplicaria solo a la ultima parte y todo se contaria dos
+     veces. Lo que no tenga un id numerico se descarta al leerlo. */
+  const SELECTOR_ITEM = 'a[href*="/item/"]';
 
   /* Lee el texto de una tarjeta SIN usar innerText.
 
@@ -157,7 +162,8 @@
   }
 
   function idDesdeUrl(href) {
-    const m = String(href).match(/\/marketplace\/item\/(\d+)/);
+    const h = String(href || '');
+    const m = h.match(/\/marketplace\/item\/(\d+)/) || h.match(/\/item\/(\d+)/);
     return m ? m[1] : null;
   }
 
