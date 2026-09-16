@@ -29,7 +29,8 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
       } }), set: () => {} } },
       runtime: { lastError: undefined, getURL: (p) => p,
                  onMessage: { addListener: () => {} },
-                 sendMessage: (m, cb) => cb && cb({ ok: true, total: 0 }) }
+                 sendMessage: (m, cb) => cb && cb(m && m.tipo === 'titulosConocidos'
+                   ? { ok: true, titulos: {} } : { ok: true, total: 0 }) }
     };
   });
   for (const f of ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js', 'src/lib/zonas.js',

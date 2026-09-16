@@ -35,6 +35,11 @@
      que version fueron evaluadas, asi una pasada sobre miles de resultados no
      vuelve a correr el matcher y el parseo de precios por cada una. */
   let versionConfig = 0;
+
+  /* Titulos que ya vimos alguna vez, por id de publicacion. Facebook manda
+     muchas tarjetas sin titulo en ninguna parte; si esa publicacion paso antes
+     por el catalogo, de ahi sale. Cuanto mas se usa, mas titulos se conocen. */
+  let titulosConocidos = Object.create(null);
   let versionPintada = -1;
   let contVistos = 0, contOk = 0;
   /* Cuenta por que se descarto cada tarjeta, con ejemplos. Es la unica forma
@@ -261,6 +266,7 @@
          era un esqueleto. Releerla cuesta centesimas de milisegundo. */
       if (desdeCero && datos.tituloDudoso) {
         const frescos = MPF.scraper.extraerDeTarjeta(link);
+        if (frescos) rescatarTitulo(frescos);
         if (frescos && !frescos.tituloDudoso) {
           cache.set(frescos.id, frescos);
           datos = frescos;
@@ -474,6 +480,10 @@
 
   MPF.diagnostico = {
     estructuraIlegible,
+    /* Vuelve a pedir los titulos guardados y reevalua todo. Util despues de
+       navegar un rato: cuantas mas publicaciones pasaron por el catalogo, mas
+       titulos se conocen de las que Facebook manda sin titulo. */
+    pedirTitulos: () => pedirTitulosConocidos(),
     aplicarFiltros,
     pasada,
     buscar: buscarEnLeidas,
@@ -541,6 +551,33 @@
     return true;
   });
 
+  /* Si la tarjeta llego sin titulo pero esa publicacion ya esta en el catalogo,
+     se usa el titulo guardado. Es la unica fuente posible cuando Facebook no
+     lo manda. */
+  function rescatarTitulo(datos) {
+    if (!datos || !datos.tituloDudoso) return;
+    const guardado = titulosConocidos[datos.id];
+    if (!guardado) return;
+    datos.titulo = guardado;
+    datos.tituloDelCatalogo = true;
+    datos.tituloDudoso = false;
+    datos.textoBusqueda = guardado + ' \u00b7 ' + (datos.textoBusqueda || '');
+  }
+
+  function pedirTitulosConocidos() {
+    try {
+      chrome.runtime.sendMessage({ tipo: 'titulosConocidos' }, (r) => {
+        if (chrome.runtime.lastError || !r || !r.ok) return;
+        titulosConocidos = r.titulos || Object.create(null);
+        // Solo vale reevaluar si efectivamente hay titulos guardados.
+        if (Object.keys(titulosConocidos).length) {
+          versionConfig++;
+          aplicarFiltros(true);
+        }
+      });
+    } catch (e) {}
+  }
+
   function guardarConfig() {
     try { chrome.storage.local.set({ config }); } catch (e) {}
   }
@@ -596,6 +633,7 @@
         ui.escribirConfig(config);
         pasada();
         pedirTotalCatalogo();
+        pedirTitulosConocidos();
       });
     } catch (e) {
       ui.escribirConfig(config);

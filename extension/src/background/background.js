@@ -119,6 +119,20 @@ async function listarTodo() {
   return comoPromesa((await transaccion('readonly')).getAll());
 }
 
+/* Solo los titulos, por id. Facebook manda algunas tarjetas sin titulo en
+   ninguna parte -ni en el texto, ni en el aria-label, ni en el alt-, asi que
+   la unica forma de saber que son es haberlas visto antes con titulo. El
+   catalogo guarda eso desde el primer dia. */
+async function titulosConocidos() {
+  const store = await transaccion('readonly');
+  const todos = await comoPromesa(store.getAll());
+  const mapa = {};
+  for (const it of todos) {
+    if (it && it.id && it.titulo) mapa[it.id] = it.titulo;
+  }
+  return mapa;
+}
+
 async function contar() {
   return comoPromesa((await transaccion('readonly')).count());
 }
@@ -349,6 +363,9 @@ chrome.runtime.onMessage.addListener((msg, remitente, responder) => {
           responder({ ok: true, total: r.total, nuevos: r.nuevos, bajadas: r.bajadas });
           break;
         }
+        case 'titulosConocidos':
+          responder({ ok: true, titulos: await titulosConocidos() });
+          break;
         case 'stats':
           responder({ ok: true, total: await contar() });
           break;

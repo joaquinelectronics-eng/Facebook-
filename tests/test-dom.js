@@ -52,6 +52,7 @@ const EN_ESPERA = ['122', '127'];
         onMessage: { addListener: () => {} },
         sendMessage: (msg, cb) => {
           if (msg && msg.tipo === 'guardar') window.__guardados.push(...(msg.items || []));
+          if (msg && msg.tipo === 'titulosConocidos') return cb && cb({ ok: true, titulos: {} });
           if (cb) cb({ ok: true, total: window.__guardados.length });
         }
       }
@@ -568,6 +569,39 @@ const EN_ESPERA = ['122', '127'];
       'siguio mostrandose con el dato viejo'));
   prueba('y se filtra con el titulo de verdad', () =>
     assert.match(String(despuesDeDibujar.motivo), /falta: audi/));
+
+  /* Facebook manda algunas tarjetas sin titulo en ninguna parte: ni texto, ni
+     aria-label, ni alt. La unica fuente posible es el catalogo, si esa
+     publicacion se vio antes con titulo. */
+  console.log('\nTitulos rescatados del catalogo');
+
+  const rescatado = await pagina.evaluate(async () => {
+    const sh = document.getElementById('mpf-host').shadowRoot;
+    // El catalogo devuelve el titulo de la 122, que en la pagina no lo tiene.
+    chrome.runtime.sendMessage = (msg, cb) => {
+      if (msg && msg.tipo === 'titulosConocidos') {
+        return cb && cb({ ok: true, titulos: { '122': 'Audi A5 Sportback 2018 quattro' } });
+      }
+      if (cb) cb({ ok: true, total: 0 });
+    };
+    window.MPF.diagnostico.pedirTitulos();
+    await new Promise((r) => setTimeout(r, 400));
+    const a = document.querySelector('a[href*="/marketplace/item/122/"]');
+    const d = window.MPF.scraper.extraerDeTarjeta(a);
+    return { enLaPagina: d.titulo, dudoso: d.tituloDudoso, sh: !!sh };
+  });
+  prueba('en la pagina esa publicacion no tiene titulo', () => {
+    assert.strictEqual(rescatado.enLaPagina, '');
+    assert.strictEqual(rescatado.dudoso, true);
+  });
+
+  const conCatalogo = await pagina.evaluate(() => {
+    const hallado = window.MPF.diagnostico.buscar('sportback 2018 quattro');
+    return hallado.map((h) => h.titulo);
+  });
+  prueba('con el catalogo, se recupera el titulo', () =>
+    assert.ok(conCatalogo.includes('Audi A5 Sportback 2018 quattro'),
+      JSON.stringify(conCatalogo)));
 
   console.log('\nActivacion segun la URL');
   const fuera = await navegador.newPage();

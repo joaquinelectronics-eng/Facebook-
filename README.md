@@ -252,6 +252,30 @@ tarjeta, la etiqueta de accesibilidad del enlace, el `alt` de la foto— y se
 busca ahí. El título aislado se usa solo para mostrarlo lindo en el catálogo:
 si sale mal, no cuesta nada.
 
+### El catálogo como fuente de títulos
+
+Facebook manda **algunas tarjetas sin título en ninguna parte**: ni en el texto,
+ni en el `aria-label`, ni en el `alt`. Se comprobó mirando el DOM crudo, sin la
+extensión de por medio:
+
+```
+aria-label: ", $14.500, Moreno, BA, publicación 2089972805056327"
+img alt:    " en Moreno, BA"
+textos:     "$14.500"  ·  "Moreno, BA"
+```
+
+El formato del `alt` es `Título en Zona` **con el título vacío**. No es que no
+se encuentre: no está. Esas publicaciones no se pueden filtrar por modelo.
+
+Pero hay una fuente más: **tu catálogo**. Si esa publicación pasó antes por tu
+pantalla con título, está guardada por ID. Así que cuando una tarjeta llega sin
+título, se busca el ID en el catálogo y se usa el que está guardado.
+
+Eso hace que la extensión **mejore con el uso**: cuantas más publicaciones
+pasaron por tu catálogo, menos tarjetas quedan sin identificar. Para refrescar
+los títulos conocidos en cualquier momento, desde la consola de la extensión:
+`MPF.diagnostico.pedirTitulos()`.
+
 ### Las tarjetas que Facebook todavía no dibujó
 
 Facebook dibuja el título de una tarjeta **cuando entra en pantalla**. Las que
@@ -396,6 +420,10 @@ extension/
       background.js   Base de datos local, corridas automáticas y notificaciones
     catalog/          La página del catálogo histórico
   icons/            El ícono de la extensión y de las notificaciones
+docs/
+  inspeccionar.js     Script para pegar en la consola de Chrome y ver dónde
+                      pone Facebook cada texto de las tarjetas. No usa la
+                      extensión: sirve para diagnosticar sin adivinar.
 tests/
   bench.js            Cuánto tarda la extensión con miles de resultados
   bench-progresivo.js Lo mismo pero con las tarjetas llegando de a poco,

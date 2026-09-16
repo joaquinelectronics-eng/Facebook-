@@ -54,7 +54,8 @@ const EJEMPLO = [
       storage: { local: { get: (k, cb) => cb({ config }), set: () => {} } },
       runtime: { lastError: undefined, getURL: (x) => x,
                  onMessage: { addListener: () => {} },
-                 sendMessage: (m, cb) => cb && cb({ ok: true, total: 428 }) }
+                 sendMessage: (m, cb) => cb && cb(m && m.tipo === 'titulosConocidos'
+                   ? { ok: true, titulos: {} } : { ok: true, total: 428 }) }
     };
   }, CONFIG);
   for (const f of ['src/lib/normalize.js','src/lib/price.js','src/lib/matcher.js', 'src/lib/zonas.js',
