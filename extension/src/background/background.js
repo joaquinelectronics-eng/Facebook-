@@ -460,5 +460,56 @@ chrome.alarms.onAlarm.addListener((alarma) => {
 });
 
 chrome.action.onClicked.addListener(abrirCatalogo);
-chrome.runtime.onStartup.addListener(() => programarProxima());
-chrome.runtime.onInstalled.addListener(() => programarProxima());
+/* ------------------------------------------------ version de celular
+
+   Los titulos de las publicaciones solo vienen completos en la version de
+   celular de Facebook. Hasta ahora habia que pedirla a mano: abrir las
+   herramientas del navegador, poner modo telefono y escribir m.facebook.com.
+   Eso no lo hace nadie todos los dias.
+
+   Con esta regla, a los pedidos que van a m.facebook.com se les cambia la
+   firma del navegador por la de un telefono, asi Facebook manda la version
+   buena. Se toca SOLO m.facebook.com: el Facebook de todos los dias, el de
+   www, queda exactamente igual que siempre. */
+const REGLA_CELULAR = 1;
+const FIRMA_TELEFONO =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 ' +
+  '(KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1';
+
+async function aplicarVersionCelular(encendido) {
+  if (!chrome.declarativeNetRequest) return;
+  const reglas = encendido ? [{
+    id: REGLA_CELULAR,
+    priority: 1,
+    action: {
+      type: 'modifyHeaders',
+      requestHeaders: [{ header: 'user-agent', operation: 'set', value: FIRMA_TELEFONO }]
+    },
+    condition: {
+      requestDomains: ['m.facebook.com'],
+      resourceTypes: ['main_frame', 'sub_frame', 'xmlhttprequest', 'script', 'other']
+    }
+  }] : [];
+  try {
+    await chrome.declarativeNetRequest.updateDynamicRules({
+      removeRuleIds: [REGLA_CELULAR],
+      addRules: reglas
+    });
+  } catch (e) { /* sin permiso o navegador viejo: se sigue sin esto */ }
+}
+
+async function sincronizarVersionCelular() {
+  const guardada = await chrome.storage.local.get('config');
+  const c = (guardada && guardada.config) || {};
+  await aplicarVersionCelular(c.versionCelular !== false);
+}
+
+/* La regla vive en el navegador, no en la pagina: si cambia el ajuste hay que
+   volver a escribirla. */
+chrome.storage.onChanged.addListener((cambios, area) => {
+  if (area === 'local' && cambios.config) sincronizarVersionCelular();
+});
+
+chrome.runtime.onStartup.addListener(() => { programarProxima(); sincronizarVersionCelular(); });
+chrome.runtime.onInstalled.addListener(() => { programarProxima(); sincronizarVersionCelular(); });
+sincronizarVersionCelular();

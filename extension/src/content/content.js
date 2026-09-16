@@ -23,10 +23,14 @@
     ocultar: true, sinPrecio: false, indexar: true,
     /* Por defecto encendido: entre ver una de mas y perder una buena, se ve
        una de mas. Se puede apagar desde el panel. */
-    rescatarCortados: true
+    rescatarCortados: true,
+    /* Ir solo a la version de celular al entrar a Marketplace. Es ahi donde
+       Facebook manda los titulos; en la de escritorio la mayoria vienen vacios. */
+    versionCelular: true
   };
 
   let config = Object.assign({}, CONFIG_POR_DEFECTO);
+  let configCargada = false;
   let filtro = MPF.matcher.compilar('');
   let ui = null;
   const cache = new Map();       // id -> datos de la tarjeta
@@ -57,6 +61,35 @@
      solo se activara en /marketplace, entrando desde el inicio de Facebook el
      panel no aparecia nunca. Entonces se inyecta siempre y decide aca si actua. */
   const MINIMO_PARA_ACTIVARSE = 3;
+
+  /* Los titulos solo vienen completos en la version de celular. Antes habia que
+     pedirla a mano cada vez -abrir las herramientas del navegador, modo
+     telefono, escribir m.facebook.com-, y eso no lo hace nadie todos los dias.
+     Aca se va sola al entrar a Marketplace; el resto de Facebook no se toca.
+
+     Se anota el intento: si Facebook devolviera a www igual, no se vuelve a
+     intentar enseguida y no queda rebotando de una direccion a la otra. */
+  const CLAVE_INTENTO = 'mpfIntentoCelular';
+
+  function irAVersionCelular() {
+    /* Recien cuando se leyo lo guardado. Si no, la primera pasada corre con los
+       valores de fabrica y te manda a la version de celular aunque la hayas
+       apagado: el ajuste llega un instante despues, cuando ya te fuiste. */
+    if (!configCargada) return false;
+    if (config.versionCelular === false) return false;
+    /* Solo dentro de Facebook. Sin esto, cualquier pagina con /marketplace en
+       la direccion se iria a facebook, incluidas las pruebas. */
+    if (!/(^|\.)facebook\.com$/.test(location.hostname)) return false;
+    if (location.hostname === 'm.facebook.com') return false;
+    if (!/(^|\/)marketplace(\/|$)/.test(location.pathname)) return false;
+    try {
+      const ultimo = Number(sessionStorage.getItem(CLAVE_INTENTO) || 0);
+      if (Date.now() - ultimo < 20000) return false;
+      sessionStorage.setItem(CLAVE_INTENTO, String(Date.now()));
+    } catch (e) { /* sin sessionStorage se intenta igual, una sola vez */ }
+    location.replace('https://m.facebook.com' + location.pathname + location.search);
+    return true;
+  }
 
   function enMarketplace() {
     if (/(^|\/)marketplace(\/|$)/.test(location.pathname)) return true;
@@ -472,6 +505,9 @@
          navegue, asi que no hay ninguna razon para tirarlo. */
       urlPrevia = location.href;
 
+      // Si corresponde ir a la version de celular, se va y no se hace nada mas.
+      if (irAVersionCelular()) return;
+
       // Fuera de Marketplace la extension no toca nada de la pagina.
       if (!enMarketplace()) {
         if (ui) ui.mostrar(false);
@@ -704,6 +740,7 @@
     try {
       chrome.storage.local.get('config', (guardada) => {
         config = Object.assign({}, CONFIG_POR_DEFECTO, (guardada && guardada.config) || {});
+        configCargada = true;
         filtro = MPF.matcher.compilar(config.consulta);
         versionConfig++;
         ui.escribirConfig(config);
@@ -712,6 +749,7 @@
         pedirTitulosConocidos();
       });
     } catch (e) {
+      configCargada = true;   // sin almacenamiento se sigue con lo de fabrica
       ui.escribirConfig(config);
       pasada();
     }

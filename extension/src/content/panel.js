@@ -187,6 +187,7 @@
       <label class="check"><input type="checkbox" id="ocultar" checked> Ocultar los que no coinciden</label>
       <label class="check"><input type="checkbox" id="sinPrecio"> Mostrar tambien los sin precio</label>
       <label class="check"><input type="checkbox" id="rescatarCortados"> Mostrar los de titulo cortado (no perder ninguno)</label>
+      <label class="check"><input type="checkbox" id="versionCelular"> Abrir Marketplace en la version de celular</label>
       <label class="check"><input type="checkbox" id="indexar" checked> Guardar todo en mi catalogo</label>
 
       <details id="detMotivos">
@@ -247,6 +248,7 @@
       velocidad: $('velocidad'), soloBajadas: $('soloBajadas'),
       pendientes: $('pendientes'),
       sinPrecio: $('sinPrecio'), rescatarCortados: $('rescatarCortados'),
+      versionCelular: $('versionCelular'),
       indexar: $('indexar'), barrer: $('barrer'),
       estado: $('estado'), catalogo: $('catalogo'), punto: $('punto'),
       mVistos: $('mVistos'), mOk: $('mOk'), mGuardados: $('mGuardados'),
@@ -312,7 +314,7 @@
     // --- eventos hacia el orquestador ---
     const campos = [el.consulta, el.pmin, el.pmax, el.moneda, el.cotizacion,
                     el.umbral, el.ocultar, el.sinPrecio, el.rescatarCortados,
-                    el.indexar, el.zonaDesc,
+                    el.versionCelular, el.indexar, el.zonaDesc,
                     el.velocidad, el.soloBajadas]
                     .concat(checksProv());
     for (const c of campos) {
@@ -348,6 +350,7 @@
         ocultar: el.ocultar.checked,
         sinPrecio: el.sinPrecio.checked,
         rescatarCortados: el.rescatarCortados.checked,
+        versionCelular: el.versionCelular.checked,
         indexar: el.indexar.checked
       };
     }
@@ -365,6 +368,7 @@
       el.ocultar.checked = c.ocultar !== false;
       el.sinPrecio.checked = !!c.sinPrecio;
       el.rescatarCortados.checked = c.rescatarCortados !== false;
+      el.versionCelular.checked = c.versionCelular !== false;
       el.indexar.checked = c.indexar !== false;
       const elegidas = Array.isArray(c.provincias) ? c.provincias : [];
       for (const chk of checksProv()) chk.checked = elegidas.indexOf(chk.value) >= 0;
