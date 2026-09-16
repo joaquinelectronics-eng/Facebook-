@@ -236,6 +236,16 @@ madrugada, es un patrón que ninguna persona tiene. Por eso:
 La elección es tuya y la extensión no te la bloquea. Pero si me preguntás,
 **3 corridas por día alcanzan**: el catálogo crece igual y sos invisible.
 
+## Una regla que no se negocia
+
+**Si la extensión no puede leer bien el título de una publicación, la muestra
+igual.** Nunca la esconde.
+
+Facebook arma las tarjetas de varias formas distintas y a veces manda una que
+no se entiende. Cuando eso pasa, el error tiene que ser mostrar un auto de más,
+nunca perder uno. Esas publicaciones aparecen en el desglose como *"título
+ilegible: se muestra por las dudas"*, así sabés que están y por qué.
+
 ## Si sentís que faltan resultados
 
 Abrí **Por qué se ocultaron** en el panel. Te muestra el desglose completo de
@@ -257,6 +267,18 @@ Con eso sabés en un vistazo si el problema es tu filtro o es Facebook:
 - **Mucho en `sin precio`** → tildá *Mostrar también los sin precio*.
 - **Pocos descartes y pocos resultados** → Facebook no te mandó nada; el
   problema es el radio de búsqueda, no el filtro.
+
+### Y si sospechás de una publicación concreta
+
+Arriba del desglose hay un buscador. Escribí parte del título o de la zona
+(`udaondo`, `coupe`, `multitronic`) y te contesta una de dos cosas:
+
+- **La lista con su precio, su zona y qué pasó con ella** → la publicación llegó
+  a la página. Si está oculta, el motivo te dice exactamente por qué.
+- **"No está en la página. Facebook no la mandó"** → no hay filtro que pueda
+  mostrarla; el problema está antes.
+
+Busca sobre todo lo leído, incluso lo que está escondido.
 
 ## El catálogo: de dónde salen las joyitas
 

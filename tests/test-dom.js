@@ -20,7 +20,7 @@ const CONFIG = {
 };
 
 // Lo que tiene que quedar visible con esa configuracion.
-const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120', '121'];
+const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120', '121', '122'];
 
 (async () => {
   const navegador = await chromium.launch({
@@ -76,10 +76,11 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
 
   const leidas = await pagina.evaluate(() => window.MPF.scraper.leerTodas().map((d) => ({
     id: d.id, titulo: d.titulo, precioTexto: d.precioTexto, ubicacion: d.ubicacion,
-    km: d.km, anio: d.anio, url: d.url, provincia: d.provincia
+    km: d.km, anio: d.anio, url: d.url, provincia: d.provincia,
+    precioAnteriorTexto: d.precioAnteriorTexto, tituloDudoso: d.tituloDudoso
   })));
 
-  prueba('encuentra las 21 publicaciones', () => assert.strictEqual(leidas.length, 21));
+  prueba('encuentra las 22 publicaciones', () => assert.strictEqual(leidas.length, 22));
   prueba('extrae el titulo completo', () => {
     const a = leidas.find((x) => x.id === '101');
     assert.strictEqual(a.titulo, 'Audi A5 2.0 TFSI Quattro 2018');
@@ -123,6 +124,12 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
       assert.ok(!/^en\s/i.test(d.titulo), 'titulo mal leido: ' + JSON.stringify(d.titulo));
     }
   });
+  prueba('una tarjeta que solo trae la zona NO se toma como titulo', () => {
+    const a = leidas.find((x) => x.id === '122');
+    assert.strictEqual(a.titulo, '');
+    assert.strictEqual(a.tituloDudoso, true);
+    assert.strictEqual(a.ubicacion, 'Villa Gobernador Udaondo, BA');
+  });
   prueba('ningun titulo se queda con la zona pegada', () => {
     for (const d of leidas) {
       assert.ok(!/\sen\s+[A-Z]\w+,\s*\w+$/.test(d.titulo),
@@ -140,6 +147,13 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     }
     return out;
   });
+
+  /* La regla mas importante de todas: si no se pudo leer el titulo, la
+     publicacion se muestra igual. Perder un auto por un error de lectura es
+     peor que mostrar uno de mas. */
+  prueba('lo que no se pudo leer se muestra igual, no se pierde', () =>
+    assert.ok(visibles.includes('122'),
+      'una publicacion con titulo ilegible quedo escondida'));
 
   prueba('deja exactamente las que corresponden', () =>
     assert.deepStrictEqual(visibles.sort(), ESPERADOS.slice().sort()));
@@ -280,7 +294,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
 
   const antes = await leerContadores();
   prueba('antes del cambio de URL cuenta todas las tarjetas', () =>
-    assert.strictEqual(antes.vistos, 21));
+    assert.strictEqual(antes.vistos, 22));
   prueba('antes del cambio de URL coinciden las esperadas', () =>
     assert.strictEqual(antes.ok, ESPERADOS.length));
 
@@ -292,7 +306,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
 
   const despues = await leerContadores();
   prueba('despues del cambio sigue contando todas', () =>
-    assert.strictEqual(despues.vistos, 21));
+    assert.strictEqual(despues.vistos, 22));
   prueba('despues del cambio el filtro sigue aplicado', () =>
     assert.strictEqual(despues.ok, ESPERADOS.length));
 
@@ -323,8 +337,16 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
   prueba('cuenta los descartes por precio', () =>
     assert.ok((porMotivo['barato fuera de rango'] || 0) >= 2, JSON.stringify(porMotivo)));
   prueba('todo lo descartado suma lo que no coincide', () => {
-    const suma = desglose.reduce((a, d) => a + d.n, 0);
-    assert.strictEqual(suma, 21 - ESPERADOS.length);
+    // El motivo "titulo ilegible" figura en el desglose pero NO es un descarte:
+    // esas publicaciones se muestran igual, por eso no entran en la suma.
+    const suma = desglose
+      .filter((d) => !/ilegible/.test(d.motivo))
+      .reduce((a, d) => a + d.n, 0);
+    assert.strictEqual(suma, 22 - ESPERADOS.length);
+  });
+  prueba('el titulo ilegible figura como aviso, no como descarte', () => {
+    const av = desglose.find((d) => /ilegible/.test(d.motivo));
+    assert.ok(av && av.n >= 1, JSON.stringify(desglose.map((d) => d.motivo)));
   });
   prueba('guarda ejemplos de titulo para poder mirarlos', () => {
     const faltaA5 = desglose.find((d) => d.motivo === 'falta: a5');
@@ -345,7 +367,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
              filas: sh.querySelectorAll('.motivo').length };
   });
   prueba('el panel muestra cuantas se ocultaron', () =>
-    assert.match(enPanel.titulo, new RegExp(String(21 - ESPERADOS.length))));
+    assert.match(enPanel.titulo, new RegExp(String(22 - ESPERADOS.length))));
   prueba('el panel lista los motivos', () => assert.ok(enPanel.filas >= 3));
 
   console.log('\nBuscador de diagnostico');

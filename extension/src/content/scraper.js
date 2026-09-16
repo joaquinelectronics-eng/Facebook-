@@ -9,6 +9,7 @@
    Todo lo demas se deduce por patrones (precio, kilometraje, anio). */
 (() => {
   const MPF = (window.MPF = window.MPF || {});
+  const normalizar = MPF.normalizar;
 
   const SELECTOR_ITEM = 'a[href*="/marketplace/item/"]';
 
@@ -205,8 +206,13 @@
     let titulo = '';
     let zonaDelAlt = delAlt.zona;
 
-    if (delAlt.titulo && !esLineaDePrecio(delAlt.titulo)) {
+    /* Ojo: a veces el alt trae SOLO la zona ("en Villa Gobernador Udaondo,
+       BA"). Eso no es un titulo, y tomarlo como tal hacia que la publicacion
+       se descartara por no contener el modelo. */
+    if (delAlt.titulo && !esLineaDePrecio(delAlt.titulo) && !pareceZonaSuelta(delAlt.titulo)) {
       titulo = delAlt.titulo;
+    } else if (pareceZonaSuelta(altImagen) && !zonaDelAlt) {
+      zonaDelAlt = altImagen.replace(/^en\s+/i, '').trim();
     }
     // Si no hubo alt, se usa el candidato mas descriptivo del texto.
     const mejorLinea = candidatosTitulo.reduce((a, b) => (b.length > a.length ? b : a), '');
@@ -243,9 +249,21 @@
 
     const mAnio = String(titulo).match(RE_ANIO);
 
+    /* Si no se pudo sacar un titulo de verdad, se dice. Quien filtre despues
+       tiene que saber que no puede confiar en este dato. */
+    const tituloDudoso = !titulo || pareceZonaSuelta(titulo) ||
+                         normalizar(titulo) === normalizar(ubicacion);
+
+    /* Una tarjeta sin NADA de texto todavia no termino de dibujarse: se
+       devuelve null para volver a leerla despues. Pero si trajo zona o precio,
+       aunque el titulo sea ilegible, ya es una publicacion de verdad y hay que
+       tenerla en cuenta. */
+    if (!titulo && !ubicacion && !lineaPrecio) return null;
+
     return {
       id,
-      titulo: titulo || altImagen || '',
+      titulo: tituloDudoso ? '' : titulo,
+      tituloDudoso,
       precioTexto,
       precioAnteriorTexto,
       ubicacion,
@@ -280,7 +298,7 @@
     const out = [];
     for (const link of document.querySelectorAll(SELECTOR_ITEM)) {
       const datos = extraerDeTarjeta(link);
-      if (datos && datos.titulo) out.push(datos);
+      if (datos) out.push(datos);
     }
     return out;
   }

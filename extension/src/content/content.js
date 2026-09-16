@@ -62,6 +62,14 @@
 
   // --- decision de si una tarjeta pasa el filtro ---
   function evaluar(datos) {
+    /* REGLA DE ORO: nunca esconder una publicacion cuyo titulo no se pudo
+       leer. Si Facebook manda la tarjeta de una forma que no entendemos, el
+       error tiene que ser mostrar de mas, no perder un auto. Aparece igual en
+       el desglose para que se vea que paso. */
+    if (datos.tituloDudoso) {
+      return { pasa: true, motivo: 'titulo ilegible: se muestra por las dudas', dudosa: true };
+    }
+
     if (!filtro.vacia) {
       const r = filtro.evaluar(datos.titulo);
       if (!r.coincide) return { pasa: false, motivo: r.motivo };
@@ -151,10 +159,8 @@
   function leerNuevas() {
     const nuevas = [];
     for (const link of document.querySelectorAll(MPF.scraper.SELECTOR_ITEM + ':not([data-mpf-id])')) {
-      const datos = MPF.scraper.extraerDeTarjeta
-        ? MPF.scraper.extraerDeTarjeta(link)
-        : null;
-      if (!datos || !datos.titulo) continue;  // todavia no renderizo, se reintenta
+      const datos = MPF.scraper.extraerDeTarjeta(link);
+      if (!datos) continue;   // todavia no se dibujo, se reintenta despues
       link.setAttribute('data-mpf-id', datos.id);
       cache.set(datos.id, datos);
       nuevas.push(datos);
@@ -193,7 +199,7 @@
          pasar por el filtro, que es justo lo que no queremos. */
       if (!datos) {
         datos = MPF.scraper.extraerDeTarjeta(link);
-        if (!datos || !datos.titulo) continue;
+        if (!datos) continue;
         link.setAttribute('data-mpf-id', datos.id);
         cache.set(datos.id, datos);
       }
@@ -209,6 +215,12 @@
       contVistos++;
       if (veredicto.pasa) {
         contOk++;
+        if (veredicto.dudosa) {
+          let d = motivos.get(veredicto.motivo);
+          if (!d) { d = { n: 0, ejemplos: [] }; motivos.set(veredicto.motivo, d); }
+          d.n++;
+          if (d.ejemplos.length < 3) d.ejemplos.push(datos.ubicacion || '(sin zona)');
+        }
       } else {
         let m = motivos.get(veredicto.motivo);
         if (!m) { m = { n: 0, ejemplos: [] }; motivos.set(veredicto.motivo, m); }
@@ -241,6 +253,7 @@
         precioAnterior: d.precioAnterior ?? null,
         precioAnteriorUSD: d.precioAnteriorUSD ?? null,
         ubicacion: d.ubicacion, provincia: d.provincia ?? null,
+        tituloDudoso: !!d.tituloDudoso,
         coincide: !!d.coincide,
         km: d.km, anio: d.anio, url: d.url, imagen: d.imagen, busqueda
       });

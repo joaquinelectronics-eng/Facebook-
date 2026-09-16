@@ -45,7 +45,11 @@ const items = [
      - foto sin cargar (no hay alt) y el texto partido en pedazos
      - foto cargada, pero el titulo del texto partido con la zona pegada */
   {id:'120', t:'Audi A5 Sportback 2.0t',        p:'US$ 25.000',   m:'Usado · Tigre, BA', sinFoto: true, partido: true},
-  {id:'121', t:'2017 Audi a5 2.0 t fsi quattro',p:'US$ 28.500',   m:'Usado · Nordelta, BA', partido: true}
+  {id:'121', t:'2017 Audi a5 2.0 t fsi quattro',p:'US$ 28.500',   m:'Usado · Nordelta, BA', partido: true},
+  /* El caso que aparecio en el uso real: Facebook manda la tarjeta con el alt
+     y el texto conteniendo SOLO la zona. El titulo no se puede leer, asi que
+     no se puede decidir: la publicacion tiene que mostrarse igual. */
+  {id:'122', t:'', soloZona: 'en Villa Gobernador Udaondo, BA', p:'US$ 17.500', m:'Usado · Villa Gobernador Udaondo, BA'}
 ];
 /* ?n=3000 repite los avisos hasta llegar a esa cantidad, para medir como se
    comporta la extension con una busqueda larga de verdad. */
@@ -67,12 +71,14 @@ for (const it of lista) {
         '<div class="xt7dq6l">' +
           // Facebook arma el alt como "Titulo en Ciudad, Provincia".
           (it.sinFoto ? '' :
-            '<img alt="' + it.t + ' en ' + it.m.split('\u00b7').pop().trim() +
+            '<img alt="' + (it.soloZona || (it.t + ' en ' + it.m.split('\u00b7').pop().trim())) +
             '" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">') +
           '<div class="xjbqb8w"><span>' + it.p + '</span>' +
             (it.p2 ? '<span style="text-decoration:line-through;color:#888"> ' + it.p2 + '</span>' : '') +
           '</div>' +
-          (it.partido
+          (it.soloZona
+            ? '<div class="x1lliihq"><span>' + it.soloZona + '</span></div>'
+            : it.partido
             ? '<div class="x1lliihq"><span><span>' + it.t + '</span>' +
               '<span> en ' + it.m.split('\u00b7').pop().trim() + '</span></span></div>'
             : '<div class="x1lliihq"><span>' + it.t + '</span></div>' +
