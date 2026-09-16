@@ -24,10 +24,12 @@
      De paso resuelve otra cosa: innerText devuelve vacio en un elemento
      escondido, asi que una tarjeta ya filtrada no se podia releer. Asi si. */
   function lineasDe(caja) {
+    /* Se agrupa por elemento hoja, no por nodo de texto suelto ni con
+       innerText. innerText seria lo mas fiel, pero obliga a recalcular el
+       layout de la pagina entera y con miles de resultados eso hace que todo
+       se arrastre. Agrupar por elemento da el mismo resultado sin tocar el
+       layout: cada span o div con texto propio es una linea. */
     const out = [];
-    /* Se agrupa por elemento, no por nodo suelto. Recorrer los nodos de texto
-       de a uno partia los titulos que Facebook arma con varios pedazos, y
-       despues el pedazo mas largo podia ser la zona en vez del titulo. */
     const paso = document.createTreeWalker(caja, NodeFilter.SHOW_ELEMENT);
     let el;
     while ((el = paso.nextNode())) {
@@ -35,7 +37,7 @@
       for (const hijo of el.children) {
         if ((hijo.textContent || '').trim()) { hijoConTexto = true; break; }
       }
-      if (hijoConTexto) continue;          // no es una hoja de texto
+      if (hijoConTexto) continue;
       const t = (el.textContent || '').trim();
       if (t) out.push(t);
     }
@@ -280,13 +282,26 @@
   /* Recorre el documento y devuelve las tarjetas que todavia no fueron leidas.
      Se marca cada link con un atributo propio para no reprocesar en cada
      mutacion del DOM (Marketplace dispara muchisimas). */
+  const MAX_REINTENTOS = 6;
+
+  /* Facebook dibuja las tarjetas por partes: el titulo puede aparecer unos
+     segundos despues que el precio y la zona. Darla por ilegible en el primer
+     intento es perder esa publicacion para siempre, asi que se vuelve a mirar
+     unas cuantas veces antes de resignarse. */
+  function convieneReintentar(link, datos) {
+    if (!datos || !datos.tituloDudoso) return false;
+    const n = Number(link.getAttribute('data-mpf-intentos') || 0) + 1;
+    link.setAttribute('data-mpf-intentos', String(n));
+    return n < MAX_REINTENTOS;
+  }
+
   function leerNuevas() {
     const encontradas = [];
     const links = document.querySelectorAll(SELECTOR_ITEM + ':not([data-mpf-leido])');
     for (const link of links) {
       const datos = extraerDeTarjeta(link);
-      // Sin titulo todavia: la tarjeta aun no termino de renderizar, se reintenta luego.
-      if (!datos || !datos.titulo) continue;
+      if (!datos) continue;                          // todavia no se dibujo nada
+      if (convieneReintentar(link, datos)) continue;  // sin titulo aun
       link.setAttribute('data-mpf-leido', '1');
       encontradas.push(datos);
     }
@@ -308,6 +323,7 @@
   }
 
   MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio, preciosEn, lineasDe,
+                  MAX_REINTENTOS, convieneReintentar,
                   partirTituloYZona, pareceZonaSuelta,
                   limpiarUbicacion, extraerKm, cantidadEnPantalla, contenedorTarjeta,
                   SELECTOR_ITEM };

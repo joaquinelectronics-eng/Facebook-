@@ -236,15 +236,17 @@ madrugada, es un patrón que ninguna persona tiene. Por eso:
 La elección es tuya y la extensión no te la bloquea. Pero si me preguntás,
 **3 corridas por día alcanzan**: el catálogo crece igual y sos invisible.
 
-## Una regla que no se negocia
+## Las tarjetas que todavía no se pueden leer
 
-**Si la extensión no puede leer bien el título de una publicación, la muestra
-igual.** Nunca la esconde.
+Facebook dibuja cada tarjeta por partes: el título puede aparecer unos segundos
+después que el precio y la zona. Si una tarjeta llega sin título, la extensión
+**la vuelve a mirar hasta seis veces** antes de resignarse, en vez de darla por
+perdida en el primer intento.
 
-Facebook arma las tarjetas de varias formas distintas y a veces manda una que
-no se entiende. Cuando eso pasa, el error tiene que ser mostrar un auto de más,
-nunca perder uno. Esas publicaciones aparecen en el desglose como *"título
-ilegible: se muestra por las dudas"*, así sabés que están y por qué.
+Las que aun así no se puedan leer aparecen en el desglose como *"no se pudo
+leer el título"*, con su cuenta. **Si ese número es alto, avisá**: significa que
+Facebook está mandando una forma de tarjeta que no entiendo, y eso se arregla
+en el código — no tapándolo.
 
 ## Si sentís que faltan resultados
 

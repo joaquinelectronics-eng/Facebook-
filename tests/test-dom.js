@@ -20,7 +20,7 @@ const CONFIG = {
 };
 
 // Lo que tiene que quedar visible con esa configuracion.
-const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120', '121', '122'];
+const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120', '121'];
 
 (async () => {
   const navegador = await chromium.launch({
@@ -148,13 +148,6 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     return out;
   });
 
-  /* La regla mas importante de todas: si no se pudo leer el titulo, la
-     publicacion se muestra igual. Perder un auto por un error de lectura es
-     peor que mostrar uno de mas. */
-  prueba('lo que no se pudo leer se muestra igual, no se pierde', () =>
-    assert.ok(visibles.includes('122'),
-      'una publicacion con titulo ilegible quedo escondida'));
-
   prueba('deja exactamente las que corresponden', () =>
     assert.deepStrictEqual(visibles.sort(), ESPERADOS.slice().sort()));
 
@@ -174,7 +167,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     '107': 'falta: audi',                '109': 'falta: a5',
     '110': 'excluido: permuto',          '113': 'barato fuera de rango',
     '112': 'sin precio',                 '115': 'fuera de zona: Cordoba',
-    '116': 'fuera de zona: Mendoza'
+    '116': 'fuera de zona: Mendoza',   '122': 'no se pudo leer el titulo'
   };
   for (const [id, esperado] of Object.entries(motivosEsperados)) {
     prueba('descarta ' + id + ' por "' + esperado + '"', () =>
@@ -339,13 +332,11 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
   prueba('todo lo descartado suma lo que no coincide', () => {
     // El motivo "titulo ilegible" figura en el desglose pero NO es un descarte:
     // esas publicaciones se muestran igual, por eso no entran en la suma.
-    const suma = desglose
-      .filter((d) => !/ilegible/.test(d.motivo))
-      .reduce((a, d) => a + d.n, 0);
+    const suma = desglose.reduce((a, d) => a + d.n, 0);
     assert.strictEqual(suma, 22 - ESPERADOS.length);
   });
-  prueba('el titulo ilegible figura como aviso, no como descarte', () => {
-    const av = desglose.find((d) => /ilegible/.test(d.motivo));
+  prueba('el titulo ilegible se cuenta aparte y se puede ver', () => {
+    const av = desglose.find((d) => /no se pudo leer/.test(d.motivo));
     assert.ok(av && av.n >= 1, JSON.stringify(desglose.map((d) => d.motivo)));
   });
   prueba('guarda ejemplos de titulo para poder mirarlos', () => {

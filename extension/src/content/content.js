@@ -62,12 +62,12 @@
 
   // --- decision de si una tarjeta pasa el filtro ---
   function evaluar(datos) {
-    /* REGLA DE ORO: nunca esconder una publicacion cuyo titulo no se pudo
-       leer. Si Facebook manda la tarjeta de una forma que no entendemos, el
-       error tiene que ser mostrar de mas, no perder un auto. Aparece igual en
-       el desglose para que se vea que paso. */
+    /* Una tarjeta cuyo titulo no se pudo leer no se puede evaluar. Se descarta,
+       pero queda contada aparte en el desglose: si ese numero crece, es que hay
+       una forma de tarjeta que no estamos entendiendo y hay que arreglarla, no
+       taparla mostrando todo. */
     if (datos.tituloDudoso) {
-      return { pasa: true, motivo: 'titulo ilegible: se muestra por las dudas', dudosa: true };
+      return { pasa: false, motivo: 'no se pudo leer el titulo' };
     }
 
     if (!filtro.vacia) {
@@ -160,7 +160,10 @@
     const nuevas = [];
     for (const link of document.querySelectorAll(MPF.scraper.SELECTOR_ITEM + ':not([data-mpf-id])')) {
       const datos = MPF.scraper.extraerDeTarjeta(link);
-      if (!datos) continue;   // todavia no se dibujo, se reintenta despues
+      if (!datos) continue;              // todavia no se dibujo nada
+      /* Sin titulo todavia: Facebook dibuja las tarjetas por partes, asi que se
+         vuelve a mirar unas cuantas veces antes de darla por ilegible. */
+      if (MPF.scraper.convieneReintentar(link, datos)) continue;
       link.setAttribute('data-mpf-id', datos.id);
       cache.set(datos.id, datos);
       nuevas.push(datos);
@@ -198,6 +201,8 @@
          vuelve a leer en vez de saltearla. Saltearla la dejaba visible sin
          pasar por el filtro, que es justo lo que no queremos. */
       if (!datos) {
+        /* Tarjeta marcada pero sin datos. Se relee, aunque implique un
+           recalculo de layout: es un caso raro y perderla seria peor. */
         datos = MPF.scraper.extraerDeTarjeta(link);
         if (!datos) continue;
         link.setAttribute('data-mpf-id', datos.id);
@@ -329,9 +334,14 @@
       if (!ui) { montarPanel(); return; }   // recien entraste a Marketplace
       ui.mostrar(true);
 
+      /* PRIMERO se lee todo lo nuevo, sin tocar un solo estilo. Leer el texto
+         de una tarjeta obliga al navegador a recalcular el layout, y si entre
+         lectura y lectura se cambia un display, ese recalculo se repite por
+         cada tarjeta. Leyendo todo de una, el navegador lo hace una sola vez. */
       const nuevas = leerNuevas();
-      /* aplicarFiltros() es lo que completa precio, moneda y provincia sobre
-         cada tarjeta, asi que tiene que correr ANTES de encolar para guardar;
+
+      /* RECIEN AHORA se decide y se toca el estilo. aplicarFiltros() completa
+         precio, moneda y provincia, asi que va antes de encolar para guardar:
          si no, el catalogo se llena de publicaciones sin precio. */
       aplicarFiltros();
       if (nuevas.length) encolarParaIndexar(nuevas);
