@@ -20,7 +20,9 @@ const CONFIG = {
 };
 
 // Lo que tiene que quedar visible con esa configuracion.
-const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120', '121', '122', '123', '124', '125', '127', '128'];
+const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119',
+                   '120', '121', '123', '124', '125', '128'];
+const EN_ESPERA = ['122', '127'];
 
 (async () => {
   const navegador = await chromium.launch({
@@ -188,9 +190,9 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     assert.ok(visibles.includes('128'),
       'se perdio una publicacion por como Facebook arma el titulo por dentro'));
 
-  prueba('sin titulo pero en rango y en zona: se muestra', () =>
+  prueba('sin titulo pero en rango y en zona: queda a la vista', () =>
     assert.ok(visibles.includes('127'),
-      'se perdio una publicacion que cumplia precio y zona'));
+      'se escondio una publicacion que Facebook todavia no dibujo'));
   prueba('sin titulo y fuera de rango: se descarta igual', () =>
     assert.ok(!visibles.includes('126'),
       'no se filtro por precio una publicacion sin titulo'));
@@ -200,7 +202,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
       'quedo escondida una publicacion cuyo titulo solo estaba en el aria-label'));
 
   prueba('deja exactamente las que corresponden', () =>
-    assert.deepStrictEqual(visibles.sort(), ESPERADOS.slice().sort()));
+    assert.deepStrictEqual(visibles.sort(), ESPERADOS.concat(EN_ESPERA).sort()));
 
   const motivos = await pagina.evaluate(() => {
     const out = {};
@@ -338,7 +340,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
 
   const antes = await leerContadores();
   prueba('antes del cambio de URL cuenta todas las tarjetas', () =>
-    assert.strictEqual(antes.vistos, 28));
+    assert.strictEqual(antes.vistos, 26));
   prueba('antes del cambio de URL coinciden las esperadas', () =>
     assert.strictEqual(antes.ok, ESPERADOS.length));
 
@@ -350,7 +352,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
 
   const despues = await leerContadores();
   prueba('despues del cambio sigue contando todas', () =>
-    assert.strictEqual(despues.vistos, 28));
+    assert.strictEqual(despues.vistos, 26));
   prueba('despues del cambio el filtro sigue aplicado', () =>
     assert.strictEqual(despues.ok, ESPERADOS.length));
 
@@ -363,7 +365,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     return out;
   });
   prueba('ninguna tarjeta queda sin filtrar tras el cambio de URL', () =>
-    assert.deepStrictEqual(visiblesDespues.sort(), ESPERADOS.slice().sort()));
+    assert.deepStrictEqual(visiblesDespues.sort(), ESPERADOS.concat(EN_ESPERA).sort()));
 
   const huerfanas = await pagina.evaluate(() =>
     document.querySelectorAll('a[href*="/marketplace/item/"]:not([data-mpf-id])').length);
@@ -385,13 +387,14 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     // esas publicaciones se muestran igual, por eso no entran en la suma.
     // Las "sin titulo todavia" figuran en el desglose pero se muestran, asi
     // que no son descartes y no entran en la suma.
+    // Las "esperando" figuran en el desglose pero no son descartes: se ven.
     const suma = desglose
-      .filter((d) => !/sin titulo todavia/.test(d.motivo))
+      .filter((d) => !/esperando/.test(d.motivo))
       .reduce((a, d) => a + d.n, 0);
-    assert.strictEqual(suma, 28 - ESPERADOS.length);
+    assert.strictEqual(suma, 26 - ESPERADOS.length);
   });
-  prueba('las no verificadas se cuentan aparte y se pueden ver', () => {
-    const av = desglose.find((d) => /sin titulo todavia/.test(d.motivo));
+  prueba('las que estan en espera se cuentan aparte y se pueden ver', () => {
+    const av = desglose.find((d) => /esperando/.test(d.motivo));
     assert.ok(av && av.n >= 1, JSON.stringify(desglose.map((d) => d.motivo)));
     assert.ok(av.ejemplos.length > 0);
   });
@@ -414,7 +417,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
              filas: sh.querySelectorAll('.motivo').length };
   });
   prueba('el panel muestra cuantas se ocultaron', () =>
-    assert.match(enPanel.titulo, new RegExp(String(28 - ESPERADOS.length))));
+    assert.match(enPanel.titulo, new RegExp(String(26 - ESPERADOS.length))));
   prueba('el panel lista los motivos', () => assert.ok(enPanel.filas >= 3));
 
   console.log('\nBuscador de diagnostico');
@@ -517,13 +520,30 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
      extension sigue creyendo que no existe. */
   console.log('\nTarjetas que Facebook dibuja despues');
 
+  /* La razon de fondo por la que no se esconden: display:none las saca del
+     flujo, entonces nunca entran en pantalla y Facebook nunca les dibuja el
+     titulo. Se esconderian para siempre. */
+  const comoSeEsconde = await pagina.evaluate(() => {
+    const a = document.querySelector('a[href*="/marketplace/item/127/"]');
+    const caja = window.MPF.scraper.contenedorTarjeta(a);
+    return { display: caja.style.display, opacity: caja.style.opacity,
+             enEspera: !!caja.dataset.mpfEspera };
+  });
+  prueba('la que espera NUNCA se saca del flujo con display:none', () =>
+    assert.notStrictEqual(comoSeEsconde.display, 'none',
+      'display:none impide que Facebook le dibuje el titulo'));
+  prueba('se atenua para no molestar', () => {
+    assert.ok(comoSeEsconde.enEspera);
+    assert.ok(Number(comoSeEsconde.opacity) < 0.2, comoSeEsconde.opacity);
+  });
+
   const antesDeDibujar = await pagina.evaluate(() => {
     const a = document.querySelector('a[href*="/marketplace/item/127/"]');
     const caja = window.MPF.scraper.contenedorTarjeta(a);
     return { visible: caja.style.display !== 'none',
              titulo: window.MPF.scraper.extraerDeTarjeta(a).titulo };
   });
-  prueba('llega sin titulo y se muestra por precio y zona', () => {
+  prueba('llega sin titulo y queda a la vista, atenuada', () => {
     assert.strictEqual(antesDeDibujar.titulo, '');
     assert.strictEqual(antesDeDibujar.visible, true);
   });

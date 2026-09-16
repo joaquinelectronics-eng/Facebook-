@@ -124,10 +124,14 @@
       return { pasa: false, motivo: 'no bajo de precio' };
     }
 
-    /* Una publicacion sin titulo pasa igual el resto de los filtros, pero se
-       marca: el usuario tiene que saber que el modelo no se pudo verificar. */
+    /* Las que Facebook todavia no dibujo pasan igual por precio y zona, pero
+       no se pueden verificar contra el modelo. Quedan "en espera": NO se
+       esconden con display:none, porque eso las saca del flujo y entonces
+       nunca entran en pantalla; y Facebook dibuja el titulo justamente cuando
+       entran. Esconderlas era morderse la cola: se quedaban sin titulo para
+       siempre. Se dejan en su lugar, casi transparentes. */
     const aprobada = () => sinTitulo && !filtro.vacia
-      ? { pasa: true, motivo: 'sin titulo todavia: filtrada solo por precio y zona', parcial: true }
+      ? { pasa: true, enEspera: true, motivo: 'esperando que Facebook dibuje el titulo' }
       : { pasa: true, motivo: '' };
 
     const hayRango = config.pmin != null || config.pmax != null;
@@ -154,6 +158,27 @@
   function aplicarVisibilidad(link, datos, veredicto) {
     const caja = MPF.scraper.contenedorTarjeta(link);
     if (!caja || caja === document.body) return;
+
+    /* En espera: visible para Facebook, invisible para el usuario. No se usa
+       display:none porque eso impide que Facebook la dibuje. */
+    if (veredicto.enEspera && config.ocultar) {
+      if (caja.dataset.mpfOculto) {
+        caja.style.display = caja.dataset.mpfDisplayPrevio || '';
+        delete caja.dataset.mpfOculto;
+        delete caja.dataset.mpfDisplayPrevio;
+      }
+      caja.style.opacity = '0.06';
+      caja.style.pointerEvents = 'none';
+      caja.dataset.mpfEspera = '1';
+      caja.setAttribute('data-mpf-motivo', veredicto.motivo);
+      return;
+    }
+    if (caja.dataset.mpfEspera) {
+      caja.style.opacity = '';
+      caja.style.pointerEvents = '';
+      delete caja.dataset.mpfEspera;
+    }
+
     if (veredicto.pasa || !config.ocultar) {
       if (caja.dataset.mpfOculto) {
         caja.style.display = caja.dataset.mpfDisplayPrevio || '';
@@ -252,7 +277,7 @@
       }
 
       contVistos++;
-      if (veredicto.pasa) {
+      if (veredicto.pasa && !veredicto.enEspera) {
         contOk++;
         if (veredicto.parcial) {
           let d = motivos.get(veredicto.motivo);
@@ -264,6 +289,7 @@
           }
         }
       } else {
+        if (veredicto.enEspera) contVistos--;   // todavia no se puede decidir
         let m = motivos.get(veredicto.motivo);
         if (!m) { m = { n: 0, ejemplos: [] }; motivos.set(veredicto.motivo, m); }
         m.n++;
@@ -276,8 +302,8 @@
     ultimoCostoMs = performance.now() - t0;
     if (ui) {
       ui.marcador(contVistos, contOk);
-      const parc = motivos.get('sin titulo todavia: filtrada solo por precio y zona');
-      ui.costo(ultimoCostoMs, contVistos, parc ? parc.n : 0);
+      const sinTit = motivos.get('esperando que Facebook dibuje el titulo');
+      ui.costo(ultimoCostoMs, contVistos, sinTit ? sinTit.n : 0);
       ui.motivos(motivos, contVistos - contOk);
     }
     return { vistos: contVistos, ok: contOk, ms: ultimoCostoMs };

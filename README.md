@@ -254,18 +254,23 @@ si sale mal, no cuesta nada.
 
 ### Las tarjetas que Facebook todavía no dibujó
 
-Las que no entraron nunca en pantalla llegan sin título en ninguna parte: ni en
-el texto ni en la etiqueta, que en esos casos viene vacía. Ahí no hay nada que
-buscar, así que **se filtran con lo que sí está**: el precio y la zona.
+Facebook dibuja el título de una tarjeta **cuando entra en pantalla**. Las que
+nunca entraron llegan sin título en ninguna parte: ni en el texto ni en la
+etiqueta, que en esos casos viene vacía.
 
-- Si el precio o la zona no dan → se descarta igual que cualquier otra.
-- Si dan → se muestra, contada aparte como *"sin título todavía"*.
+Esas tarjetas **no se esconden**, y la razón importa:
 
-**Esas tarjetas se vuelven a leer en cada revisión, para siempre.** Facebook las
-dibuja cuando quiere, a veces bastante después de que entraron en pantalla. Con
-un tope de intentos quedaban marcadas como ilegibles y nunca más se miraban:
-veías el título en pantalla y la extensión seguía con el dato viejo, de cuando
-la tarjeta era un esqueleto. Releerlas cuesta centésimas de milisegundo.
+> Esconderlas con `display:none` las saca del flujo de la página. Si están
+> fuera del flujo nunca entran en pantalla, y si nunca entran en pantalla
+> Facebook nunca les dibuja el título. Quedarían escondidas para siempre, sin
+> título, y de paso dejarían de dibujarse las de al lado. Es morderse la cola.
+
+Así que quedan en su lugar pero **casi transparentes**: Facebook las dibuja,
+no te molestan, y en cuanto tienen título se filtran de verdad. El panel te
+dice cuántas hay esperando.
+
+Si una de esas no cumple el precio o la zona, se descarta como cualquier otra:
+esos datos sí están siempre.
 
 ## Si sentís que faltan resultados
 
