@@ -93,7 +93,15 @@
   function tituloDesdeEtiqueta(texto) {
     let t = String(texto || '').trim();
     if (!t) return '';
-    t = t.replace(new RegExp(RE_PRECIO_CAPTURA.source, 'gi'), ' ');
+    /* La etiqueta viene como:
+         "Audi A5 Coupe 2012, $18.000, Lanus Este, BA, publicacion 8692192..."
+         "Audi A5 Sportback, reducido de Ciudad de Buenos Aires, CF, public..."
+       Todo lo que va del precio en adelante es data de Facebook, no titulo. */
+    t = t.replace(/,?\s*publicaci[o\u00f3]n\s+\d+\s*$/i, '');
+    t = t.replace(/,?\s*reducido de\s.*$/i, '');
+    // El patron de precios trae alternativas con |, asi que hay que agruparlo:
+    // si no, el .* final solo aplica a la ultima y el resto queda sin borrar.
+    t = t.replace(new RegExp('[,\\s]*(?:' + RE_PRECIO_CAPTURA.source + ').*$', 'i'), '');
     t = t.replace(/\s{2,}/g, ' ');
     t = t.replace(/^[\s,;:.\u00b7\u2022|-]+|[\s,;:.\u00b7\u2022|-]+$/g, '');
     return t.trim();
@@ -293,6 +301,16 @@
     } else if (pareceZonaSuelta(altImagen) && !zonaDelAlt) {
       zonaDelAlt = altImagen.replace(/^en\s+/i, '').trim();
     }
+    /* Si el unico candidato a titulo es reconocible como una zona y no tiene
+       ningun numero, es la zona: Facebook todavia no dibujo el titulo. Un
+       titulo de auto casi siempre trae un anio, una cilindrada o una version;
+       "Moreno, BA" no trae nada de eso. */
+    if (!titulo && candidatosTitulo.length === 1 &&
+        !/\d/.test(candidatosTitulo[0]) &&
+        MPF.zonas && MPF.zonas.detectarProvincia(candidatosTitulo[0])) {
+      candidatosZona.push(candidatosTitulo.pop());
+    }
+
     // Si no hubo alt, se usa el candidato mas descriptivo del texto.
     const mejorLinea = candidatosTitulo.reduce((a, b) => (b.length > a.length ? b : a), '');
     if (!titulo || mejorLinea.length > titulo.length + 4) {
@@ -368,7 +386,7 @@
   /* Recorre el documento y devuelve las tarjetas que todavia no fueron leidas.
      Se marca cada link con un atributo propio para no reprocesar en cada
      mutacion del DOM (Marketplace dispara muchisimas). */
-  const MAX_REINTENTOS = 6;
+  const MAX_REINTENTOS = 40;
 
   /* Facebook dibuja las tarjetas por partes: el titulo puede aparecer unos
      segundos despues que el precio y la zona. Darla por ilegible en el primer

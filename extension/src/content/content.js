@@ -239,7 +239,8 @@
     ultimoCostoMs = performance.now() - t0;
     if (ui) {
       ui.marcador(contVistos, contOk);
-      ui.costo(ultimoCostoMs, contVistos);
+      const ileg = motivos.get('no se pudo leer el titulo');
+      ui.costo(ultimoCostoMs, contVistos, ileg ? ileg.n : 0);
       ui.motivos(motivos, contVistos - contOk);
     }
     return { vistos: contVistos, ok: contOk, ms: ultimoCostoMs };

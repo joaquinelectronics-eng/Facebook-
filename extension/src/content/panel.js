@@ -387,8 +387,17 @@
 
     /* Cuanto tarda cada pasada de filtrado. Si ese numero se dispara, el
        barrido se va a sentir lento por mas que se suba la velocidad. */
-    function costo(ms, tarjetas) {
+    function costo(ms, tarjetas, ilegibles) {
       const n = ms < 10 ? ms.toFixed(1) : String(Math.round(ms));
+
+      /* Muchas tarjetas sin titulo casi siempre significan lo mismo: el barrido
+         va tan rapido que Facebook no alcanza a dibujarlas. Conviene decirlo
+         donde se ve, no esconderlo en el desglose. */
+      if (ilegibles && tarjetas && ilegibles / tarjetas > 0.25) {
+        el.costo.textContent = ilegibles + ' sin titulo todavia \u00b7 pas\u00e1 la velocidad a Tranquilo';
+        el.costo.style.color = '#ffb74d';
+        return;
+      }
       el.costo.textContent = 'filtrado: ' + n + ' ms \u00b7 ' + tarjetas + ' tarjetas';
       el.costo.style.color = ms > 120 ? '#ffb74d' : '';
     }

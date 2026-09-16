@@ -62,8 +62,13 @@ const items = [
   /* El caso mas comun de todos: Facebook todavia no dibujo el titulo, asi que
      la tarjeta solo tiene precio y zona. El titulo esta unicamente en el
      aria-label del enlace, que es lo que leen los lectores de pantalla. */
+  /* Y la variante sin titulo: Facebook todavia no la dibujo, ni siquiera en la
+     etiqueta de accesibilidad. No hay de donde sacarlo. */
+  {id:'126', t:'', sinFoto: true, soloPrecioYZona: true,
+   aria: '$9.000, Moreno, BA, publicación 869219215965219',
+   p:'US$ 9.000', m:'Usado · Moreno, BA'},
   {id:'125', t:'', sinFoto: true, soloPrecioYZona: true,
-   aria: 'Audi A5 Coupe 2012 2.0tfsi, $18.000, Lanús Este, BA',
+   aria: 'Audi A5 Coupe 2012 2.0tfsi, $18.000, Lanús Este, BA, publicación 2089972805056327',
    p:'US$ 18.000', m:'Usado · Lanús Este, BA'}
 ];
 /* ?n=3000 repite los avisos hasta llegar a esa cantidad, para medir como se

@@ -251,8 +251,12 @@ Por eso el título se busca en tres lugares, en este orden:
 3. **El texto de la tarjeta**, cuando ya se dibujó.
 
 Si una tarjeta igual llega sin título, la extensión **la vuelve a mirar hasta
-seis veces** antes de resignarse, en vez de darla por perdida en el primer
-intento.
+cuarenta veces** antes de resignarse: apenas Facebook la dibuje, se lee.
+
+> **Si ves muchas "sin título todavía", bajá la velocidad del barrido.** El
+> panel te lo avisa solo. Barriendo en Turbo se pasa tan rápido que Facebook no
+> alcanza a dibujar los títulos, y una tarjeta sin título no se puede filtrar.
+> Es el caso en que ir más rápido te da menos resultados, no más.
 
 Las que aun así no se puedan leer aparecen en el desglose como *"no se pudo
 leer el título"*, con su cuenta. **Si ese número es alto, hay un botón para
