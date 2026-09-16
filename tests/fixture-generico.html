@@ -1,13 +1,27 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><title>Marketplace sin atributos conocidos</title>
-<style>body{margin:0;font-family:sans-serif}.fila{display:flex}.t{padding:4px}</style></head>
+<style>
+/* Como la version movil de verdad: la pagina mide una pantalla y lo que se
+   mueve es un cajon interno con scroll propio, no la ventana. */
+html,body{margin:0;height:100%;overflow:hidden;font-family:sans-serif}
+#cajon{height:300px;overflow-y:auto}   /* mas chico que su contenido: tiene que desbordar */
+.fila{display:flex}
+.celda{width:50%}
+/* Algunas celdas traen una figurita aparte (un avatar del vendedor) y altura
+   propia. Ahi la caja de la publicacion NO llega hasta la celda, asi que si se
+   esconde solo la caja queda el hueco blanco: es el caso que hay que cubrir. */
+.con-avatar{height:220px}
+.avatar{width:20px;height:20px}
+.t{padding:4px}
+.foto{height:160px}
+</style></head>
 <body>
 <!-- A proposito NO hay ni un atributo de Facebook: ni MContainer, ni
      ServerTextArea, ni MScreen, ni enlaces con /item/. Solo divs, spans e
      imagenes, y las publicaciones de a dos por fila como en el telefono.
      Si la extension lee esto, es que no depende de como Facebook llame a sus
      componentes: el dia que les cambie el nombre, sigue andando. -->
-<div id="raiz"></div>
+<div id="cajon"><div id="raiz"></div></div>
 <script>
 const items = [
   {p:'$9.500.000',  t:'Vendo barata cupe audi a5 2012', z:'Pilar, BA'},
@@ -23,18 +37,31 @@ for (let i = 0; i < items.length; i += 2) {
   const fila = document.createElement('div');
   fila.className = 'fila';
   for (const it of items.slice(i, i + 2)) {
+    /* Cada publicacion va dentro de una celda, como en la grilla real. Si al
+       filtrar se esconde la cajita de adentro y no la celda, queda el hueco
+       blanco ocupando lugar. */
+    const celda = document.createElement('div');
+    celda.className = 'celda';
     const caja = document.createElement('div');
     /* El precio partido en dos pedacitos, como lo manda Facebook de verdad:
        el simbolo por un lado y el numero por otro. */
     const partes = it.p.match(/^(\D+)(.+)$/);
     caja.innerHTML =
-      '<div><img src="' + PIX + '"></div>' +
+      '<div class="foto"><img src="' + PIX + '"></div>' +
       '<div class="t"><span>' + partes[1] + '</span><span>' + partes[2] + '</span></div>' +
       (it.p2 ? '<div class="t"><s>' + it.p2 + '</s></div>' : '') +
       '<div class="t">' + it.t + '</div>' +
       (it.extra ? '<div class="t">' + it.extra + '</div>' : '') +
       '<div class="t">' + it.z + '</div>';
-    fila.appendChild(caja);
+    if (i === 0) {
+      celda.className += ' con-avatar';
+      const av = document.createElement('img');
+      av.className = 'avatar';
+      av.src = PIX;
+      celda.appendChild(av);
+    }
+    celda.appendChild(caja);
+    fila.appendChild(celda);
   }
   raiz.appendChild(fila);
 }

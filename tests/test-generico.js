@@ -91,12 +91,59 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
     assert.strictEqual(a.km, 100000);
   });
 
+  /* Se mira si de verdad se ve, y no si la caja tiene display:none encima: lo
+     que se esconde puede ser la celda que la contiene. */
   const visibles = await pagina.evaluate(() =>
     window.MPF.scraper.elementosTarjeta()
-      .filter((c) => c.style.display !== 'none')
+      .filter((c) => c.getClientRects().length > 0)
       .map((c) => window.MPF.scraper.lineasMovil(c).find((x) => /audi/i.test(x)) || '?'));
   prueba('y filtra: deja solo los dos que coinciden', () =>
     assert.deepStrictEqual(visibles.sort(), ESPERADOS.slice().sort()));
+
+  /* Lo que se esconde tiene que ser la celda entera. Escondiendo la cajita de
+     adentro, la celda queda vacia ocupando su lugar: la pantalla se llena de
+     huecos blancos y parece que no hubiera resultados. */
+  const huecos = await pagina.evaluate(() => {
+    const salida = { celdasEscondidas: 0, cajasSueltas: 0, celdasVaciasVisibles: 0 };
+    for (const celda of document.querySelectorAll('.celda')) {
+      const escondida = celda.style.display === 'none';
+      if (escondida) salida.celdasEscondidas++;
+      const caja = celda.firstElementChild;
+      if (!escondida && caja && caja.style.display === 'none') salida.cajasSueltas++;
+      if (!escondida && celda.offsetHeight > 0 &&
+          (!caja || caja.style.display === 'none')) salida.celdasVaciasVisibles++;
+    }
+    return salida;
+  });
+  prueba('esconde la celda entera y no deja huecos blancos', () =>
+    assert.deepStrictEqual(huecos,
+      { celdasEscondidas: 4, cajasSueltas: 0, celdasVaciasVisibles: 0 }));
+
+  /* En la version movil la que scrollea no es la ventana sino un cajon interno.
+     Mientras el barrido movia la ventana no pasaba nada, la cuenta del fondo
+     daba "ya llegamos" y cortaba diciendo que no habia mas resultados. */
+  const cajon = await pagina.evaluate(() => {
+    const c = window.MPF.autoscroll.cajonDeScroll();
+    return { id: c ? c.id : null, laVentanaNoSeMueve:
+      document.documentElement.scrollHeight <= window.innerHeight };
+  });
+  prueba('encuentra el cajon que de verdad scrollea', () =>
+    assert.deepStrictEqual(cajon, { id: 'cajon', laVentanaNoSeMueve: true }));
+
+  /* Y que el barrido mueva ese cajon de verdad, no solo que sepa cual es. */
+  const movio = await pagina.evaluate(async () => {
+    const c = document.getElementById('cajon');
+    const antes = c.scrollTop;
+    await new Promise((listo) => {
+      window.MPF.autoscroll.iniciar(
+        (p) => { if (p.estado && /listo|detenido/.test(p.estado)) listo(); },
+        { velocidad: 'turbo', limiteTandas: 1 });
+      setTimeout(listo, 4000);
+    });
+    return { antes, despues: document.getElementById('cajon').scrollTop };
+  });
+  prueba('y el barrido lo mueve', () =>
+    assert.ok(movio.despues > movio.antes, JSON.stringify(movio)));
 
   prueba('sin errores de javascript en la pagina', () => assert.deepStrictEqual(errores, []));
 

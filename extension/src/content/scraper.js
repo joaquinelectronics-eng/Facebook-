@@ -176,7 +176,10 @@
   function tarjetasMovil() {
     const porAtributo = Array.from(document.querySelectorAll(SELECTOR_MOVIL))
       .filter(esTarjetaMovil);
-    return porAtributo.length ? porAtributo : tarjetasPorPrecio();
+    if (!porAtributo.length) return tarjetasPorPrecio();
+    // Se marcan igual que las deducidas: asi el resto del codigo no distingue.
+    for (const e of porAtributo) e.setAttribute(MARCA_TARJETA, '1');
+    return porAtributo;
   }
 
   function hayTarjetasMovil() {
@@ -350,11 +353,24 @@
   const cajaDe = new WeakMap();
 
   function contenedorTarjeta(link) {
-    /* Si la tarjeta no es un enlace, ya ES el contenedor: la encontramos
-       subiendo hasta la caja de la publicacion, no hay nada mas que buscar.
-       Antes esto se preguntaba con esVersionMovil(), y donde ese atributo no
-       estaba se terminaba escondiendo la fila entera en vez de la tarjeta. */
-    if (link.tagName !== 'A') return link;
+    /* Si la tarjeta no es un enlace, hay que subir hasta la celda que la
+       contiene: escondiendo solo la cajita de adentro, la celda queda vacia
+       ocupando su lugar y la pantalla se llena de blancos. Se sube mientras
+       arriba siga habiendo UNA sola publicacion; cuando aparece la segunda,
+       esa ya es la fila y no se toca. */
+    if (link.tagName !== 'A') {
+      const guardado = cajaDe.get(link);
+      if (guardado && guardado.isConnected) return guardado;
+      let caja = link;
+      for (let i = 0; i < 6; i++) {
+        const padre = caja.parentElement;
+        if (!padre || padre === document.body) break;
+        if (padre.querySelectorAll('[' + MARCA_TARJETA + ']').length !== 1) break;
+        caja = padre;
+      }
+      cajaDe.set(link, caja);
+      return caja;
+    }
     const recordado = cajaDe.get(link);
     if (recordado && recordado.isConnected) return recordado;
 

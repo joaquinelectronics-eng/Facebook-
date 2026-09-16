@@ -67,7 +67,45 @@
   let ultimoScrollDelUsuario = 0;
   let scrollPropioEnCurso = false;
 
-  // Si el usuario mueve la pagina por su cuenta, el barrido se hace a un lado.
+  /* QUIEN SCROLLEA. En escritorio es la ventana. En la version movil no: la
+     pagina mide exactamente una pantalla y lo que se mueve es un cajon interno
+     con overflow propio. Por eso window.scrollBy no hacia nada, la cuenta del
+     fondo daba "ya llegamos" y el barrido cortaba a las pocas tandas diciendo
+     que Facebook no tenia mas resultados, cuando si tenia.
+
+     No se pregunta si "es movil": se busca cual es el elemento que de verdad
+     se puede mover, arrancando de una publicacion y subiendo. */
+  let cajonRecordado = null;
+
+  function puedeScrollear(el) {
+    if (!el || el === document.body || el === document.documentElement) return false;
+    if (el.scrollHeight - el.clientHeight < 40) return false;
+    const y = getComputedStyle(el).overflowY;
+    return y === 'auto' || y === 'scroll';
+  }
+
+  function cajonDeScroll() {
+    if (cajonRecordado && cajonRecordado.isConnected &&
+        puedeScrollear(cajonRecordado)) return cajonRecordado;
+    cajonRecordado = null;
+    const tarjetas = (MPF.scraper && MPF.scraper.elementosTarjeta)
+      ? MPF.scraper.elementosTarjeta() : [];
+    let n = tarjetas.length ? tarjetas[0] : null;
+    for (let i = 0; n && i < 14; i++, n = n.parentElement) {
+      if (puedeScrollear(n)) { cajonRecordado = n; return n; }
+    }
+    return null;   // se mueve la ventana, como siempre
+  }
+
+  function moverse(pixeles) {
+    const cajon = cajonDeScroll();
+    if (cajon) cajon.scrollBy(0, pixeles);
+    else window.scrollBy(0, pixeles);
+  }
+
+  /* Si el usuario mueve la pagina por su cuenta, el barrido se hace a un lado.
+     Se escucha en fase de captura porque el scroll de un elemento no sube
+     hasta la ventana por si solo. */
   window.addEventListener(
     'scroll',
     () => {
@@ -75,7 +113,7 @@
       ultimoScrollDelUsuario = Date.now();
       pausadoPorUsuario = true;
     },
-    { passive: true }
+    { passive: true, capture: true }
   );
 
   function usuarioSigueActivo() {
@@ -87,7 +125,7 @@
     for (let i = 0; i < pasos; i++) {
       if (pedidoDeParar || token !== corridaActual) return;
       scrollPropioEnCurso = true;
-      window.scrollBy(0, azarInt(perfil.pixelsPorPaso));
+      moverse(azarInt(perfil.pixelsPorPaso));
       // El flag se libera despues del frame para no confundir el scroll propio
       // con el del usuario.
       setTimeout(() => { scrollPropioEnCurso = false; }, 60);
@@ -96,7 +134,10 @@
   }
 
   function alFondo() {
-    const resto = document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
+    const cajon = cajonDeScroll();
+    const resto = cajon
+      ? cajon.scrollHeight - cajon.scrollTop - cajon.clientHeight
+      : document.documentElement.scrollHeight - window.scrollY - window.innerHeight;
     return resto < 900;
   }
 
@@ -194,5 +235,6 @@
   }
   function estaCorriendo() { return corriendo; }
 
-  MPF.autoscroll = { iniciar, parar, estaCorriendo, CFG, PERFILES };
+  MPF.autoscroll = { iniciar, parar, estaCorriendo, CFG, PERFILES,
+                     cajonDeScroll, puedeScrollear };
 })();
