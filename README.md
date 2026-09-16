@@ -244,9 +244,26 @@ después que el precio y la zona. Si una tarjeta llega sin título, la extensió
 perdida en el primer intento.
 
 Las que aun así no se puedan leer aparecen en el desglose como *"no se pudo
-leer el título"*, con su cuenta. **Si ese número es alto, avisá**: significa que
-Facebook está mandando una forma de tarjeta que no entiendo, y eso se arregla
-en el código — no tapándolo.
+leer el título"*, con su cuenta. **Si ese número es alto, hay un botón para
+arreglarlo**: abajo del desglose, *"copiar una tarjeta que no se pudo leer"*.
+Copia al portapapeles la forma del HTML de dos de ellas, sin las clases
+ofuscadas de Facebook, junto con lo que la extensión entendió:
+
+```
+--- tarjeta 1234567890 ---
+la extensión leyó:
+  titulo: ""
+  zona:   "Villa Gobernador Udaondo, BA"
+  precio: "US$ 17.500"
+lineas: ["US$ 17.500","en Villa Gobernador Udaondo, BA"]
+forma del html:
+  div
+    a alt="..."
+      div "US$ 17.500"
+```
+
+Con eso se arregla esa forma de tarjeta en el código. Es la diferencia entre
+adivinar y saber.
 
 ## Si sentís que faltan resultados
 

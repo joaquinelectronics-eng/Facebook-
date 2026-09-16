@@ -49,7 +49,12 @@ const items = [
   /* El caso que aparecio en el uso real: Facebook manda la tarjeta con el alt
      y el texto conteniendo SOLO la zona. El titulo no se puede leer, asi que
      no se puede decidir: la publicacion tiene que mostrarse igual. */
-  {id:'122', t:'', soloZona: 'en Villa Gobernador Udaondo, BA', p:'US$ 17.500', m:'Usado · Villa Gobernador Udaondo, BA'}
+  {id:'122', t:'', soloZona: 'en Villa Gobernador Udaondo, BA', p:'US$ 17.500', m:'Usado · Villa Gobernador Udaondo, BA'},
+  /* Facebook resalta lo que buscaste metiendo un span en medio del titulo.
+     Leyendo solo las hojas quedaba el pedazo resaltado y se perdia el resto,
+     que era lo que hacia ilegibles a la mayoria de las tarjetas. */
+  {id:'123', t:'Audi <span>A5</span> Coupe 2014 quattro', tPlano:'Audi A5 Coupe 2014 quattro',
+   p:'US$ 26.500', m:'Usado · San Isidro, BA', sinFoto: true}
 ];
 /* ?n=3000 repite los avisos hasta llegar a esa cantidad, para medir como se
    comporta la extension con una busqueda larga de verdad. */

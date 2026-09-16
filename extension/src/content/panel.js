@@ -191,6 +191,12 @@
         </div>
         <div class="hallazgos" id="hallazgos"></div>
         <div class="motivos" id="motivos"></div>
+        <div class="zonaPie">
+          <button class="botoncito" id="copiarIlegible" type="button">
+            copiar una tarjeta que no se pudo leer
+          </button>
+          <div class="estado" id="avisoCopia"></div>
+        </div>
       </details>
 
       <div class="sep"></div>
@@ -240,7 +246,8 @@
       zonaLimpiar: $('zonaLimpiar'), guardarBusq: $('guardarBusq'), avisoBusq: $('avisoBusq'),
       costo: $('costo'), frenar: $('frenar'),
       motivos: $('motivos'), resMotivos: $('resMotivos'), detMotivos: $('detMotivos'),
-      buscarLeidas: $('buscarLeidas'), hallazgos: $('hallazgos')
+      buscarLeidas: $('buscarLeidas'), hallazgos: $('hallazgos'),
+      copiarIlegible: $('copiarIlegible'), avisoCopia: $('avisoCopia')
     };
 
     /* Lista de provincias. Las cuatro de la zona habitual van primero para no
@@ -452,6 +459,19 @@
         caja.appendChild(m);
         el.hallazgos.appendChild(caja);
       }
+    });
+
+    el.copiarIlegible.addEventListener('click', async () => {
+      const texto = callbacks.alCopiarIlegible();
+      try {
+        await navigator.clipboard.writeText(texto);
+        el.avisoCopia.textContent = 'copiado: pegalo en el chat';
+      } catch (e) {
+        // Si el navegador no deja copiar, al menos se puede leer en la consola.
+        console.log(texto);
+        el.avisoCopia.textContent = 'no se pudo copiar, mira la consola (F12)';
+      }
+      setTimeout(() => { el.avisoCopia.textContent = ''; }, 6000);
     });
 
     let ultimoMapa = new Map(), ultimoTotal = 0;

@@ -23,25 +23,60 @@
 
      De paso resuelve otra cosa: innerText devuelve vacio en un elemento
      escondido, asi que una tarjeta ya filtrada no se podia releer. Asi si. */
-  function lineasDe(caja) {
-    /* Se agrupa por elemento hoja, no por nodo de texto suelto ni con
-       innerText. innerText seria lo mas fiel, pero obliga a recalcular el
-       layout de la pagina entera y con miles de resultados eso hace que todo
-       se arrastre. Agrupar por elemento da el mismo resultado sin tocar el
-       layout: cada span o div con texto propio es una linea. */
-    const out = [];
-    const paso = document.createTreeWalker(caja, NodeFilter.SHOW_ELEMENT);
-    let el;
-    while ((el = paso.nextNode())) {
-      let hijoConTexto = false;
-      for (const hijo of el.children) {
-        if ((hijo.textContent || '').trim()) { hijoConTexto = true; break; }
+  /* Un elemento es un "bloque de texto" si su contenido no tiene mas de un
+     nivel de anidado con texto. Sirve para agarrar el titulo entero cuando
+     Facebook le mete un span adentro -por ejemplo resaltando lo que buscaste-:
+        <span>Audi A5 <span>Coupe</span> 2012</span>
+     Tomando solo las hojas quedaba "Coupe" y se perdia el resto del titulo,
+     que es lo que hacia ilegibles a la mayoria de las tarjetas. */
+  function esBloqueDeTexto(el) {
+    for (const hijo of el.children) {
+      for (const nieto of hijo.children) {
+        if ((nieto.textContent || '').trim()) return false;
       }
-      if (hijoConTexto) continue;
-      const t = (el.textContent || '').trim();
-      if (t) out.push(t);
     }
+    return true;
+  }
+
+  function lineasDe(caja) {
+    /* Se recorre de afuera hacia adentro y se corta en el primer bloque de
+       texto: asi cada linea sale entera. No se usa innerText porque obliga a
+       recalcular el layout de toda la pagina y con miles de resultados eso
+       hace que todo se arrastre. */
+    const out = [];
+    const visitar = (el) => {
+      if ((el.textContent || '').trim() === '') return;
+      if (esBloqueDeTexto(el)) {
+        const t = (el.textContent || '').trim();
+        if (t) out.push(t);
+        return;
+      }
+      for (const hijo of el.children) visitar(hijo);
+    };
+    for (const hijo of caja.children) visitar(hijo);
     return out;
+  }
+
+  /* Vuelca la forma de una tarjeta sin las clases ofuscadas de Facebook, para
+     poder ver por que no se pudo leer sin tener que mandar medio documento. */
+  function estructuraDe(caja, nivel) {
+    const sangria = '  '.repeat(nivel || 0);
+    const lineas = [];
+    for (const hijo of caja.children) {
+      const etiqueta = hijo.tagName.toLowerCase();
+      const alt = hijo.getAttribute && hijo.getAttribute('alt');
+      const propio = Array.from(hijo.childNodes)
+        .filter((n) => n.nodeType === 3 && (n.nodeValue || '').trim())
+        .map((n) => n.nodeValue.trim()).join(' ');
+      let linea = sangria + etiqueta;
+      if (alt) linea += ' alt=' + JSON.stringify(alt.slice(0, 120));
+      if (propio) linea += ' "' + propio.slice(0, 120) + '"';
+      lineas.push(linea);
+      if (hijo.children.length && (nivel || 0) < 7) {
+        lineas.push(estructuraDe(hijo, (nivel || 0) + 1));
+      }
+    }
+    return lineas.filter(Boolean).join('\n');
   }
 
   /* Facebook arma el alt de la foto como "Titulo en Ciudad, Provincia".
@@ -323,6 +358,7 @@
   }
 
   MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio, preciosEn, lineasDe,
+                  estructuraDe, esBloqueDeTexto,
                   MAX_REINTENTOS, convieneReintentar,
                   partirTituloYZona, pareceZonaSuelta,
                   limpiarUbicacion, extraerKm, cantidadEnPantalla, contenedorTarjeta,

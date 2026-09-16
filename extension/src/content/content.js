@@ -371,7 +371,34 @@
     return out;
   }
 
+  /* Arma un volcado de las tarjetas que no se pudieron leer: la forma del HTML
+     sin las clases ofuscadas, mas lo que la extension entendio de cada una.
+     Es lo unico que permite arreglar de verdad una forma de tarjeta nueva en
+     vez de seguir adivinando. */
+  function estructuraIlegible(cuantas) {
+    const partes = [];
+    const tope = cuantas || 2;
+    for (const link of document.querySelectorAll(MPF.scraper.SELECTOR_ITEM)) {
+      const id = link.getAttribute('data-mpf-id');
+      const d = id ? cache.get(id) : null;
+      if (!d || !d.tituloDudoso) continue;
+      const caja = MPF.scraper.contenedorTarjeta(link);
+      partes.push(
+        '--- tarjeta ' + d.id + ' ---\n' +
+        'la extension leyo:\n' +
+        '  titulo: ' + JSON.stringify(d.titulo) + '\n' +
+        '  zona:   ' + JSON.stringify(d.ubicacion) + '\n' +
+        '  precio: ' + JSON.stringify(d.precioTexto) + '\n' +
+        'lineas: ' + JSON.stringify(MPF.scraper.lineasDe(caja)) + '\n' +
+        'forma del html:\n' + MPF.scraper.estructuraDe(caja, 1));
+      if (partes.length >= tope) break;
+    }
+    if (!partes.length) return 'No hay ninguna tarjeta ilegible en pantalla.';
+    return partes.join('\n\n');
+  }
+
   MPF.diagnostico = {
+    estructuraIlegible,
     aplicarFiltros,
     pasada,
     buscar: buscarEnLeidas,
@@ -472,6 +499,9 @@
       },
       alBuscarEnLeidas(texto) {
         return buscarEnLeidas(texto);
+      },
+      alCopiarIlegible() {
+        return estructuraIlegible(2);
       },
       alGuardarBusqueda() {
         try {
