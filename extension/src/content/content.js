@@ -62,15 +62,19 @@
 
   // --- decision de si una tarjeta pasa el filtro ---
   function evaluar(datos) {
-    /* Una tarjeta cuyo titulo no se pudo leer no se puede evaluar. Se descarta,
-       pero queda contada aparte en el desglose: si ese numero crece, es que hay
-       una forma de tarjeta que no estamos entendiendo y hay que arreglarla, no
-       taparla mostrando todo. */
-    if (datos.tituloDudoso) {
-      return { pasa: false, motivo: 'no se pudo leer el titulo' };
-    }
+    /* Facebook manda las tarjetas que todavia no entraron en pantalla sin el
+       titulo: ni en el texto ni en la etiqueta de accesibilidad, que en esos
+       casos llega vacia (", $18.000, Lanus Este, BA, publicacion 8692...").
+       No hay de donde sacarlo.
 
-    if (!filtro.vacia) {
+       Pero el precio y la zona SI estan, y son datos confiables. Asi que se
+       filtra con lo que hay: si el precio y la zona no dan, se descarta igual
+       que cualquier otra; si dan, se muestra marcada como sin verificar. Tirar
+       la publicacion por lo que no se puede saber seria perder autos buenos;
+       mostrarla sin filtrar nada seria llenar la pantalla de basura. */
+    const sinTitulo = !!datos.tituloDudoso;
+
+    if (!sinTitulo && !filtro.vacia) {
       const r = filtro.evaluar(datos.titulo);
       if (!r.coincide) return { pasa: false, motivo: r.motivo };
     }
@@ -111,17 +115,23 @@
       return { pasa: false, motivo: 'no bajo de precio' };
     }
 
+    /* Una publicacion sin titulo pasa igual el resto de los filtros, pero se
+       marca: el usuario tiene que saber que el modelo no se pudo verificar. */
+    const aprobada = () => sinTitulo && !filtro.vacia
+      ? { pasa: true, motivo: 'sin titulo todavia: filtrada solo por precio y zona', parcial: true }
+      : { pasa: true, motivo: '' };
+
     const hayRango = config.pmin != null || config.pmax != null;
     if (p.valor == null) {
       return hayRango && !config.sinPrecio
         ? { pasa: false, motivo: 'sin precio' }
-        : { pasa: true, motivo: '' };
+        : aprobada();
     }
-    if (!hayRango) return { pasa: true, motivo: '' };
+    if (!hayRango) return aprobada();
 
     // Todo se compara en dolares para que ARS y USD convivan en un mismo rango.
     const enUSD = datos.precioUSD;
-    if (enUSD == null) return { pasa: true, motivo: '' };
+    if (enUSD == null) return aprobada();
     const minUSD = config.pmin == null ? null
       : (config.moneda === 'USD' ? config.pmin : config.pmin / config.cotizacion);
     const maxUSD = config.pmax == null ? null
@@ -129,7 +139,7 @@
 
     if (minUSD != null && enUSD < minUSD) return { pasa: false, motivo: 'barato fuera de rango' };
     if (maxUSD != null && enUSD > maxUSD) return { pasa: false, motivo: 'caro fuera de rango' };
-    return { pasa: true, motivo: '' };
+    return aprobada();
   }
 
   function aplicarVisibilidad(link, datos, veredicto) {
@@ -220,11 +230,14 @@
       contVistos++;
       if (veredicto.pasa) {
         contOk++;
-        if (veredicto.dudosa) {
+        if (veredicto.parcial) {
           let d = motivos.get(veredicto.motivo);
           if (!d) { d = { n: 0, ejemplos: [] }; motivos.set(veredicto.motivo, d); }
           d.n++;
-          if (d.ejemplos.length < 3) d.ejemplos.push(datos.ubicacion || '(sin zona)');
+          if (d.ejemplos.length < 3) {
+            d.ejemplos.push((datos.precioTexto || 'sin precio') + ' en ' +
+                            (datos.ubicacion || 'sin zona'));
+          }
         }
       } else {
         let m = motivos.get(veredicto.motivo);
@@ -239,8 +252,8 @@
     ultimoCostoMs = performance.now() - t0;
     if (ui) {
       ui.marcador(contVistos, contOk);
-      const ileg = motivos.get('no se pudo leer el titulo');
-      ui.costo(ultimoCostoMs, contVistos, ileg ? ileg.n : 0);
+      const parc = motivos.get('sin titulo todavia: filtrada solo por precio y zona');
+      ui.costo(ultimoCostoMs, contVistos, parc ? parc.n : 0);
       ui.motivos(motivos, contVistos - contOk);
     }
     return { vistos: contVistos, ok: contOk, ms: ultimoCostoMs };

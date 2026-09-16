@@ -20,7 +20,7 @@ const CONFIG = {
 };
 
 // Lo que tiene que quedar visible con esa configuracion.
-const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120', '121', '123', '124', '125'];
+const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120', '121', '122', '123', '124', '125', '127'];
 
 (async () => {
   const navegador = await chromium.launch({
@@ -80,7 +80,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     precioAnteriorTexto: d.precioAnteriorTexto, tituloDudoso: d.tituloDudoso
   })));
 
-  prueba('encuentra las 26 publicaciones', () => assert.strictEqual(leidas.length, 26));
+  prueba('encuentra las 27 publicaciones', () => assert.strictEqual(leidas.length, 27));
   prueba('extrae el titulo completo', () => {
     const a = leidas.find((x) => x.id === '101');
     assert.strictEqual(a.titulo, 'Audi A5 2.0 TFSI Quattro 2018');
@@ -178,6 +178,17 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     return out;
   });
 
+  /* Facebook manda las tarjetas que todavia no entraron en pantalla sin titulo
+     en ninguna parte. No se puede verificar el modelo, pero el precio y la zona
+     si, asi que se filtra con eso: es la diferencia entre perder el auto y
+     tenerlo a la vista aunque sea sin confirmar. */
+  prueba('sin titulo pero en rango y en zona: se muestra', () =>
+    assert.ok(visibles.includes('127'),
+      'se perdio una publicacion que cumplia precio y zona'));
+  prueba('sin titulo y fuera de rango: se descarta igual', () =>
+    assert.ok(!visibles.includes('126'),
+      'no se filtro por precio una publicacion sin titulo'));
+
   prueba('la publicacion sin titulo dibujado entra al filtro como cualquier otra', () =>
     assert.ok(visibles.includes('125'),
       'quedo escondida una publicacion cuyo titulo solo estaba en el aria-label'));
@@ -201,8 +212,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     '107': 'falta: audi',                '109': 'falta: a5',
     '110': 'excluido: permuto',          '113': 'barato fuera de rango',
     '112': 'sin precio',                 '115': 'fuera de zona: Cordoba',
-    '116': 'fuera de zona: Mendoza',   '122': 'no se pudo leer el titulo',
-    '126': 'no se pudo leer el titulo'
+    '116': 'fuera de zona: Mendoza',   '126': 'barato fuera de rango'
   };
   for (const [id, esperado] of Object.entries(motivosEsperados)) {
     prueba('descarta ' + id + ' por "' + esperado + '"', () =>
@@ -322,7 +332,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
 
   const antes = await leerContadores();
   prueba('antes del cambio de URL cuenta todas las tarjetas', () =>
-    assert.strictEqual(antes.vistos, 26));
+    assert.strictEqual(antes.vistos, 27));
   prueba('antes del cambio de URL coinciden las esperadas', () =>
     assert.strictEqual(antes.ok, ESPERADOS.length));
 
@@ -334,7 +344,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
 
   const despues = await leerContadores();
   prueba('despues del cambio sigue contando todas', () =>
-    assert.strictEqual(despues.vistos, 26));
+    assert.strictEqual(despues.vistos, 27));
   prueba('despues del cambio el filtro sigue aplicado', () =>
     assert.strictEqual(despues.ok, ESPERADOS.length));
 
@@ -367,12 +377,17 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
   prueba('todo lo descartado suma lo que no coincide', () => {
     // El motivo "titulo ilegible" figura en el desglose pero NO es un descarte:
     // esas publicaciones se muestran igual, por eso no entran en la suma.
-    const suma = desglose.reduce((a, d) => a + d.n, 0);
-    assert.strictEqual(suma, 26 - ESPERADOS.length);
+    // Las "sin titulo todavia" figuran en el desglose pero se muestran, asi
+    // que no son descartes y no entran en la suma.
+    const suma = desglose
+      .filter((d) => !/sin titulo todavia/.test(d.motivo))
+      .reduce((a, d) => a + d.n, 0);
+    assert.strictEqual(suma, 27 - ESPERADOS.length);
   });
-  prueba('el titulo ilegible se cuenta aparte y se puede ver', () => {
-    const av = desglose.find((d) => /no se pudo leer/.test(d.motivo));
+  prueba('las no verificadas se cuentan aparte y se pueden ver', () => {
+    const av = desglose.find((d) => /sin titulo todavia/.test(d.motivo));
     assert.ok(av && av.n >= 1, JSON.stringify(desglose.map((d) => d.motivo)));
+    assert.ok(av.ejemplos.length > 0);
   });
   prueba('guarda ejemplos de titulo para poder mirarlos', () => {
     const faltaA5 = desglose.find((d) => d.motivo === 'falta: a5');
@@ -393,7 +408,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
              filas: sh.querySelectorAll('.motivo').length };
   });
   prueba('el panel muestra cuantas se ocultaron', () =>
-    assert.match(enPanel.titulo, new RegExp(String(26 - ESPERADOS.length))));
+    assert.match(enPanel.titulo, new RegExp(String(27 - ESPERADOS.length))));
   prueba('el panel lista los motivos', () => assert.ok(enPanel.filas >= 3));
 
   console.log('\nBuscador de diagnostico');

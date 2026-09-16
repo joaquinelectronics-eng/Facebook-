@@ -238,47 +238,40 @@ La elección es tuya y la extensión no te la bloquea. Pero si me preguntás,
 
 ## De dónde sale el título
 
-Facebook dibuja el título visible de una tarjeta **recién cuando está por
-entrar en pantalla**. Hasta entonces la tarjeta solo tiene el precio y la zona:
-el título no está en ninguna parte del texto. Con miles de resultados cargados,
-eso es la mayoría de las tarjetas.
+Facebook manda las tarjetas que todavía no entraron en pantalla **sin el
+título**. No está en el texto ni en la etiqueta de accesibilidad: esa llega
+literalmente vacía.
 
-Por eso el título se busca en tres lugares, en este orden:
+```
+aria-label=", $18.000, Lanús Este, BA, publicación 869219215965219"
+            ↑ el título va acá, y no está
+```
+
+Con miles de resultados cargados, eso es la mayoría de las tarjetas. Por eso el
+título se busca en tres lugares, en este orden:
 
 1. **El `aria-label` del enlace** — el texto que leen los lectores de pantalla.
-   Está siempre, dibujada o no la tarjeta. Es la fuente principal.
 2. **El `alt` de la foto**, que viene como `Título en Ciudad, Provincia`.
 3. **El texto de la tarjeta**, cuando ya se dibujó.
 
-Si una tarjeta igual llega sin título, la extensión **la vuelve a mirar hasta
-cuarenta veces** antes de resignarse: apenas Facebook la dibuje, se lee.
+### Y si aun así no hay título
+
+No se tira la publicación. **Se filtra con lo que sí se sabe**: el precio y la
+zona están siempre, y son datos confiables.
+
+- Si el precio o la zona no dan → se descarta igual que cualquier otra.
+- Si dan → **se muestra**, y se cuenta aparte como *"sin título todavía"*.
+
+Tirarla por lo que no se puede saber sería perder autos buenos; mostrarla sin
+filtrar nada sería llenar la pantalla de basura. Se filtra con la mitad que hay.
+
+Además la extensión vuelve a mirar esas tarjetas hasta cuarenta veces: apenas
+Facebook las dibuje, se leen y se filtran completas.
 
 > **Si ves muchas "sin título todavía", bajá la velocidad del barrido.** El
 > panel te lo avisa solo. Barriendo en Turbo se pasa tan rápido que Facebook no
-> alcanza a dibujar los títulos, y una tarjeta sin título no se puede filtrar.
-> Es el caso en que ir más rápido te da menos resultados, no más.
-
-Las que aun así no se puedan leer aparecen en el desglose como *"no se pudo
-leer el título"*, con su cuenta. **Si ese número es alto, hay un botón para
-arreglarlo**: abajo del desglose, *"copiar una tarjeta que no se pudo leer"*.
-Copia al portapapeles la forma del HTML de dos de ellas, sin las clases
-ofuscadas de Facebook, junto con lo que la extensión entendió:
-
-```
---- tarjeta 1234567890 ---
-la extensión leyó:
-  titulo: ""
-  zona:   "Villa Gobernador Udaondo, BA"
-  precio: "US$ 17.500"
-lineas: ["US$ 17.500","en Villa Gobernador Udaondo, BA"]
-forma del html:
-  div
-    a alt="..."
-      div "US$ 17.500"
-```
-
-Con eso se arregla esa forma de tarjeta en el código. Es la diferencia entre
-adivinar y saber.
+> alcanza a dibujar los títulos. Es el caso en que ir más rápido te da
+> resultados menos precisos, no más.
 
 ## Si sentís que faltan resultados
 

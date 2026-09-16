@@ -393,8 +393,8 @@
       /* Muchas tarjetas sin titulo casi siempre significan lo mismo: el barrido
          va tan rapido que Facebook no alcanza a dibujarlas. Conviene decirlo
          donde se ve, no esconderlo en el desglose. */
-      if (ilegibles && tarjetas && ilegibles / tarjetas > 0.25) {
-        el.costo.textContent = ilegibles + ' sin titulo todavia \u00b7 pas\u00e1 la velocidad a Tranquilo';
+      if (ilegibles && tarjetas && ilegibles / tarjetas > 0.15) {
+        el.costo.textContent = ilegibles + ' sin titulo todavia \u00b7 bajando la velocidad se verifican';
         el.costo.style.color = '#ffb74d';
         return;
       }

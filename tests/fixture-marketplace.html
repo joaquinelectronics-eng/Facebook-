@@ -65,8 +65,13 @@ const items = [
   /* Y la variante sin titulo: Facebook todavia no la dibujo, ni siquiera en la
      etiqueta de accesibilidad. No hay de donde sacarlo. */
   {id:'126', t:'', sinFoto: true, soloPrecioYZona: true,
-   aria: '$9.000, Moreno, BA, publicación 869219215965219',
+   aria: ', $9.000, Moreno, BA, publicación 869219215965219',
    p:'US$ 9.000', m:'Usado · Moreno, BA'},
+  /* Misma situacion pero con el precio DENTRO del rango: no se puede verificar
+     el modelo, pero precio y zona si, asi que tiene que mostrarse. */
+  {id:'127', t:'', sinFoto: true, soloPrecioYZona: true,
+   aria: ', $18.000, reducido de $21.000, Lanús Este, BA, publicación 979091484682999',
+   p:'US$ 18.000', p2:'US$ 21.000', m:'Usado · Lanús Este, BA'},
   {id:'125', t:'', sinFoto: true, soloPrecioYZona: true,
    aria: 'Audi A5 Coupe 2012 2.0tfsi, $18.000, Lanús Este, BA, publicación 2089972805056327',
    p:'US$ 18.000', m:'Usado · Lanús Este, BA'}
