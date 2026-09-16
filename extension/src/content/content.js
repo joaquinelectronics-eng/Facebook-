@@ -228,6 +228,21 @@
         cache.set(datos.id, datos);
       }
 
+      /* Una tarjeta que quedo sin titulo se vuelve a leer SIEMPRE, no un numero
+         fijo de veces. Facebook la dibuja cuando quiere -a veces bastante
+         despues de que entro en pantalla-, y con un tope de intentos quedaba
+         marcada como ilegible para siempre: el usuario veia el titulo en
+         pantalla y la extension seguia con el dato viejo, de cuando la tarjeta
+         era un esqueleto. Releerla cuesta centesimas de milisegundo. */
+      if (desdeCero && datos.tituloDudoso) {
+        const frescos = MPF.scraper.extraerDeTarjeta(link);
+        if (frescos && !frescos.tituloDudoso) {
+          cache.set(frescos.id, frescos);
+          datos = frescos;
+          datos._version = -1;          // hay que volver a evaluarla
+        }
+      }
+
       let veredicto = datos._version === versionConfig ? datos._veredicto : null;
       if (!veredicto) {
         veredicto = evaluar(datos);

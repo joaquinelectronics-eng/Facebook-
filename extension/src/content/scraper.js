@@ -424,12 +424,12 @@
   /* Recorre el documento y devuelve las tarjetas que todavia no fueron leidas.
      Se marca cada link con un atributo propio para no reprocesar en cada
      mutacion del DOM (Marketplace dispara muchisimas). */
-  const MAX_REINTENTOS = 40;
+  /* Cuantas pasadas se espera antes de empezar a mostrar una tarjeta sin
+     titulo. No es un limite para dejar de mirarla: la que sigue sin titulo se
+     relee en cada pasada, para siempre (ver aplicarFiltros). Esto solo evita
+     que aparezca y desaparezca en el primer segundo. */
+  const MAX_REINTENTOS = 3;
 
-  /* Facebook dibuja las tarjetas por partes: el titulo puede aparecer unos
-     segundos despues que el precio y la zona. Darla por ilegible en el primer
-     intento es perder esa publicacion para siempre, asi que se vuelve a mirar
-     unas cuantas veces antes de resignarse. */
   function convieneReintentar(link, datos) {
     if (!datos || !datos.tituloDudoso) return false;
     const n = Number(link.getAttribute('data-mpf-intentos') || 0) + 1;

@@ -261,7 +261,11 @@ buscar, así que **se filtran con lo que sí está**: el precio y la zona.
 - Si el precio o la zona no dan → se descarta igual que cualquier otra.
 - Si dan → se muestra, contada aparte como *"sin título todavía"*.
 
-Apenas Facebook las dibuja se vuelven a leer y se filtran completas.
+**Esas tarjetas se vuelven a leer en cada revisión, para siempre.** Facebook las
+dibuja cuando quiere, a veces bastante después de que entraron en pantalla. Con
+un tope de intentos quedaban marcadas como ilegibles y nunca más se miraban:
+veías el título en pantalla y la extensión seguía con el dato viejo, de cuando
+la tarjeta era un esqueleto. Releerlas cuesta centésimas de milisegundo.
 
 ## Si sentís que faltan resultados
 

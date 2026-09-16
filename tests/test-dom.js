@@ -511,6 +511,44 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
   prueba('dice que lo detuviste vos', () =>
     assert.match(frenado.estado, /detenido por vos/));
 
+  /* El caso que estuvo rompiendo todo: la tarjeta llega sin titulo, se la
+     marca, y despues Facebook la dibuja. Si no se vuelve a leer, queda con el
+     dato viejo para siempre: el usuario ve el titulo en pantalla y la
+     extension sigue creyendo que no existe. */
+  console.log('\nTarjetas que Facebook dibuja despues');
+
+  const antesDeDibujar = await pagina.evaluate(() => {
+    const a = document.querySelector('a[href*="/marketplace/item/127/"]');
+    const caja = window.MPF.scraper.contenedorTarjeta(a);
+    return { visible: caja.style.display !== 'none',
+             titulo: window.MPF.scraper.extraerDeTarjeta(a).titulo };
+  });
+  prueba('llega sin titulo y se muestra por precio y zona', () => {
+    assert.strictEqual(antesDeDibujar.titulo, '');
+    assert.strictEqual(antesDeDibujar.visible, true);
+  });
+
+  // Facebook dibuja el titulo, tarde.
+  await pagina.evaluate(() => {
+    const a = document.querySelector('a[href*="/marketplace/item/127/"]');
+    a.setAttribute('aria-label',
+      'Volkswagen Gol Trend 2015, $18.000, Lan\u00fas Este, BA, publicaci\u00f3n 979091484682999');
+    window.MPF.diagnostico.aplicarFiltros(true);
+  });
+  await pagina.waitForTimeout(200);
+
+  const despuesDeDibujar = await pagina.evaluate(() => {
+    const a = document.querySelector('a[href*="/marketplace/item/127/"]');
+    const caja = window.MPF.scraper.contenedorTarjeta(a);
+    return { visible: caja.style.display !== 'none',
+             motivo: caja.getAttribute('data-mpf-motivo') };
+  });
+  prueba('cuando Facebook la dibuja, se vuelve a leer', () =>
+    assert.strictEqual(despuesDeDibujar.visible, false,
+      'siguio mostrandose con el dato viejo'));
+  prueba('y se filtra con el titulo de verdad', () =>
+    assert.match(String(despuesDeDibujar.motivo), /falta: audi/));
+
   console.log('\nActivacion segun la URL');
   const fuera = await navegador.newPage();
   await fuera.goto(base + '/otra-cosa.html').catch(() => {});
