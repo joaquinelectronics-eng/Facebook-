@@ -18,6 +18,51 @@
      veces. Lo que no tenga un id numerico se descarta al leerlo. */
   const SELECTOR_ITEM = 'a[href*="/item/"]';
 
+  /* ---------------------------------------------------------------- version movil
+
+     Facebook sirve dos paginas distintas. La de escritorio arma cada tarjeta
+     como un enlace y manda muchas SIN titulo. La movil usa su propio sistema de
+     componentes -MContainer, ServerTextArea- sin un solo enlace, y ahi los
+     titulos SI vienen. Por eso conviene trabajar sobre la movil.
+
+     En esa version una tarjeta es un contenedor enfocable con accion propia, y
+     cada texto suyo -precio, titulo, zona- es un ServerTextArea. */
+  const SELECTOR_MOVIL =
+    'div[data-mcomponent="MContainer"][data-type="container"][tabindex="0"][data-action-id]';
+  const SELECTOR_TEXTO_MOVIL = '[data-mcomponent="ServerTextArea"]';
+
+  function esVersionMovil() {
+    return !!document.querySelector('[data-mcomponent="MScreen"]');
+  }
+
+  function selectorItem() {
+    return esVersionMovil() ? SELECTOR_MOVIL : SELECTOR_ITEM;
+  }
+
+  /* En la version movil no hay id de publicacion en ninguna parte: las tarjetas
+     no son enlaces. Se arma uno propio a partir del titulo y la zona, que no
+     cambian entre cargas, para que el catalogo pueda reconocer la misma
+     publicacion y llevarle el historial de precios. */
+  function idSintetico(titulo, zona) {
+    const base = normalizar(titulo + '|' + zona);
+    let h = 5381;
+    for (let i = 0; i < base.length; i++) h = ((h * 33) ^ base.charCodeAt(i)) >>> 0;
+    return 'm' + h.toString(36);
+  }
+
+  function lineasMovil(caja) {
+    return Array.from(caja.querySelectorAll(SELECTOR_TEXTO_MOVIL))
+      .map((e) => (e.textContent || '').trim())
+      .filter(Boolean);
+  }
+
+  /* No todo contenedor enfocable es una tarjeta: tambien lo son los botones de
+     filtro y de orden. Una tarjeta tiene un precio entre sus textos. */
+  function esTarjetaMovil(el) {
+    const lineas = lineasMovil(el);
+    return lineas.length >= 2 && lineas.some(esLineaDePrecio);
+  }
+
   /* Lee el texto de una tarjeta SIN usar innerText.
 
      innerText obliga al navegador a recalcular el layout de la pagina entera
@@ -185,6 +230,7 @@
   const cajaDe = new WeakMap();
 
   function contenedorTarjeta(link) {
+    if (esVersionMovil()) return link;   // la tarjeta ya es el contenedor
     const recordado = cajaDe.get(link);
     if (recordado && recordado.isConnected) return recordado;
 
@@ -284,7 +330,75 @@
     'disponible', 'en stock', 'destacado'
   ].join('|') + ')$', 'i');
 
+  /* Lectura de una tarjeta de la version movil. Los textos vienen limpios y
+     separados, asi que no hace falta adivinar nada: el precio es la linea que
+     parece precio, la zona la que se reconoce como zona, y el titulo el resto. */
+  function extraerDeTarjetaMovil(caja) {
+    const lineas = lineasMovil(caja);
+    if (!lineas.length) return null;
+
+    let precioTexto = '';
+    let precioAnteriorTexto = '';
+    const otras = [];
+    for (const linea of lineas) {
+      if (esLineaDePrecio(linea)) {
+        if (!precioTexto) precioTexto = linea;
+        else if (!precioAnteriorTexto) precioAnteriorTexto = linea;
+        continue;
+      }
+      if (RE_RUIDO.test(linea)) continue;
+      otras.push(linea);
+    }
+
+    let ubicacion = '';
+    for (let i = otras.length - 1; i >= 0; i--) {
+      const limpia = limpiarUbicacion(otras[i]);
+      if (limpia && MPF.zonas && MPF.zonas.detectarProvincia(limpia)) {
+        ubicacion = limpia;
+        otras.splice(i, 1);
+        break;
+      }
+    }
+    if (!ubicacion && otras.length > 1) ubicacion = limpiarUbicacion(otras.pop());
+
+    // El titulo es el texto mas descriptivo de los que quedan.
+    const titulo = otras.reduce((a, b) => (b.length > a.length ? b : a), '');
+    const km = extraerKm(lineas.join(' '));
+    const mAnio = String(titulo).match(RE_ANIO);
+    const img = caja.querySelector('img');
+
+    // Si el segundo monto es mas alto, es el precio viejo tachado.
+    if (precioAnteriorTexto) {
+      const actual = MPF.precio.parsearPrecio(precioTexto);
+      const otro = MPF.precio.parsearPrecio(precioAnteriorTexto);
+      if (!(actual.valor != null && otro.valor != null && otro.valor > actual.valor)) {
+        precioAnteriorTexto = '';
+      }
+    }
+
+    return {
+      id: idSintetico(titulo, ubicacion),
+      titulo,
+      tituloDudoso: !titulo,
+      textoBusqueda: lineas.join(' \u00b7 '),
+      precioTexto,
+      precioAnteriorTexto,
+      ubicacion,
+      km,
+      anio: mAnio ? Number(mAnio[1]) : null,
+      provincia: MPF.zonas ? MPF.zonas.detectarProvincia(ubicacion) : null,
+      url: '',            // la version movil no expone el enlace de la publicacion
+      imagen: img ? img.getAttribute('src') || '' : '',
+      _nodo: caja,
+      _link: caja
+    };
+  }
+
   function extraerDeTarjeta(link) {
+    if (esVersionMovil()) {
+      return esTarjetaMovil(link) ? extraerDeTarjetaMovil(link) : null;
+    }
+
     const id = idDesdeUrl(link.getAttribute('href') || '');
     if (!id) return null;
 
@@ -445,7 +559,7 @@
 
   function leerNuevas() {
     const encontradas = [];
-    const links = document.querySelectorAll(SELECTOR_ITEM + ':not([data-mpf-leido])');
+    const links = document.querySelectorAll(selectorItem() + ':not([data-mpf-leido])');
     for (const link of links) {
       const datos = extraerDeTarjeta(link);
       if (!datos) continue;                          // todavia no se dibujo nada
@@ -459,7 +573,7 @@
   /* Vuelve a listar TODAS las tarjetas presentes, esten visibles o escondidas. */
   function leerTodas() {
     const out = [];
-    for (const link of document.querySelectorAll(SELECTOR_ITEM)) {
+    for (const link of document.querySelectorAll(selectorItem())) {
       const datos = extraerDeTarjeta(link);
       if (datos) out.push(datos);
     }
@@ -467,10 +581,11 @@
   }
 
   function cantidadEnPantalla() {
-    return document.querySelectorAll(SELECTOR_ITEM).length;
+    return document.querySelectorAll(selectorItem()).length;
   }
 
   MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio, preciosEn, lineasDe,
+                  esVersionMovil, selectorItem, SELECTOR_MOVIL, lineasMovil,
                   textoCompletoDe,
                   tituloDesdeEtiqueta,
                   estructuraDe, esBloqueDeTexto,

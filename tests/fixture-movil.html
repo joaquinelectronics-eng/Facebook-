@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Marketplace movil (replica)</title>
+<style>body{margin:0;font-family:sans-serif;background:#fff}</style></head>
+<body id="app-body">
+<div id="screen-root">
+  <!-- Replica de la version movil real de Facebook: sin un solo enlace, todo
+       armado con su propio sistema de componentes. -->
+  <div data-mcomponent="MScreen" data-type="container" data-screen-id="65548">
+    <div data-mcomponent="MContainer" data-type="vscroller" data-scrollable="true" id="lista"></div>
+  </div>
+</div>
+<script>
+const items = [
+  {p:'$9.500.000',  t:'Vendo barata cupe audi a5 2012', z:'Pilar, BA'},
+  {p:'$1.000',      t:'2008 audi A5 Cupe',              z:'Gualeguaychú, ER', extra:'100 mil millas'},
+  {p:'$13.800',     t:'Audi A1 Sportback Único',   z:'Ciudad de Buenos Aires, CF'},
+  {p:'$19.500',     t:'Audi A5 Sportback 2.0t',         z:'Lanús Este, BA'},
+  {p:'$22.000',     p2:'$26.500', t:'Audi a5 quattro 3.2 At', z:'Quilmes, BA'},
+  {p:'$24.000',     t:'Audi A5 Coupe 2013',             z:'Villa Carlos Paz'},
+  // Un boton de la interfaz: mismo tipo de contenedor, pero sin precio.
+  {boton:'Filtros'}
+];
+const texto = (t) => '<div data-mcomponent="ServerTextArea" data-type="text">' +
+                     '<div><span>' + t + '</span></div></div>';
+const lista = document.getElementById('lista');
+let accion = 32700;
+for (const it of items) {
+  const caja = document.createElement('div');
+  caja.setAttribute('data-mcomponent', 'MContainer');
+  caja.setAttribute('data-type', 'container');
+  caja.setAttribute('tabindex', '0');
+  caja.setAttribute('data-focusable', 'true');
+  caja.setAttribute('data-action-id', String(accion++));
+  caja.innerHTML = it.boton
+    ? texto(it.boton)
+    : '<div><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></div>' +
+      texto(it.p) + (it.p2 ? texto(it.p2) : '') + texto(it.t) +
+      (it.extra ? texto(it.extra) : '') + texto(it.z);
+  lista.appendChild(caja);
+}
+</script>
+</body></html>

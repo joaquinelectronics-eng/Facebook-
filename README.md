@@ -236,65 +236,41 @@ madrugada, es un patrón que ninguna persona tiene. Por eso:
 La elección es tuya y la extensión no te la bloquea. Pero si me preguntás,
 **3 corridas por día alcanzan**: el catálogo crece igual y sos invisible.
 
+## IMPORTANTE: usá Marketplace en modo teléfono
+
+Facebook sirve **dos páginas distintas** según el dispositivo, y la diferencia
+decide si esto funciona o no:
+
+| | |
+|---|---|
+| **Escritorio** | Manda la mayoría de las tarjetas **sin título**. Ni en el texto, ni en el `aria-label`, ni en el `alt`. No hay nada que leer |
+| **Móvil** | **Manda los títulos.** Además vienen limpios y separados: precio, título, zona |
+
+Por eso conviene trabajar sobre la versión móvil, y es un clic:
+
+1. En Marketplace, **F12**
+2. **Ctrl + Shift + M** (aparece arriba una barra con "Dimensions")
+3. Elegí cualquier teléfono
+4. **F5**
+
+La extensión reconoce las dos versiones sola y se adapta.
+
+> **Detalle de la versión móvil:** las tarjetas no son enlaces —Facebook usa ahí
+> su propio sistema de componentes— así que no expone el link de cada
+> publicación. El filtrado, el catálogo y el historial de precios funcionan
+> igual (cada publicación se reconoce por su título y su zona), pero el botón
+> *Abrir en Facebook* del catálogo no tiene adónde llevarte en esas. Para
+> abrirlas, hacés clic en la tarjeta como siempre.
+
 ## Cómo decide si una publicación es la que buscás
 
 **Busca el modelo en todo el texto de la tarjeta**, no en el título aislado.
 
-Suena a detalle pero es lo que hace que funcione. Facebook arma el título de
-formas distintas según la tarjeta: a veces entero, a veces partido en pedazos,
-a veces con un span en el medio resaltando lo que buscaste, a veces anidado
-tres niveles. Intentar aislarlo era un pozo sin fondo: cada forma que se
-acertaba destapaba otra, y cuando fallaba **se perdía la publicación entera**.
-
-Para saber si un aviso es un Audi A5 no hace falta aislar el título. Alcanza
-con que el modelo figure en el texto. Así que se junta todo —el texto de la
-tarjeta, la etiqueta de accesibilidad del enlace, el `alt` de la foto— y se
-busca ahí. El título aislado se usa solo para mostrarlo lindo en el catálogo:
-si sale mal, no cuesta nada.
-
-### El catálogo como fuente de títulos
-
-Facebook manda **algunas tarjetas sin título en ninguna parte**: ni en el texto,
-ni en el `aria-label`, ni en el `alt`. Se comprobó mirando el DOM crudo, sin la
-extensión de por medio:
-
-```
-aria-label: ", $14.500, Moreno, BA, publicación 2089972805056327"
-img alt:    " en Moreno, BA"
-textos:     "$14.500"  ·  "Moreno, BA"
-```
-
-El formato del `alt` es `Título en Zona` **con el título vacío**. No es que no
-se encuentre: no está. Esas publicaciones no se pueden filtrar por modelo.
-
-Pero hay una fuente más: **tu catálogo**. Si esa publicación pasó antes por tu
-pantalla con título, está guardada por ID. Así que cuando una tarjeta llega sin
-título, se busca el ID en el catálogo y se usa el que está guardado.
-
-Eso hace que la extensión **mejore con el uso**: cuantas más publicaciones
-pasaron por tu catálogo, menos tarjetas quedan sin identificar. Para refrescar
-los títulos conocidos en cualquier momento, desde la consola de la extensión:
-`MPF.diagnostico.pedirTitulos()`.
-
-### Las tarjetas que Facebook todavía no dibujó
-
-Facebook dibuja el título de una tarjeta **cuando entra en pantalla**. Las que
-nunca entraron llegan sin título en ninguna parte: ni en el texto ni en la
-etiqueta, que en esos casos viene vacía.
-
-Esas tarjetas **no se esconden**, y la razón importa:
-
-> Esconderlas con `display:none` las saca del flujo de la página. Si están
-> fuera del flujo nunca entran en pantalla, y si nunca entran en pantalla
-> Facebook nunca les dibuja el título. Quedarían escondidas para siempre, sin
-> título, y de paso dejarían de dibujarse las de al lado. Es morderse la cola.
-
-Así que quedan en su lugar pero **casi transparentes**: Facebook las dibuja,
-no te molestan, y en cuanto tienen título se filtran de verdad. El panel te
-dice cuántas hay esperando.
-
-Si una de esas no cumple el precio o la zona, se descarta como cualquier otra:
-esos datos sí están siempre.
+Facebook arma el título de formas distintas según la tarjeta: entero, partido en
+pedazos, con un span en el medio resaltando lo que buscaste, anidado tres
+niveles. Intentar aislarlo era un pozo sin fondo, y cuando fallaba **se perdía
+la publicación entera**. Para saber si un aviso es un Audi A5 no hace falta
+aislar el título: alcanza con que el modelo figure en el texto.
 
 ## Si sentís que faltan resultados
 
@@ -424,12 +400,16 @@ docs/
   inspeccionar.js     Script para pegar en la consola de Chrome y ver dónde
                       pone Facebook cada texto de las tarjetas. No usa la
                       extensión: sirve para diagnosticar sin adivinar.
+  inspeccionar-movil.js  Lo mismo para la versión móvil, donde las tarjetas
+                      no son enlaces.
 tests/
   bench.js            Cuánto tarda la extensión con miles de resultados
   bench-progresivo.js Lo mismo pero con las tarjetas llegando de a poco,
                       que es como pasa de verdad al barrer
   test-logica.js      Matcher, precios y zonas
   test-agenda.mjs     Programación de las corridas automáticas
-  test-dom.js         Integración en Chromium real
+  test-dom.js         Integración en Chromium real (versión de escritorio)
+  test-movil.js       Lo mismo sobre la versión móvil, que arma las tarjetas
+                      de otra forma y es donde sí vienen los títulos
   test-catalogo.js    La página del catálogo, servida por http
 ```

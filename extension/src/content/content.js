@@ -207,7 +207,7 @@
   /* Lee las tarjetas que todavia no fueron procesadas y las agrega al cache. */
   function leerNuevas() {
     const nuevas = [];
-    for (const link of document.querySelectorAll(MPF.scraper.SELECTOR_ITEM + ':not([data-mpf-id])')) {
+    for (const link of document.querySelectorAll(MPF.scraper.selectorItem() + ':not([data-mpf-id])')) {
       const datos = MPF.scraper.extraerDeTarjeta(link);
       if (!datos) continue;              // todavia no se dibujo nada
       /* Sin titulo todavia: Facebook dibuja las tarjetas por partes, asi que se
@@ -239,8 +239,8 @@
     }
 
     const selector = desdeCero
-      ? MPF.scraper.SELECTOR_ITEM
-      : MPF.scraper.SELECTOR_ITEM + ':not([data-mpf-v="' + versionConfig + '"])';
+      ? MPF.scraper.selectorItem()
+      : MPF.scraper.selectorItem() + ':not([data-mpf-v="' + versionConfig + '"])';
 
     for (const link of document.querySelectorAll(selector)) {
       const id = link.getAttribute('data-mpf-id');
@@ -368,7 +368,7 @@
     try {
       chrome.runtime.sendMessage({ tipo: 'stats' }, (resp) => {
         if (chrome.runtime.lastError || !resp || !ui) return;
-        const vistos = document.querySelectorAll(MPF.scraper.SELECTOR_ITEM).length;
+        const vistos = document.querySelectorAll(MPF.scraper.selectorItem()).length;
         ui.marcador(vistos, undefined, resp.total);
       });
     } catch (e) {}
@@ -455,7 +455,7 @@
     const tope = cuantas || 2;
     /* Primero las que estan a la vista: si el usuario ve el titulo en pantalla
        y la extension no, esa tarjeta es la que hay que mirar. */
-    const links = Array.from(document.querySelectorAll(MPF.scraper.SELECTOR_ITEM))
+    const links = Array.from(document.querySelectorAll(MPF.scraper.selectorItem()))
       .sort((a, b) => (enPantalla(b) ? 1 : 0) - (enPantalla(a) ? 1 : 0));
     for (const link of links) {
       const id = link.getAttribute('data-mpf-id');
