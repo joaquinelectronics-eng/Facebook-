@@ -236,42 +236,32 @@ madrugada, es un patrón que ninguna persona tiene. Por eso:
 La elección es tuya y la extensión no te la bloquea. Pero si me preguntás,
 **3 corridas por día alcanzan**: el catálogo crece igual y sos invisible.
 
-## De dónde sale el título
+## Cómo decide si una publicación es la que buscás
 
-Facebook manda las tarjetas que todavía no entraron en pantalla **sin el
-título**. No está en el texto ni en la etiqueta de accesibilidad: esa llega
-literalmente vacía.
+**Busca el modelo en todo el texto de la tarjeta**, no en el título aislado.
 
-```
-aria-label=", $18.000, Lanús Este, BA, publicación 869219215965219"
-            ↑ el título va acá, y no está
-```
+Suena a detalle pero es lo que hace que funcione. Facebook arma el título de
+formas distintas según la tarjeta: a veces entero, a veces partido en pedazos,
+a veces con un span en el medio resaltando lo que buscaste, a veces anidado
+tres niveles. Intentar aislarlo era un pozo sin fondo: cada forma que se
+acertaba destapaba otra, y cuando fallaba **se perdía la publicación entera**.
 
-Con miles de resultados cargados, eso es la mayoría de las tarjetas. Por eso el
-título se busca en tres lugares, en este orden:
+Para saber si un aviso es un Audi A5 no hace falta aislar el título. Alcanza
+con que el modelo figure en el texto. Así que se junta todo —el texto de la
+tarjeta, la etiqueta de accesibilidad del enlace, el `alt` de la foto— y se
+busca ahí. El título aislado se usa solo para mostrarlo lindo en el catálogo:
+si sale mal, no cuesta nada.
 
-1. **El `aria-label` del enlace** — el texto que leen los lectores de pantalla.
-2. **El `alt` de la foto**, que viene como `Título en Ciudad, Provincia`.
-3. **El texto de la tarjeta**, cuando ya se dibujó.
+### Las tarjetas que Facebook todavía no dibujó
 
-### Y si aun así no hay título
-
-No se tira la publicación. **Se filtra con lo que sí se sabe**: el precio y la
-zona están siempre, y son datos confiables.
+Las que no entraron nunca en pantalla llegan sin título en ninguna parte: ni en
+el texto ni en la etiqueta, que en esos casos viene vacía. Ahí no hay nada que
+buscar, así que **se filtran con lo que sí está**: el precio y la zona.
 
 - Si el precio o la zona no dan → se descarta igual que cualquier otra.
-- Si dan → **se muestra**, y se cuenta aparte como *"sin título todavía"*.
+- Si dan → se muestra, contada aparte como *"sin título todavía"*.
 
-Tirarla por lo que no se puede saber sería perder autos buenos; mostrarla sin
-filtrar nada sería llenar la pantalla de basura. Se filtra con la mitad que hay.
-
-Además la extensión vuelve a mirar esas tarjetas hasta cuarenta veces: apenas
-Facebook las dibuje, se leen y se filtran completas.
-
-> **Si ves muchas "sin título todavía", bajá la velocidad del barrido.** El
-> panel te lo avisa solo. Barriendo en Turbo se pasa tan rápido que Facebook no
-> alcanza a dibujar los títulos. Es el caso en que ir más rápido te da
-> resultados menos precisos, no más.
+Apenas Facebook las dibuja se vuelven a leer y se filtran completas.
 
 ## Si sentís que faltan resultados
 

@@ -38,6 +38,39 @@
     return true;
   }
 
+  /* TODO el texto de la tarjeta, sin importar como este armada por dentro.
+
+     Este es el dato con el que se filtra. Buscar el titulo "limpio" dentro de
+     la estructura de Facebook resulto imposible de sostener: cada vez que se
+     acierta una forma aparece otra con un anidado distinto, y cuando falla se
+     pierde la publicacion entera. Para saber si un aviso es un Audi A5 no hace
+     falta aislar el titulo: alcanza con que el modelo aparezca en el texto.
+
+     Se juntan todos los nodos de texto del enlace, que es la tarjeta completa,
+     mas la etiqueta de accesibilidad y el alt de la foto. Si el dato esta en
+     alguna parte, aca esta. */
+  function textoCompletoDe(link, caja) {
+    const partes = [];
+    const paso = document.createTreeWalker(link || caja, NodeFilter.SHOW_TEXT);
+    let nodo;
+    while ((nodo = paso.nextNode())) {
+      const t = (nodo.nodeValue || '').trim();
+      if (t) partes.push(t);
+    }
+    if (link) {
+      const aria = link.getAttribute('aria-label');
+      const tit = link.getAttribute('title');
+      if (aria) partes.push(aria);
+      if (tit) partes.push(tit);
+    }
+    const img = (caja || link).querySelector('img[alt]');
+    if (img) {
+      const alt = img.getAttribute('alt');
+      if (alt) partes.push(alt);
+    }
+    return partes.join(' \u00b7 ');
+  }
+
   function lineasDe(caja) {
     /* Se recorre de afuera hacia adentro y se corta en el primer bloque de
        texto: asi cada linea sale entera. No se usa innerText porque obliga a
@@ -353,7 +386,11 @@
       }
     }
 
-    const mAnio = String(titulo).match(RE_ANIO);
+    /* El texto completo es lo que se usa para filtrar; el titulo, solo para
+       mostrar. Asi un titulo mal aislado deja de costar la publicacion. */
+    const textoBusqueda = textoCompletoDe(link, caja);
+
+    const mAnio = String(titulo || textoBusqueda).match(RE_ANIO);
 
     /* Si no se pudo sacar un titulo de verdad, se dice. Quien filtre despues
        tiene que saber que no puede confiar en este dato. */
@@ -370,6 +407,7 @@
       id,
       titulo: tituloDudoso ? '' : titulo,
       tituloDudoso,
+      textoBusqueda,
       precioTexto,
       precioAnteriorTexto,
       ubicacion,
@@ -427,6 +465,7 @@
   }
 
   MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio, preciosEn, lineasDe,
+                  textoCompletoDe,
                   tituloDesdeEtiqueta,
                   estructuraDe, esBloqueDeTexto,
                   MAX_REINTENTOS, convieneReintentar,

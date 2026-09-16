@@ -69,6 +69,10 @@ const items = [
    p:'US$ 9.000', m:'Usado · Moreno, BA'},
   /* Misma situacion pero con el precio DENTRO del rango: no se puede verificar
      el modelo, pero precio y zona si, asi que tiene que mostrarse. */
+  /* Titulo partido en tres niveles de anidado. Aislarlo asi es imposible de
+     sostener; filtrando sobre todo el texto de la tarjeta, no importa. */
+  {id:'128', t:'Audi <span>A5 <span>Coupe</span></span> 2015', sinFoto: true,
+   p:'US$ 24.000', m:'Usado \u00b7 Quilmes, BA'},
   {id:'127', t:'', sinFoto: true, soloPrecioYZona: true,
    aria: ', $18.000, reducido de $21.000, Lanús Este, BA, publicación 979091484682999',
    p:'US$ 18.000', p2:'US$ 21.000', m:'Usado · Lanús Este, BA'},

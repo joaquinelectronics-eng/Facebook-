@@ -72,10 +72,19 @@
        que cualquier otra; si dan, se muestra marcada como sin verificar. Tirar
        la publicacion por lo que no se puede saber seria perder autos buenos;
        mostrarla sin filtrar nada seria llenar la pantalla de basura. */
+    /* Se busca en TODO el texto de la tarjeta, no en el titulo aislado.
+       Aislar el titulo dentro de la estructura de Facebook nunca fue
+       confiable, y cuando fallaba se perdia la publicacion. Para saber si un
+       aviso es un Audi A5 alcanza con que el modelo figure en su texto. */
+    const textoParaFiltrar = datos.textoBusqueda || datos.titulo;
+
+    /* Si Facebook todavia no dibujo el titulo, en el texto no hay nada que
+       buscar: quedan el precio, la zona y el id, nada mas. Esas se filtran por
+       precio y zona, que si estan. */
     const sinTitulo = !!datos.tituloDudoso;
 
     if (!sinTitulo && !filtro.vacia) {
-      const r = filtro.evaluar(datos.titulo);
+      const r = filtro.evaluar(textoParaFiltrar);
       if (!r.coincide) return { pasa: false, motivo: r.motivo };
     }
 
@@ -389,10 +398,19 @@
      sin las clases ofuscadas, mas lo que la extension entendio de cada una.
      Es lo unico que permite arreglar de verdad una forma de tarjeta nueva en
      vez de seguir adivinando. */
+  function enPantalla(el) {
+    const r = el.getBoundingClientRect();
+    return r.bottom > 0 && r.top < innerHeight && r.width > 0;
+  }
+
   function estructuraIlegible(cuantas) {
     const partes = [];
     const tope = cuantas || 2;
-    for (const link of document.querySelectorAll(MPF.scraper.SELECTOR_ITEM)) {
+    /* Primero las que estan a la vista: si el usuario ve el titulo en pantalla
+       y la extension no, esa tarjeta es la que hay que mirar. */
+    const links = Array.from(document.querySelectorAll(MPF.scraper.SELECTOR_ITEM))
+      .sort((a, b) => (enPantalla(b) ? 1 : 0) - (enPantalla(a) ? 1 : 0));
+    for (const link of links) {
       const id = link.getAttribute('data-mpf-id');
       const d = id ? cache.get(id) : null;
       if (!d || !d.tituloDudoso) continue;
@@ -404,6 +422,8 @@
         '  zona:   ' + JSON.stringify(d.ubicacion) + '\n' +
         '  precio: ' + JSON.stringify(d.precioTexto) + '\n' +
         'lineas: ' + JSON.stringify(MPF.scraper.lineasDe(caja)) + '\n' +
+        'texto completo: ' + JSON.stringify(String(d.textoBusqueda || '').slice(0, 400)) + '\n' +
+        'a la vista: ' + (enPantalla(link) ? 'si' : 'no') + '\n' +
         'forma del html:\n' + MPF.scraper.estructuraDe(caja, 1));
       if (partes.length >= tope) break;
     }

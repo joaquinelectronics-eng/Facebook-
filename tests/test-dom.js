@@ -20,7 +20,7 @@ const CONFIG = {
 };
 
 // Lo que tiene que quedar visible con esa configuracion.
-const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120', '121', '122', '123', '124', '125', '127'];
+const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120', '121', '122', '123', '124', '125', '127', '128'];
 
 (async () => {
   const navegador = await chromium.launch({
@@ -80,7 +80,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     precioAnteriorTexto: d.precioAnteriorTexto, tituloDudoso: d.tituloDudoso
   })));
 
-  prueba('encuentra las 27 publicaciones', () => assert.strictEqual(leidas.length, 27));
+  prueba('encuentra las 28 publicaciones', () => assert.strictEqual(leidas.length, 28));
   prueba('extrae el titulo completo', () => {
     const a = leidas.find((x) => x.id === '101');
     assert.strictEqual(a.titulo, 'Audi A5 2.0 TFSI Quattro 2018');
@@ -182,6 +182,12 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
      en ninguna parte. No se puede verificar el modelo, pero el precio y la zona
      si, asi que se filtra con eso: es la diferencia entre perder el auto y
      tenerlo a la vista aunque sea sin confirmar. */
+  /* La prueba que resume el cambio de enfoque: no importa como este armado el
+     titulo por dentro, alcanza con que el modelo figure en el texto. */
+  prueba('encuentra el modelo aunque el titulo este partido en tres niveles', () =>
+    assert.ok(visibles.includes('128'),
+      'se perdio una publicacion por como Facebook arma el titulo por dentro'));
+
   prueba('sin titulo pero en rango y en zona: se muestra', () =>
     assert.ok(visibles.includes('127'),
       'se perdio una publicacion que cumplia precio y zona'));
@@ -332,7 +338,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
 
   const antes = await leerContadores();
   prueba('antes del cambio de URL cuenta todas las tarjetas', () =>
-    assert.strictEqual(antes.vistos, 27));
+    assert.strictEqual(antes.vistos, 28));
   prueba('antes del cambio de URL coinciden las esperadas', () =>
     assert.strictEqual(antes.ok, ESPERADOS.length));
 
@@ -344,7 +350,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
 
   const despues = await leerContadores();
   prueba('despues del cambio sigue contando todas', () =>
-    assert.strictEqual(despues.vistos, 27));
+    assert.strictEqual(despues.vistos, 28));
   prueba('despues del cambio el filtro sigue aplicado', () =>
     assert.strictEqual(despues.ok, ESPERADOS.length));
 
@@ -382,7 +388,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     const suma = desglose
       .filter((d) => !/sin titulo todavia/.test(d.motivo))
       .reduce((a, d) => a + d.n, 0);
-    assert.strictEqual(suma, 27 - ESPERADOS.length);
+    assert.strictEqual(suma, 28 - ESPERADOS.length);
   });
   prueba('las no verificadas se cuentan aparte y se pueden ver', () => {
     const av = desglose.find((d) => /sin titulo todavia/.test(d.motivo));
@@ -408,7 +414,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
              filas: sh.querySelectorAll('.motivo').length };
   });
   prueba('el panel muestra cuantas se ocultaron', () =>
-    assert.match(enPanel.titulo, new RegExp(String(27 - ESPERADOS.length))));
+    assert.match(enPanel.titulo, new RegExp(String(28 - ESPERADOS.length))));
   prueba('el panel lista los motivos', () => assert.ok(enPanel.filas >= 3));
 
   console.log('\nBuscador de diagnostico');
