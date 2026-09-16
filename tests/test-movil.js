@@ -16,7 +16,12 @@ const ESPERADOS = ['Audi A5 Sportback 2.0t', 'Audi a5 quattro 3.2 At'];
 const archivo = (p) => path.join(__dirname, '..', 'extension', p);
 
 (async () => {
-  const { srv, base } = await servir(__dirname, { '/marketplace/search': 'fixture-movil.html' });
+  const { srv, base } = await servir(__dirname, {
+    '/marketplace/search': 'fixture-movil.html',
+    /* La version movil entra a Marketplace sin cambiar la direccion: se queda
+       en facebook.com. Por eso el mismo fixture se sirve tambien en la raiz. */
+    '/': 'fixture-movil.html'
+  });
   const navegador = await chromium.launch({
     executablePath: process.env.PLAYWRIGHT_CHROMIUM ||
       '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
@@ -101,6 +106,58 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
     assert.ok(!titulosVisibles.some((t) => /Coupe 2013/.test(t))));
 
   prueba('sin errores de javascript en la pagina', () => assert.deepStrictEqual(errores, []));
+
+  /* Esto es lo que fallaba en el telefono: la version movil no pone
+     /marketplace en la direccion, asi que mirando solo la URL la extension
+     nunca se daba cuenta de que estaba viendo publicaciones y el panel no
+     aparecia. Ahora se tiene que dar cuenta por lo que hay en pantalla. */
+  console.log('\nMarketplace movil sin /marketplace en la direccion');
+  const otra = await navegador.newPage({ viewport: { width: 393, height: 852 } });
+  const erroresOtra = [];
+  otra.on('pageerror', (e) => erroresOtra.push(String(e)));
+  await otra.goto(base + '/');
+  await otra.evaluate((config) => {
+    window.chrome = {
+      storage: { local: { get: (k, cb) => cb({ config }), set: () => {} } },
+      runtime: { lastError: undefined, getURL: (p) => p,
+                 onMessage: { addListener: () => {} },
+                 sendMessage: (m, cb) => cb && cb(m && m.tipo === 'titulosConocidos'
+                   ? { ok: true, titulos: {} } : { ok: true, total: 0 }) }
+    };
+  }, CONFIG);
+  for (const f of ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js', 'src/lib/zonas.js',
+                   'src/content/scraper.js', 'src/content/panel.js',
+                   'src/content/autoscroll.js', 'src/content/content.js']) {
+    await otra.addScriptTag({ path: archivo(f) });
+  }
+  await otra.waitForTimeout(1500);
+
+  const rutaSinMarketplace = await otra.evaluate(() => location.pathname);
+  prueba('la direccion no dice marketplace', () =>
+    assert.ok(!/marketplace/.test(rutaSinMarketplace), rutaSinMarketplace));
+
+  const panelVisible = await otra.evaluate(() => {
+    const host = document.getElementById('mpf-host');
+    if (!host || !host.shadowRoot) return null;
+    const caja = host.shadowRoot.querySelector('.caja');
+    return caja ? getComputedStyle(caja).display : null;
+  });
+  prueba('igual aparece el panel', () => assert.strictEqual(panelVisible, 'block'));
+
+  const titulosOtra = await otra.evaluate(() => {
+    const out = [];
+    for (const c of document.querySelectorAll(window.MPF.scraper.SELECTOR_MOVIL)) {
+      if (c.style.display === 'none') continue;
+      const t = window.MPF.scraper.lineasMovil(c);
+      if (t.length >= 2) out.push(t.find((x) => /audi/i.test(x)) || t[1]);
+    }
+    return out;
+  });
+  prueba('y filtra igual que con /marketplace en la direccion', () =>
+    assert.deepStrictEqual(titulosOtra.sort(), ESPERADOS.slice().sort()));
+
+  prueba('sin errores de javascript en la otra pagina', () =>
+    assert.deepStrictEqual(erroresOtra, []));
 
   await navegador.close();
   srv.close();

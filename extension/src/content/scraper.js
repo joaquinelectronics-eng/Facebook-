@@ -63,6 +63,25 @@
     return lineas.length >= 2 && lineas.some(esLineaDePrecio);
   }
 
+  /* La version movil es una aplicacion que NO cambia la direccion al entrar a
+     Marketplace: la URL se queda en facebook.com. Por eso no se puede saber
+     por la ruta si estamos viendo publicaciones; hay que mirar si en la
+     pantalla hay tarjetas de verdad. Se revisan unas pocas, alcanza. */
+  function hayTarjetasMovil() {
+    const candidatos = document.querySelectorAll(SELECTOR_MOVIL);
+    const tope = Math.min(candidatos.length, 60);
+    for (let i = 0; i < tope; i++) {
+      if (esTarjetaMovil(candidatos[i])) return true;
+    }
+    return false;
+  }
+
+  /* En movil solo cuentan las tarjetas de verdad: los botones de filtro y de
+     orden usan el mismo tipo de contenedor. */
+  function tarjetasMovil() {
+    return Array.from(document.querySelectorAll(SELECTOR_MOVIL)).filter(esTarjetaMovil);
+  }
+
   /* Lee el texto de una tarjeta SIN usar innerText.
 
      innerText obliga al navegador a recalcular el layout de la pagina entera
@@ -581,11 +600,13 @@
   }
 
   function cantidadEnPantalla() {
+    if (esVersionMovil()) return tarjetasMovil().length;
     return document.querySelectorAll(selectorItem()).length;
   }
 
   MPF.scraper = { leerNuevas, leerTodas, extraerDeTarjeta, esLineaDePrecio, preciosEn, lineasDe,
                   esVersionMovil, selectorItem, SELECTOR_MOVIL, lineasMovil,
+                  hayTarjetasMovil, esTarjetaMovil, tarjetasMovil,
                   textoCompletoDe,
                   tituloDesdeEtiqueta,
                   estructuraDe, esBloqueDeTexto,

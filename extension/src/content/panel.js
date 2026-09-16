@@ -10,6 +10,9 @@
   .caja {
     position: fixed; top: 90px; right: 18px; z-index: 2147483000;
     width: 310px; font: 13px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+    /* En la version movil la pantalla es angosta: el panel se achica solo en
+       vez de irse de la pantalla y dejar los botones fuera de alcance. */
+    max-width: calc(100vw - 36px);
     color: #e9edf2; background: #171a20; border: 1px solid #2c323c;
     border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.45); overflow: hidden;
   }

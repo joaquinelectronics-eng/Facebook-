@@ -54,7 +54,10 @@
      solo se activara en /marketplace, entrando desde el inicio de Facebook el
      panel no aparecia nunca. Entonces se inyecta siempre y decide aca si actua. */
   function enMarketplace() {
-    return /(^|\/)marketplace(\/|$)/.test(location.pathname);
+    if (/(^|\/)marketplace(\/|$)/.test(location.pathname)) return true;
+    /* La version movil no cambia la direccion al entrar a Marketplace: se queda
+       en facebook.com. Ahi hay que darse cuenta por lo que hay en pantalla. */
+    return MPF.scraper.esVersionMovil() && MPF.scraper.hayTarjetasMovil();
   }
 
   // --- busqueda actual, para saber en que contexto aparecio cada aviso ---
