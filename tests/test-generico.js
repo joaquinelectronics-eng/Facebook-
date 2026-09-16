@@ -8,12 +8,15 @@ const assert = require('assert');
 const { servir } = require('./servidor');
 
 const CONFIG = {
-  consulta: 'audi a5', pmin: 15000, pmax: 30000, moneda: 'USD',
+  consulta: 'audi a5 -permuto', pmin: 15000, pmax: 30000, moneda: 'USD',
   cotizacion: 1000, umbralAmbiguo: 500000,
   provincias: ['BA', 'CABA', 'SF', 'ER', 'LP'], zonaDesconocida: true,
   velocidad: 'tranquilo', ocultar: true, sinPrecio: false, indexar: true
 };
 const ESPERADOS = ['Audi A5 Sportback 2.0t', 'Audi a5 quattro 3.2 At'];
+/* El de titulo cortado no coincide con el filtro, pero tampoco se puede
+   descartar: el modelo quedo del otro lado del corte. Se muestra en duda. */
+const EN_DUDA = 'Vendo Audi Cabriolet 2.0 Tfsi A\u2026';
 const archivo = (p) => path.join(__dirname, '..', 'extension', p);
 
 (async () => {
@@ -60,7 +63,7 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
     assert.deepStrictEqual(nada, { enlaces: 0, componentes: 0, pantalla: 0 }));
 
   const cuantas = await pagina.evaluate(() => window.MPF.scraper.cantidadEnPantalla());
-  prueba('igual encuentra las 6 publicaciones', () => assert.strictEqual(cuantas, 6));
+  prueba('igual encuentra las 8 publicaciones', () => assert.strictEqual(cuantas, 8));
 
   const leidas = await pagina.evaluate(() => window.MPF.scraper.leerTodas().map((d) => ({
     t: d.titulo, p: d.precioTexto, z: d.ubicacion, ant: d.precioAnteriorTexto, km: d.km
@@ -75,7 +78,7 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
 
   prueba('no junta dos publicaciones de la misma fila en una sola', () => {
     const t = leidas.map((x) => x.t);
-    assert.strictEqual(new Set(t).size, 6, JSON.stringify(t));
+    assert.strictEqual(new Set(t).size, 8, JSON.stringify(t));
     assert.ok(t.includes('Audi A1 Sportback Único'), JSON.stringify(t));
   });
 
@@ -97,8 +100,36 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
     window.MPF.scraper.elementosTarjeta()
       .filter((c) => c.getClientRects().length > 0)
       .map((c) => window.MPF.scraper.lineasMovil(c).find((x) => /audi/i.test(x)) || '?'));
-  prueba('y filtra: deja solo los dos que coinciden', () =>
-    assert.deepStrictEqual(visibles.sort(), ESPERADOS.slice().sort()));
+  prueba('y filtra: deja los que coinciden y el que no se puede confirmar', () =>
+    assert.deepStrictEqual(visibles.sort(),
+      ESPERADOS.concat([EN_DUDA]).sort()));
+
+  /* Lo importante del titulo cortado: no se descarta, pero tampoco se hace
+     pasar por una que coincide. Queda a la vista y apagada. */
+  const duda = await pagina.evaluate((cortado) => {
+    const salida = { marcadas: 0, opacidadDelCortado: null, motivo: null };
+    for (const c of window.MPF.scraper.elementosTarjeta()) {
+      const caja = window.MPF.scraper.contenedorTarjeta(c);
+      if (caja.dataset.mpfDuda) salida.marcadas++;
+      if (window.MPF.scraper.lineasMovil(c).some((x) => x === cortado)) {
+        salida.opacidadDelCortado = caja.style.opacity;
+        salida.motivo = caja.getAttribute('data-mpf-motivo');
+      }
+    }
+    return salida;
+  }, EN_DUDA);
+  prueba('el de titulo cortado queda en duda, no aprobado', () =>
+    assert.deepStrictEqual(duda, { marcadas: 1, opacidadDelCortado: '0.45',
+                                   motivo: 'titulo cortado: no se puede confirmar' }));
+
+  /* Y el limite: un titulo cortado que ademas trae una palabra excluida NO es
+     duda. Esa palabra esta escrita, no es cuestion de lo que no se ve. */
+  const excluido = await pagina.evaluate(() =>
+    window.MPF.scraper.elementosTarjeta()
+      .filter((c) => window.MPF.scraper.lineasMovil(c).some((x) => /permuto/.test(x)))
+      .map((c) => window.MPF.scraper.contenedorTarjeta(c).style.display));
+  prueba('pero uno cortado con palabra excluida se descarta igual', () =>
+    assert.deepStrictEqual(excluido, ['none']));
 
   /* Lo que se esconde tiene que ser la celda entera. Escondiendo la cajita de
      adentro, la celda queda vacia ocupando su lugar: la pantalla se llena de
@@ -117,7 +148,7 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
   });
   prueba('esconde la celda entera y no deja huecos blancos', () =>
     assert.deepStrictEqual(huecos,
-      { celdasEscondidas: 4, cajasSueltas: 0, celdasVaciasVisibles: 0 }));
+      { celdasEscondidas: 5, cajasSueltas: 0, celdasVaciasVisibles: 0 }));
 
   /* En la version movil la que scrollea no es la ventana sino un cajon interno.
      Mientras el barrido movia la ventana no pasaba nada, la cuenta del fondo

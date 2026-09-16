@@ -20,7 +20,10 @@
     provincias: ['BA', 'CABA', 'SF', 'ER', 'LP'],
     zonaDesconocida: true,
     velocidad: 'tranquilo', soloBajadas: false,
-    ocultar: true, sinPrecio: false, indexar: true
+    ocultar: true, sinPrecio: false, indexar: true,
+    /* Por defecto encendido: entre ver una de mas y perder una buena, se ve
+       una de mas. Se puede apagar desde el panel. */
+    rescatarCortados: true
   };
 
   let config = Object.assign({}, CONFIG_POR_DEFECTO);
@@ -41,7 +44,7 @@
      por el catalogo, de ahi sale. Cuanto mas se usa, mas titulos se conocen. */
   let titulosConocidos = Object.create(null);
   let versionPintada = -1;
-  let contVistos = 0, contOk = 0;
+  let contVistos = 0, contOk = 0, contEnDuda = 0;
   /* Cuenta por que se descarto cada tarjeta, con ejemplos. Es la unica forma
      de saber si faltan resultados por culpa del filtro o porque Facebook no
      los mando: sin esto hay que adivinar. */
@@ -98,7 +101,25 @@
 
     if (!sinTitulo && !filtro.vacia) {
       const r = filtro.evaluar(textoParaFiltrar);
-      if (!r.coincide) return { pasa: false, motivo: r.motivo };
+      if (!r.coincide) {
+        /* TITULO CORTADO: un "no" que no se puede sostener.
+
+           Facebook manda el titulo recortado -"Audi Q2 1.4 Tfsi At 2..."- y lo
+           que falta no esta en ningun lado. Si el modelo quedo del otro lado
+           del corte, descartarla es perder una publicacion buena sin enterarse,
+           que es justo lo que no queremos. Asi que cuando el filtro falla SOLO
+           porque le falta una palabra, y el titulo viene cortado, no se
+           descarta: queda en duda, a la vista y apagada.
+
+           Si lo que fallo fue una palabra excluida, ahi si es un no de verdad:
+           esa palabra esta, no es cuestion de lo que no se ve. */
+        const soloLeFalta = /^falta:/.test(r.motivo || '');
+        if (config.rescatarCortados && datos.tituloCortado && soloLeFalta) {
+          datos.enDuda = true;
+        } else {
+          return { pasa: false, motivo: r.motivo };
+        }
+      }
     }
 
     /* Zona. Si no se pudo determinar la provincia, el aviso NO se descarta por
@@ -143,9 +164,17 @@
        nunca entran en pantalla; y Facebook dibuja el titulo justamente cuando
        entran. Esconderlas era morderse la cola: se quedaban sin titulo para
        siempre. Se dejan en su lugar, casi transparentes. */
-    const aprobada = () => sinTitulo && !filtro.vacia
-      ? { pasa: true, enEspera: true, motivo: 'esperando que Facebook dibuje el titulo' }
-      : { pasa: true, motivo: '' };
+    const aprobada = () => {
+      if (sinTitulo && !filtro.vacia) {
+        return { pasa: true, enEspera: true,
+                 motivo: 'esperando que Facebook dibuje el titulo' };
+      }
+      if (datos.enDuda) {
+        return { pasa: true, enDuda: true,
+                 motivo: 'titulo cortado: no se puede confirmar' };
+      }
+      return { pasa: true, motivo: '' };
+    };
 
     const hayRango = config.pmin != null || config.pmax != null;
     if (p.valor == null) {
@@ -192,13 +221,26 @@
       delete caja.dataset.mpfEspera;
     }
 
+    /* En duda por titulo cortado: se ve, pero apagada, para que se note que la
+       extension no pudo confirmarla y no se confunda con una que si coincide. */
+    if (veredicto.enDuda && config.ocultar) {
+      caja.style.opacity = '0.45';
+      caja.dataset.mpfDuda = '1';
+      caja.setAttribute('data-mpf-motivo', veredicto.motivo);
+    } else if (caja.dataset.mpfDuda) {
+      caja.style.opacity = '';
+      delete caja.dataset.mpfDuda;
+    }
+
     if (veredicto.pasa || !config.ocultar) {
       if (caja.dataset.mpfOculto) {
         caja.style.display = caja.dataset.mpfDisplayPrevio || '';
         delete caja.dataset.mpfOculto;
         delete caja.dataset.mpfDisplayPrevio;
       }
-      caja.removeAttribute('data-mpf-motivo');
+      /* La que quedo en duda se ve, pero conserva el motivo: es lo unico que
+         explica por que aparece algo que el filtro no confirmo. */
+      if (!veredicto.enDuda) caja.removeAttribute('data-mpf-motivo');
     } else if (caja.style.display !== 'none') {
       /* Se mira el display de verdad, no solo nuestra marca: si Facebook
          redibuja la tarjeta y le pierde el estilo, hay que volver a
@@ -247,6 +289,7 @@
       contVistos = 0;
       contOk = 0;
       motivos = new Map();
+      contEnDuda = 0;
       versionPintada = versionConfig;
     }
 
@@ -296,6 +339,7 @@
       }
 
       contVistos++;
+      if (veredicto.enDuda) contEnDuda++;
       if (veredicto.pasa && !veredicto.enEspera) {
         contOk++;
         if (veredicto.parcial) {
@@ -324,8 +368,22 @@
       const sinTit = motivos.get('esperando que Facebook dibuje el titulo');
       ui.costo(ultimoCostoMs, contVistos, sinTit ? sinTit.n : 0);
       ui.motivos(motivos, contVistos - contOk);
+      /* Lo que esta en pantalla y todavia no se pudo leer. Sin este numero no
+         hay manera de saber si faltan resultados porque los escondio el filtro
+         o porque nunca se llegaron a leer, que es muy distinto. */
+      ui.pendientes(sinLeerEnPantalla(), contEnDuda);
     }
     return { vistos: contVistos, ok: contOk, ms: ultimoCostoMs };
+  }
+
+  /* Tarjetas que estan en pantalla pero de las que todavia no se saco nada:
+     Facebook no termino de dibujarlas, o se rindio con ellas. */
+  function sinLeerEnPantalla() {
+    let n = 0;
+    for (const el of MPF.scraper.elementosTarjeta()) {
+      if (!el.hasAttribute('data-mpf-id')) n++;
+    }
+    return n;
   }
 
   // --- guardado en el catalogo, en lotes para no saturar el service worker ---
@@ -342,6 +400,11 @@
         precioAnteriorUSD: d.precioAnteriorUSD ?? null,
         ubicacion: d.ubicacion, provincia: d.provincia ?? null,
         tituloDudoso: !!d.tituloDudoso,
+        /* Se guarda que el titulo vino cortado: el catalogo tiene que saber
+           que ese texto esta incompleto y no puede tratarlo como un dato
+           firme al buscar mas adelante. */
+        tituloCortado: !!d.tituloCortado,
+        enDuda: !!d.enDuda,
         coincide: !!d.coincide,
         km: d.km, anio: d.anio, url: d.url, imagen: d.imagen, busqueda
       });

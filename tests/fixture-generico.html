@@ -29,7 +29,13 @@ const items = [
   {p:'$13.800',     t:'Audi A1 Sportback Único',        z:'Ciudad de Buenos Aires, CF'},
   {p:'$19.500',     t:'Audi A5 Sportback 2.0t',         z:'Lanús Este, BA'},
   {p:'$22.000',     p2:'$26.500', t:'Audi a5 quattro 3.2 At', z:'Quilmes, BA'},
-  {p:'$24.000',     t:'Audi A5 Coupe 2013',             z:'Villa Carlos Paz'}
+  {p:'$24.000',     t:'Audi A5 Coupe 2013',             z:'Villa Carlos Paz'},
+  /* Titulo cortado de origen: el modelo quedo del otro lado de los puntitos.
+     No se puede saber si es un A5 o no, asi que no se puede descartar. */
+  {p:'$21.000',     t:'Vendo Audi Cabriolet 2.0 Tfsi A\u2026', z:'Olivos, BA'},
+  /* Este tambien viene cortado, pero trae una palabra excluida: eso NO es
+     duda, la palabra esta. Se descarta igual que siempre. */
+  {p:'$20.000',     t:'Audi A5 permuto por camioneta\u2026',  z:'Olivos, BA'}
 ];
 const PIX = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 const raiz = document.getElementById('raiz');

@@ -66,6 +66,8 @@
   .marcador b { display: block; font-size: 16px; color: #fff; font-variant-numeric: tabular-nums; }
   .marcador span { font-size: 9.5px; color: #79828f; text-transform: uppercase; letter-spacing: .5px; }
   .estado { font-size: 11px; color: #8b94a3; min-height: 15px; text-align: center; }
+  .pendientes { font-size: 11px; text-align: center; min-height: 14px; color: #79828f; }
+  .pendientes b { color: #ffb74d; font-variant-numeric: tabular-nums; }
   /* El boton de barrer/detener queda pegado abajo del panel: antes habia que
      scrollear el panel para llegar a el, justo cuando uno quiere frenar ya. */
   .pie {
@@ -184,6 +186,7 @@
       <label class="check"><input type="checkbox" id="soloBajadas"> Solo los que bajaron de precio</label>
       <label class="check"><input type="checkbox" id="ocultar" checked> Ocultar los que no coinciden</label>
       <label class="check"><input type="checkbox" id="sinPrecio"> Mostrar tambien los sin precio</label>
+      <label class="check"><input type="checkbox" id="rescatarCortados"> Mostrar los de titulo cortado (no perder ninguno)</label>
       <label class="check"><input type="checkbox" id="indexar" checked> Guardar todo en mi catalogo</label>
 
       <details id="detMotivos">
@@ -209,6 +212,7 @@
         <div><b id="mOk">0</b><span>coinciden</span></div>
         <div><b id="mGuardados">0</b><span>catalogo</span></div>
       </div>
+      <div class="pendientes" id="pendientes"></div>
 
       <div class="pie">
         <button class="primario" id="barrer">Barrer hasta el fondo</button>
@@ -241,7 +245,9 @@
       consulta: $('consulta'), pmin: $('pmin'), pmax: $('pmax'), moneda: $('moneda'),
       cotizacion: $('cotizacion'), umbral: $('umbral'), ocultar: $('ocultar'),
       velocidad: $('velocidad'), soloBajadas: $('soloBajadas'),
-      sinPrecio: $('sinPrecio'), indexar: $('indexar'), barrer: $('barrer'),
+      pendientes: $('pendientes'),
+      sinPrecio: $('sinPrecio'), rescatarCortados: $('rescatarCortados'),
+      indexar: $('indexar'), barrer: $('barrer'),
       estado: $('estado'), catalogo: $('catalogo'), punto: $('punto'),
       mVistos: $('mVistos'), mOk: $('mOk'), mGuardados: $('mGuardados'),
       cuerpo: $('cuerpo'), plegar: $('plegar'), barra: $('barra'), caja: shadow.querySelector('.caja'),
@@ -305,7 +311,8 @@
 
     // --- eventos hacia el orquestador ---
     const campos = [el.consulta, el.pmin, el.pmax, el.moneda, el.cotizacion,
-                    el.umbral, el.ocultar, el.sinPrecio, el.indexar, el.zonaDesc,
+                    el.umbral, el.ocultar, el.sinPrecio, el.rescatarCortados,
+                    el.indexar, el.zonaDesc,
                     el.velocidad, el.soloBajadas]
                     .concat(checksProv());
     for (const c of campos) {
@@ -340,6 +347,7 @@
         soloBajadas: el.soloBajadas.checked,
         ocultar: el.ocultar.checked,
         sinPrecio: el.sinPrecio.checked,
+        rescatarCortados: el.rescatarCortados.checked,
         indexar: el.indexar.checked
       };
     }
@@ -356,6 +364,7 @@
       el.soloBajadas.checked = !!c.soloBajadas;
       el.ocultar.checked = c.ocultar !== false;
       el.sinPrecio.checked = !!c.sinPrecio;
+      el.rescatarCortados.checked = c.rescatarCortados !== false;
       el.indexar.checked = c.indexar !== false;
       const elegidas = Array.isArray(c.provincias) ? c.provincias : [];
       for (const chk of checksProv()) chk.checked = elegidas.indexOf(chk.value) >= 0;
@@ -368,6 +377,16 @@
       if (vistos != null) el.mVistos.textContent = vistos;
       if (ok != null) el.mOk.textContent = ok;
       if (guardados != null) el.mGuardados.textContent = guardados;
+    }
+
+    /* Dos numeros que hasta ahora no se veian y son los que contestan "por que
+       faltan resultados": cuantas hay en pantalla sin poder leer, y cuantas se
+       muestran solo porque el titulo venia cortado y no se pudo confirmar. */
+    function pendientes(sinLeer, enDuda) {
+      const partes = [];
+      if (sinLeer > 0) partes.push('sin poder leer: <b>' + sinLeer + '</b>');
+      if (enDuda > 0) partes.push('titulo cortado: <b>' + enDuda + '</b>');
+      el.pendientes.innerHTML = partes.join(' &middot; ');
     }
 
     function estado(texto, barriendo) {
@@ -494,7 +513,7 @@
     }
     el.detMotivos.addEventListener('toggle', () => pintarMotivos(ultimoMapa, ultimoTotal));
 
-    return { leerConfig, escribirConfig, marcador, estado, avisoBusqueda, mostrar, costo, motivos };
+    return { leerConfig, escribirConfig, marcador, pendientes, estado, avisoBusqueda, mostrar, costo, motivos };
   }
 
   MPF.panel = { crear };

@@ -196,6 +196,22 @@
 
      De paso resuelve otra cosa: innerText devuelve vacio en un elemento
      escondido, asi que una tarjeta ya filtrada no se podia releer. Asi si. */
+  /* TITULO CORTADO. Facebook manda el titulo recortado con puntos suspensivos
+     -"Audi Q2 1.4 Tfsi At 2..."- y lo que falta no esta en ningun lado de la
+     pagina. Eso importa muchisimo para filtrar: si el modelo quedo del otro
+     lado del corte, el filtro lo lee como "no coincide" y se pierde una
+     publicacion buena en silencio. Por eso se marca y no se trata como un no.
+
+     Ojo con la otra clase de recorte: cuando Facebook corta el titulo por
+     estilos, el texto completo SIGUE estando en la pagina y se lee entero,
+     porque aca se leen los nodos de texto y no lo que se ve. Ese caso no
+     necesita nada. Este es el otro: el que viene cortado de origen. */
+  const RE_TITULO_CORTADO = /(?:\u2026|\.\.\.)\s*$/;
+
+  function pareceCortado(t) {
+    return RE_TITULO_CORTADO.test(String(t || '').trim());
+  }
+
   /* Un elemento es un "bloque de texto" si su contenido no tiene mas de un
      nivel de anidado con texto. Sirve para agarrar el titulo entero cuando
      Facebook le mete un span adentro -por ejemplo resaltando lo que buscaste-:
@@ -520,6 +536,7 @@
       id: idSintetico(titulo, ubicacion),
       titulo,
       tituloDudoso: !titulo,
+      tituloCortado: pareceCortado(titulo),
       textoBusqueda: lineas.join(' \u00b7 '),
       precioTexto,
       precioAnteriorTexto,
@@ -669,6 +686,7 @@
       id,
       titulo: tituloDudoso ? '' : titulo,
       tituloDudoso,
+      tituloCortado: !tituloDudoso && pareceCortado(titulo),
       textoBusqueda,
       precioTexto,
       precioAnteriorTexto,
@@ -734,7 +752,7 @@
                   tituloDesdeEtiqueta,
                   estructuraDe, esBloqueDeTexto,
                   MAX_REINTENTOS, convieneReintentar,
-                  partirTituloYZona, pareceZonaSuelta,
+                  partirTituloYZona, pareceZonaSuelta, pareceCortado,
                   limpiarUbicacion, extraerKm, cantidadEnPantalla, contenedorTarjeta,
                   SELECTOR_ITEM };
 })();

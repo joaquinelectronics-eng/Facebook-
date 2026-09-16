@@ -195,7 +195,10 @@
         } else if (alFondo()) {
           sinNovedad++;
           if (sinNovedad >= CFG.tandasSinNovedadParaFrenar) {
-            motivoFinal = 'listo: Facebook no tiene mas resultados';
+            /* Se dice cuantas llego a juntar: "no hay mas" a secas no deja
+               distinguir un barrido completo de uno que se corto solo. */
+            motivoFinal = 'listo: Facebook dejo de mandar despues de ' +
+                          previos + ' publicaciones';
             break;
           }
           // Al fondo sin novedades: Facebook puede estar cargando, se le da aire.
@@ -211,7 +214,10 @@
         }
       }
 
-      if (tanda >= limite) motivoFinal = 'listo: limite de la sesion alcanzado';
+      if (tanda >= limite) {
+        motivoFinal = 'freno por seguridad a las ' + limite +
+                      ' tandas: puede haber mas, apreta de nuevo';
+      }
       else if (pedidoDeParar) motivoFinal = 'detenido por vos';
     } finally {
       /* Solo la corrida vigente apaga las banderas. Una corrida vieja que
