@@ -54,7 +54,11 @@ const items = [
      Leyendo solo las hojas quedaba el pedazo resaltado y se perdia el resto,
      que era lo que hacia ilegibles a la mayoria de las tarjetas. */
   {id:'123', t:'Audi <span>A5</span> Coupe 2014 quattro', tPlano:'Audi A5 Coupe 2014 quattro',
-   p:'US$ 26.500', m:'Usado · San Isidro, BA', sinFoto: true}
+   p:'US$ 26.500', m:'Usado · San Isidro, BA', sinFoto: true},
+  /* Facebook le pega etiquetas a la tarjeta ("Recien publicado", "Cerca").
+     Si no se filtran, terminan usandose como titulo. */
+  {id:'124', t:'Audi A5 2016 quattro', p:'US$ 23.000', m:'Usado · Vicente Lopez, BA',
+   etiqueta: 'Recién publicado', sinFoto: true}
 ];
 /* ?n=3000 repite los avisos hasta llegar a esa cantidad, para medir como se
    comporta la extension con una busqueda larga de verdad. */
@@ -78,6 +82,7 @@ for (const it of lista) {
           (it.sinFoto ? '' :
             '<img alt="' + (it.soloZona || (it.t + ' en ' + it.m.split('\u00b7').pop().trim())) +
             '" src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==">') +
+          (it.etiqueta ? '<div class="x1lliihq"><span>' + it.etiqueta + '</span></div>' : '') +
           '<div class="xjbqb8w"><span>' + it.p + '</span>' +
             (it.p2 ? '<span style="text-decoration:line-through;color:#888"> ' + it.p2 + '</span>' : '') +
           '</div>' +

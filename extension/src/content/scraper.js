@@ -205,7 +205,17 @@
     return l;
   }
   const RE_ANIO = /\b(19[5-9]\d|20[0-4]\d)\b/;
-  const RE_RUIDO = /^(nuevo|usado|ver m[aá]s|patrocinado|sponsored|gratis)$/i;
+  /* Etiquetas que Facebook pega en las tarjetas y que no son el titulo. Si no
+     se filtran, una tarjeta cuyo unico texto sea "Recien publicado" termina con
+     ese cartel como titulo, y por supuesto no contiene el modelo buscado. */
+  const RE_RUIDO = new RegExp('^(' + [
+    'nuevo', 'usado', 'gratis', 'cerca', 'reservado', 'vendido', 'pausado',
+    'ver m[aá]s', 'patrocinado', 'sponsored',
+    'patrocinado por el vendedor',
+    'reci[eé]n publicad[oa]', 'publicado hace .*', 'listado hace .*',
+    'env[ií]o disponible', 'se puede enviar', 'entrega a domicilio',
+    'disponible', 'en stock', 'destacado'
+  ].join('|') + ')$', 'i');
 
   function extraerDeTarjeta(link) {
     const id = idDesdeUrl(link.getAttribute('href') || '');

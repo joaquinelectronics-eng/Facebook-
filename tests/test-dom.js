@@ -20,7 +20,7 @@ const CONFIG = {
 };
 
 // Lo que tiene que quedar visible con esa configuracion.
-const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120', '121', '123'];
+const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120', '121', '123', '124'];
 
 (async () => {
   const navegador = await chromium.launch({
@@ -80,7 +80,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     precioAnteriorTexto: d.precioAnteriorTexto, tituloDudoso: d.tituloDudoso
   })));
 
-  prueba('encuentra las 23 publicaciones', () => assert.strictEqual(leidas.length, 23));
+  prueba('encuentra las 24 publicaciones', () => assert.strictEqual(leidas.length, 24));
   prueba('extrae el titulo completo', () => {
     const a = leidas.find((x) => x.id === '101');
     assert.strictEqual(a.titulo, 'Audi A5 2.0 TFSI Quattro 2018');
@@ -134,6 +134,18 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     const a = leidas.find((x) => x.id === '123');
     assert.strictEqual(a.titulo, 'Audi A5 Coupe 2014 quattro');
     assert.strictEqual(a.tituloDudoso, false);
+  });
+
+  prueba('las etiquetas de Facebook no se usan como titulo', () => {
+    const a = leidas.find((x) => x.id === '124');
+    assert.strictEqual(a.titulo, 'Audi A5 2016 quattro');
+    assert.strictEqual(a.tituloDudoso, false);
+  });
+  prueba('ninguna publicacion queda titulada "Recien publicado"', () => {
+    for (const d of leidas) {
+      assert.ok(!/^reci[e\u00e9]n publicad/i.test(d.titulo),
+        'una etiqueta quedo como titulo: ' + JSON.stringify(d.titulo));
+    }
   });
 
   prueba('ningun titulo se queda con la zona pegada', () => {
@@ -293,7 +305,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
 
   const antes = await leerContadores();
   prueba('antes del cambio de URL cuenta todas las tarjetas', () =>
-    assert.strictEqual(antes.vistos, 23));
+    assert.strictEqual(antes.vistos, 24));
   prueba('antes del cambio de URL coinciden las esperadas', () =>
     assert.strictEqual(antes.ok, ESPERADOS.length));
 
@@ -305,7 +317,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
 
   const despues = await leerContadores();
   prueba('despues del cambio sigue contando todas', () =>
-    assert.strictEqual(despues.vistos, 23));
+    assert.strictEqual(despues.vistos, 24));
   prueba('despues del cambio el filtro sigue aplicado', () =>
     assert.strictEqual(despues.ok, ESPERADOS.length));
 
@@ -339,7 +351,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
     // El motivo "titulo ilegible" figura en el desglose pero NO es un descarte:
     // esas publicaciones se muestran igual, por eso no entran en la suma.
     const suma = desglose.reduce((a, d) => a + d.n, 0);
-    assert.strictEqual(suma, 23 - ESPERADOS.length);
+    assert.strictEqual(suma, 24 - ESPERADOS.length);
   });
   prueba('el titulo ilegible se cuenta aparte y se puede ver', () => {
     const av = desglose.find((d) => /no se pudo leer/.test(d.motivo));
@@ -364,7 +376,7 @@ const ESPERADOS = ['101', '106', '108', '111', '114', '117', '118', '119', '120'
              filas: sh.querySelectorAll('.motivo').length };
   });
   prueba('el panel muestra cuantas se ocultaron', () =>
-    assert.match(enPanel.titulo, new RegExp(String(23 - ESPERADOS.length))));
+    assert.match(enPanel.titulo, new RegExp(String(24 - ESPERADOS.length))));
   prueba('el panel lista los motivos', () => assert.ok(enPanel.filas >= 3));
 
   console.log('\nBuscador de diagnostico');
