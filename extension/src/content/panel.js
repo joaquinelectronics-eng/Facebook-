@@ -438,9 +438,12 @@
        tiro el filtro de titulo, el de precio, el de zona, o si directamente
        Facebook no los mando. */
     function pintarMotivos(mapa, totalOcultos) {
-      el.resMotivos.textContent = totalOcultos
-        ? 'Por que se ocultaron ' + totalOcultos
-        : 'Por que se ocultaron';
+      /* "Se ocultaron" solo cuando de verdad se oculta algo. Por defecto la
+         extension no toca la pantalla de Facebook, asi que decir que se
+         ocultaron 199 era mentira y hacia pensar que faltaban resultados. */
+      const seOcultan = el.tocarLaPagina.checked && el.ocultar.checked;
+      const texto = seOcultan ? 'Por que se ocultaron' : 'Por que no coinciden';
+      el.resMotivos.textContent = totalOcultos ? texto + ' ' + totalOcultos : texto;
       if (!el.detMotivos.open) return;   // no se dibuja si esta plegado
 
       el.motivos.textContent = '';
