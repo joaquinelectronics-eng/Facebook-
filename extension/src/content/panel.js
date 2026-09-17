@@ -243,11 +243,15 @@
         <button class="primario" id="barrer">Barrer hasta el fondo</button>
         <div class="estado" id="estado">listo</div>
         <div class="estado" id="costo"></div>
+        <!-- Este boton es un paso del trabajo, no una opcion escondida: el
+             celular trae los titulos y el escritorio los enlaces, asi que se
+             pasa de uno al otro todo el tiempo. Va en el pie, que queda fijo
+             aunque el panel este scrolleado. -->
+        <button class="secundario" id="escritorio">Ir a escritorio (los enlaces)</button>
       </div>
 
       <button class="secundario" id="guardarBusq">Guardar esta busqueda</button>
       <div class="estado" id="avisoBusq"></div>
-      <button class="secundario" id="escritorio">Ir a escritorio (a buscar los enlaces)</button>
       <button class="secundario" id="catalogo">Abrir mi catalogo</button>
     </div>
   </div>`;
