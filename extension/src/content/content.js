@@ -63,7 +63,7 @@
      por el catalogo, de ahi sale. Cuanto mas se usa, mas titulos se conocen. */
   let titulosConocidos = Object.create(null);
   let versionPintada = -1;
-  let contVistos = 0, contOk = 0, contEnDuda = 0;
+  let contVistos = 0, contOk = 0, contEnDuda = 0, contConEnlace = 0;
   /* Cuenta por que se descarto cada tarjeta, con ejemplos. Es la unica forma
      de saber si faltan resultados por culpa del filtro o porque Facebook no
      los mando: sin esto hay que adivinar. */
@@ -85,21 +85,20 @@
      Se anota el intento: si Facebook devolviera a www igual, no se vuelve a
      intentar enseguida y no queda rebotando de una direccion a la otra. */
   const CLAVE_INTENTO = 'mpfIntentoCelular';
-  const CLAVE_ESCRITORIO = 'mpfPasoDeEscritorio';
+  /* La marca de "esta direccion la pedi yo, no me lleves al celular" viaja en la
+     propia direccion y no en el almacenamiento de la sesion. Tiene que ser asi:
+     m.facebook.com y www.facebook.com son origenes distintos, asi que lo que se
+     guarda en uno el otro no lo ve. Escrito con sessionStorage la marca se
+     perdia justo al cambiar de version, que es el unico momento en que sirve. */
+  const MARCA_ESCRITORIO = '#mpf=escritorio';
 
   function pidieronEscritorio() {
-    try { return sessionStorage.getItem(CLAVE_ESCRITORIO) === location.href; }
-    catch (e) { return false; }
+    return location.hash.indexOf('mpf=escritorio') >= 0;
   }
 
-  function anotarSiEsEscritorio(url) {
-    try {
-      if (/^https:\/\/(www|web)\.facebook\.com\//i.test(url)) {
-        sessionStorage.setItem(CLAVE_ESCRITORIO, url);
-      } else {
-        sessionStorage.removeItem(CLAVE_ESCRITORIO);
-      }
-    } catch (e) {}
+  function conMarcaDeEscritorio(url) {
+    if (!/^https:\/\/(www|web)\.facebook\.com\//i.test(url)) return url;
+    return url.indexOf('mpf=escritorio') >= 0 ? url : url + MARCA_ESCRITORIO;
   }
 
   function irAVersionCelular() {
@@ -388,6 +387,7 @@
       contOk = 0;
       motivos = new Map();
       contEnDuda = 0;
+      contConEnlace = 0;
       versionPintada = versionConfig;
     }
 
@@ -438,6 +438,7 @@
 
       contVistos++;
       if (veredicto.enDuda) contEnDuda++;
+      if (datos.url) contConEnlace++;
       if (veredicto.pasa && !veredicto.enEspera) {
         contOk++;
         if (veredicto.parcial) {
@@ -469,7 +470,7 @@
       /* Lo que esta en pantalla y todavia no se pudo leer. Sin este numero no
          hay manera de saber si faltan resultados porque los escondio el filtro
          o porque nunca se llegaron a leer, que es muy distinto. */
-      ui.pendientes(sinLeerEnPantalla(), contEnDuda);
+      ui.pendientes(sinLeerEnPantalla(), contEnDuda, contConEnlace);
     }
     return { vistos: contVistos, ok: contOk, ms: ultimoCostoMs };
   }
@@ -537,8 +538,7 @@
     escribirRecorrida({ lista, indice: 0 }, () => {
       const paso = MPF.recorrida.siguiente({ lista, indice: 0 });
       decir('busqueda 1 de ' + paso.cuantas + ': ' + paso.consulta, true);
-      anotarSiEsEscritorio(paso.url);
-      location.assign(paso.url);
+      location.assign(conMarcaDeEscritorio(paso.url));
     });
   }
 
@@ -556,8 +556,7 @@
       const aca = MPF.recorrida.consultaDeUrl(location.href);
       if (MPF.normalizar(aca) !== MPF.normalizar(paso.consulta)) {
         // Todavia no llegamos a la pagina de esta busqueda.
-        anotarSiEsEscritorio(paso.url);
-        location.assign(paso.url);
+        location.assign(conMarcaDeEscritorio(paso.url));
         return;
       }
       decir('busqueda ' + (paso.indice + 1) + ' de ' + paso.cuantas +
@@ -570,9 +569,7 @@
           return;
         }
         escribirRecorrida({ lista: nuevo.lista, indice: nuevo.indice }, () => {
-          const proximo = MPF.recorrida.siguiente(nuevo).url;
-          anotarSiEsEscritorio(proximo);
-          location.assign(proximo);
+          location.assign(conMarcaDeEscritorio(MPF.recorrida.siguiente(nuevo).url));
         });
       });
     });
@@ -880,6 +877,16 @@
         const lista = MPF.recorrida.limpiarLista(texto);
         if (!lista.length) { decir('escribi al menos una busqueda', false); return; }
         arrancarRecorrida(lista);
+      },
+      /* Un boton para llegar a escritorio, porque a mano no se podia: la
+         extension manda todo al celular y volvia a traerte. Y hace falta ir:
+         en el celular Facebook no manda NI UN enlace de publicacion -medido: 0
+         en toda la pagina- y en escritorio las tarjetas si son enlaces. */
+      alIrAEscritorio() {
+        const destino = conMarcaDeEscritorio(
+          'https://www.facebook.com' + location.pathname + location.search);
+        decir('yendo a escritorio a juntar los enlaces', true);
+        location.assign(destino);
       },
       alAbrirCatalogo() {
         try { chrome.runtime.sendMessage({ tipo: 'abrirCatalogo' }); } catch (e) {}

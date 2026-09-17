@@ -85,14 +85,42 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
      escritorio las tarjetas si son enlaces. Si la recorrida pide una direccion
      de www, no se la puede llevar al celular. */
   const pedidoDeEscritorio = await abrir(
-    'https://www.facebook.com/marketplace/category/search/?query=audi%20a5',
-    Object.assign({}, BASE),
-    (p, url) => p.addInitScript((u) => {
-      try { sessionStorage.setItem('mpfPasoDeEscritorio', u); } catch (e) {}
-    }, url));
+    'https://www.facebook.com/marketplace/category/search/?query=audi%20a5#mpf=escritorio',
+    Object.assign({}, BASE));
   prueba('si la recorrida pide escritorio, no la manda al celular', () =>
     assert.ok(/^https:\/\/www\.facebook\.com\//.test(pedidoDeEscritorio),
               pedidoDeEscritorio));
+
+  /* A mano no se podia llegar a escritorio: la extension manda todo al celular
+     y te vuelve a traer. Y hay que poder ir, porque en el celular Facebook no
+     manda ni un enlace de publicacion y en escritorio las tarjetas si lo son.
+     Se prueba apretando el boton de verdad, adentro del panel. */
+  console.log('\nIr a escritorio a buscar los enlaces');
+  const pEsc = await navegador.newPage({ viewport: { width: 393, height: 852 } });
+  await pEsc.route('**://*.facebook.com/**', (ruta) =>
+    ruta.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: PAGINA }));
+  await pEsc.addInitScript((c) => {
+    window.chrome = {
+      storage: { local: { get: (k, cb) => cb({ config: c }), set: () => {} } },
+      runtime: { lastError: undefined, getURL: (p) => p,
+                 onMessage: { addListener: () => {} },
+                 sendMessage: (m, cb) => cb && cb({ ok: true, total: 0, titulos: {} }) }
+    };
+  }, Object.assign({}, BASE));
+  await pEsc.addInitScript(GUIONES.map((g) => fs.readFileSync(archivo(g), 'utf8')).join('\n;\n'));
+  await pEsc.goto('https://m.facebook.com/marketplace/category/search/?query=audi%20a5');
+  await pEsc.waitForTimeout(2500);
+  await pEsc.evaluate(() =>
+    document.getElementById('mpf-host').shadowRoot.getElementById('escritorio').click());
+  await pEsc.waitForTimeout(3500);
+  const dondeQuedo = pEsc.url();
+  prueba('el boton lleva a escritorio', () =>
+    assert.ok(/^https:\/\/www\.facebook\.com\//.test(dondeQuedo), dondeQuedo));
+  prueba('y no lo rebota de vuelta al celular', () => {
+    assert.ok(!/m\.facebook\.com/.test(dondeQuedo), dondeQuedo);
+    assert.ok(/query=audi(%20|\+)a5/.test(dondeQuedo), dondeQuedo);
+  });
+  await pEsc.close();
 
   /* --------------------------------------------------------------
      Recorrer varias busquedas sola.

@@ -247,6 +247,7 @@
 
       <button class="secundario" id="guardarBusq">Guardar esta busqueda</button>
       <div class="estado" id="avisoBusq"></div>
+      <button class="secundario" id="escritorio">Ir a escritorio (a buscar los enlaces)</button>
       <button class="secundario" id="catalogo">Abrir mi catalogo</button>
     </div>
   </div>`;
@@ -272,6 +273,7 @@
       velocidad: $('velocidad'), soloBajadas: $('soloBajadas'),
       pendientes: $('pendientes'), tocarLaPagina: $('tocarLaPagina'),
       listaBusquedas: $('listaBusquedas'), recorrer: $('recorrer'),
+      escritorio: $('escritorio'),
       sinPrecio: $('sinPrecio'), rescatarCortados: $('rescatarCortados'),
       versionCelular: $('versionCelular'),
       indexar: $('indexar'), barrer: $('barrer'),
@@ -357,6 +359,7 @@
     });
     el.barrer.addEventListener('click', () => callbacks.alBarrer());
     el.recorrer.addEventListener('click', () => callbacks.alRecorrer(el.listaBusquedas.value));
+    el.escritorio.addEventListener('click', () => callbacks.alIrAEscritorio());
     el.catalogo.addEventListener('click', () => callbacks.alAbrirCatalogo());
     el.guardarBusq.addEventListener('click', () => callbacks.alGuardarBusqueda());
     el.frenar.addEventListener('click', (e) => { e.stopPropagation(); callbacks.alBarrer(); });
@@ -414,10 +417,13 @@
     /* Dos numeros que hasta ahora no se veian y son los que contestan "por que
        faltan resultados": cuantas hay en pantalla sin poder leer, y cuantas se
        muestran solo porque el titulo venia cortado y no se pudo confirmar. */
-    function pendientes(sinLeer, enDuda) {
+    function pendientes(sinLeer, enDuda, conEnlace) {
       const partes = [];
       if (sinLeer > 0) partes.push('sin poder leer: <b>' + sinLeer + '</b>');
       if (enDuda > 0) partes.push('titulo cortado: <b>' + enDuda + '</b>');
+      /* En el celular Facebook no manda ningun enlace; en escritorio si. Este
+         numero deja ver de una si la pasada por escritorio los esta juntando. */
+      if (conEnlace > 0) partes.push('con enlace: <b>' + conEnlace + '</b>');
       el.pendientes.innerHTML = partes.join(' &middot; ');
     }
 
