@@ -42,6 +42,52 @@ import { corridasPorDia } from '../lib/agenda.mjs';
              pct: Math.round((1 - ultimo / maximo) * 100) };
   }
 
+  /* EMPAREJAR PARA CONSEGUIR EL ENLACE.
+
+     Medido en la pagina de verdad: en la version de celular NO hay ni una sola
+     direccion de publicacion. Ni en las tarjetas ni en el resto de la pagina:
+     "direcciones de publicacion en toda la pagina: 0". Facebook resuelve el
+     toque con su propio sistema y nunca escribe el enlace.
+
+     Pero en la version de escritorio las tarjetas SI son enlaces con el numero
+     de la publicacion; lo que les falta ahi es el titulo. O sea que cada lado
+     tiene la mitad: el celular trae titulo, precio y zona; el escritorio trae
+     enlace, precio y zona.
+
+     Entonces se juntan por lo que los dos tienen: precio y zona. Solo se
+     acepta cuando hay UNA sola candidata. Si dos publicaciones comparten
+     precio y zona no se elige ninguna: mandarte al auto equivocado es peor que
+     no mandarte a ninguno. */
+  function claveDeCruce(it) {
+    const precio = it.precioUSD != null ? String(Math.round(it.precioUSD)) : '';
+    const zona = MPF.normalizar(it.ubicacion || '');
+    if (!precio || !zona) return '';
+    return precio + '|' + zona;
+  }
+
+  /* clave -> la unica direccion que le corresponde, o null si hay varias. */
+  let cruce = new Map();
+
+  function armarCruce() {
+    const porClave = new Map();
+    for (const it of todos) {
+      if (!it.url) continue;
+      const k = claveDeCruce(it);
+      if (!k) continue;
+      const ya = porClave.get(k);
+      if (ya === undefined) porClave.set(k, it.url);
+      else if (ya !== it.url) porClave.set(k, null);   // ambigua: no se usa
+    }
+    cruce = porClave;
+  }
+
+  function urlDe(it) {
+    if (it.url) return { url: it.url, emparejada: false };
+    const k = claveDeCruce(it);
+    const hallada = k ? cruce.get(k) : null;
+    return hallada ? { url: hallada, emparejada: true } : { url: '', emparejada: false };
+  }
+
   function filtrarYOrdenar() {
     const filtro = MPF.matcher.compilar($('consulta').value);
     const pmin = $('pmin').value === '' ? null : Number($('pmin').value);
@@ -154,9 +200,14 @@ import { corridasPorDia } from '../lib/agenda.mjs';
      su numero: los otros numeros largos de una tarjeta son de las fotos y
      llevarian a otro auto. */
   function ponerEnlace(a, it) {
-    if (it.url) {
-      a.href = it.url;
+    const r = urlDe(it);
+    if (r.url) {
+      a.href = r.url;
       a.textContent = 'Abrir en Facebook';
+      /* Se avisa cuando la direccion no vino con la publicacion sino de cruzar
+         precio y zona con lo leido en la version de escritorio. */
+      if (r.emparejada) a.title = 'enlace emparejado por precio y zona';
+      else a.removeAttribute('title');
       a.removeAttribute('aria-disabled');
       return;
     }
@@ -228,6 +279,7 @@ import { corridasPorDia } from '../lib/agenda.mjs';
   async function cargar() {
     const r = await pedir({ tipo: 'listar' });
     todos = (r && r.items) || [];
+    armarCruce();
     poblarZonas();
     pintar();
   }

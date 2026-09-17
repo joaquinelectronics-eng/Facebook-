@@ -85,6 +85,22 @@
      Se anota el intento: si Facebook devolviera a www igual, no se vuelve a
      intentar enseguida y no queda rebotando de una direccion a la otra. */
   const CLAVE_INTENTO = 'mpfIntentoCelular';
+  const CLAVE_ESCRITORIO = 'mpfPasoDeEscritorio';
+
+  function pidieronEscritorio() {
+    try { return sessionStorage.getItem(CLAVE_ESCRITORIO) === location.href; }
+    catch (e) { return false; }
+  }
+
+  function anotarSiEsEscritorio(url) {
+    try {
+      if (/^https:\/\/(www|web)\.facebook\.com\//i.test(url)) {
+        sessionStorage.setItem(CLAVE_ESCRITORIO, url);
+      } else {
+        sessionStorage.removeItem(CLAVE_ESCRITORIO);
+      }
+    } catch (e) {}
+  }
 
   function irAVersionCelular() {
     /* Recien cuando se leyo lo guardado. Si no, la primera pasada corre con los
@@ -97,6 +113,11 @@
     if (!/(^|\.)facebook\.com$/.test(location.hostname)) return false;
     if (location.hostname === 'm.facebook.com') return false;
     if (!/(^|\/)marketplace(\/|$)/.test(location.pathname)) return false;
+    /* Si la recorrida pidio expresamente una direccion de escritorio -porque el
+       usuario pego una de www-, no se la lleva al celular. Hace falta para
+       juntar los enlaces: en el celular Facebook no manda ninguno, y en
+       escritorio las tarjetas si son enlaces. */
+    if (pidieronEscritorio()) return false;
     try {
       const ultimo = Number(sessionStorage.getItem(CLAVE_INTENTO) || 0);
       if (Date.now() - ultimo < 20000) return false;
@@ -516,6 +537,7 @@
     escribirRecorrida({ lista, indice: 0 }, () => {
       const paso = MPF.recorrida.siguiente({ lista, indice: 0 });
       decir('busqueda 1 de ' + paso.cuantas + ': ' + paso.consulta, true);
+      anotarSiEsEscritorio(paso.url);
       location.assign(paso.url);
     });
   }
@@ -534,6 +556,7 @@
       const aca = MPF.recorrida.consultaDeUrl(location.href);
       if (MPF.normalizar(aca) !== MPF.normalizar(paso.consulta)) {
         // Todavia no llegamos a la pagina de esta busqueda.
+        anotarSiEsEscritorio(paso.url);
         location.assign(paso.url);
         return;
       }
@@ -547,7 +570,9 @@
           return;
         }
         escribirRecorrida({ lista: nuevo.lista, indice: nuevo.indice }, () => {
-          location.assign(MPF.recorrida.siguiente(nuevo).url);
+          const proximo = MPF.recorrida.siguiente(nuevo).url;
+          anotarSiEsEscritorio(proximo);
+          location.assign(proximo);
         });
       });
     });

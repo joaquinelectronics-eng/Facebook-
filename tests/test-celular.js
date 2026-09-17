@@ -29,11 +29,12 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
     catch (e) { fallas++; console.error('  FALLA ' + nombre + '\n         ' + e.message); }
   };
 
-  async function abrir(url, config) {
+  async function abrir(url, config, antes) {
     const pagina = await navegador.newPage({ viewport: { width: 393, height: 852 } });
     // Se hace pasar la pagina de prueba por Facebook, sin tocar Facebook.
     await pagina.route('**://*.facebook.com/**', (ruta) =>
       ruta.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: PAGINA }));
+    if (antes) await antes(pagina, url);
     await pagina.goto(url);
     await pagina.evaluate((c) => {
       window.chrome = {
@@ -78,6 +79,20 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
                               Object.assign({}, BASE, { versionCelular: false }));
   prueba('con la casilla apagada se queda donde esta', () =>
     assert.ok(/^https:\/\/www\.facebook\.com\//.test(apagado), apagado));
+
+  /* Hace falta poder ir a escritorio a proposito: en el celular Facebook no
+     manda ni un enlace de publicacion -medido: 0 en toda la pagina- y en
+     escritorio las tarjetas si son enlaces. Si la recorrida pide una direccion
+     de www, no se la puede llevar al celular. */
+  const pedidoDeEscritorio = await abrir(
+    'https://www.facebook.com/marketplace/category/search/?query=audi%20a5',
+    Object.assign({}, BASE),
+    (p, url) => p.addInitScript((u) => {
+      try { sessionStorage.setItem('mpfPasoDeEscritorio', u); } catch (e) {}
+    }, url));
+  prueba('si la recorrida pide escritorio, no la manda al celular', () =>
+    assert.ok(/^https:\/\/www\.facebook\.com\//.test(pedidoDeEscritorio),
+              pedidoDeEscritorio));
 
   /* --------------------------------------------------------------
      Recorrer varias busquedas sola.

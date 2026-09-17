@@ -31,7 +31,32 @@ const ITEMS = [
   { id:'m5', titulo:'', precio:18000, moneda:'USD', precioUSD:18000,
     ubicacion:'Moron, BA', provincia:'BA', veces:1,
     vistoPrimera:AHORA-DIA, vistoUltima:AHORA, url:'', tituloDudoso:true,
-    historial:[] }
+    historial:[] },
+
+  /* El mismo auto visto de los dos lados. En el celular viene el titulo pero
+     sin direccion; en escritorio viene la direccion pero sin titulo. Se
+     emparejan por precio y zona, que los dos lados si traen. */
+  { id:'m6', titulo:'Audi A5 Coupe Quattro 2015', precio:26000, moneda:'USD', precioUSD:26000,
+    ubicacion:'Pilar, BA', provincia:'BA', veces:1,
+    vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA, url:'', historial:[] },
+  { id:'d6', titulo:'', precio:26000, moneda:'USD', precioUSD:26000,
+    ubicacion:'Pilar, BA', provincia:'BA', veces:1, tituloDudoso:true,
+    vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA,
+    url:'https://www.facebook.com/marketplace/item/999888777/', historial:[] },
+
+  /* Dos publicaciones distintas con el mismo precio y la misma zona: ahi no se
+     puede saber cual es cual, asi que no se empareja ninguna. */
+  { id:'m7', titulo:'Audi A5 Ambiente 2014', precio:27000, moneda:'USD', precioUSD:27000,
+    ubicacion:'Tigre, BA', provincia:'BA', veces:1,
+    vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA, url:'', historial:[] },
+  { id:'d7a', titulo:'', precio:27000, moneda:'USD', precioUSD:27000,
+    ubicacion:'Tigre, BA', provincia:'BA', veces:1, tituloDudoso:true,
+    vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA,
+    url:'https://www.facebook.com/marketplace/item/111/', historial:[] },
+  { id:'d7b', titulo:'', precio:27000, moneda:'USD', precioUSD:27000,
+    ubicacion:'Tigre, BA', provincia:'BA', veces:1, tituloDudoso:true,
+    vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA,
+    url:'https://www.facebook.com/marketplace/item/222/', historial:[] }
 ];
 
 const BUSQUEDAS = [
@@ -87,7 +112,7 @@ const BUSQUEDAS = [
 
   console.log('\nCatalogo');
   const tarjetas = await pagina.$$eval('.tarjeta .tit', (n) => n.map((x) => x.textContent));
-  prueba('pinta las publicaciones guardadas', () => assert.strictEqual(tarjetas.length, 5));
+  prueba('pinta las publicaciones guardadas', () => assert.strictEqual(tarjetas.length, 10));
   prueba('ordena de la mas vieja a la mas nueva', () =>
     assert.strictEqual(tarjetas[0], 'Audi A5 Sportback 2017'));
 
@@ -112,14 +137,14 @@ const BUSQUEDAS = [
     // El titulo cortado no dice "a5": podria decirlo del otro lado del corte.
     assert.ok(conDudosas.some((t) => /Cabriolet/.test(t)), JSON.stringify(conDudosas));
     assert.ok(conDudosas.some((t) => !t), JSON.stringify(conDudosas));
-    assert.strictEqual(conDudosas.length, 4);
+    assert.strictEqual(conDudosas.length, 9);
   });
 
   await pagina.uncheck('#dudosas');
   await pagina.waitForTimeout(200);
   const sinDudosas = await pagina.$$eval('.tarjeta .tit', (n) => n.map((x) => x.textContent));
   prueba('y se pueden sacar con la casilla', () => {
-    assert.strictEqual(sinDudosas.length, 2, JSON.stringify(sinDudosas));
+    assert.strictEqual(sinDudosas.length, 4, JSON.stringify(sinDudosas));
     assert.ok(!sinDudosas.some((t) => /Cabriolet/.test(t)), JSON.stringify(sinDudosas));
   });
   await pagina.check('#dudosas');
@@ -154,6 +179,23 @@ const BUSQUEDAS = [
      ninguno: hace perder menos tiempo. */
   prueba('sin direccion, el boton queda apagado en vez de mentir', () => {
     const a = porTitulo('Audi Cabriolet');
+    assert.strictEqual(a.texto, 'sin enlace');
+    assert.strictEqual(a.href, '');
+  });
+
+  /* En el celular Facebook no manda NINGUNA direccion -medido: 0 en toda la
+     pagina-, pero en escritorio las tarjetas si son enlaces. Cada lado tiene la
+     mitad, asi que se juntan por precio y zona. */
+  prueba('consigue el enlace cruzando con lo leido en escritorio', () => {
+    const a = porTitulo('Audi A5 Coupe Quattro');
+    assert.ok(a, JSON.stringify(enlaces.map((x) => x.titulo)));
+    assert.strictEqual(a.href, 'https://www.facebook.com/marketplace/item/999888777/');
+    assert.strictEqual(a.texto, 'Abrir en Facebook');
+  });
+
+  prueba('pero no empareja si hay dos candidatas', () => {
+    const a = porTitulo('Audi A5 Ambiente');
+    assert.ok(a, JSON.stringify(enlaces.map((x) => x.titulo)));
     assert.strictEqual(a.texto, 'sin enlace');
     assert.strictEqual(a.href, '');
   });
