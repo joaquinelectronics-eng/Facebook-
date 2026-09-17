@@ -26,7 +26,22 @@
     rescatarCortados: true,
     /* Ir solo a la version de celular al entrar a Marketplace. Es ahi donde
        Facebook manda los titulos; en la de escritorio la mayoria vienen vacios. */
-    versionCelular: true
+    versionCelular: true,
+
+    /* NO SE TOCA LA PAGINA DE FACEBOOK.
+
+       Esconder las que no coinciden parecia lo mejor -uno ve directo lo que
+       busca- pero salio mal de todas las maneras posibles: quedaban huecos
+       blancos donde estaba la publicacion escondida, se escondia la celda
+       equivocada, y sacar tarjetas del medio de la lista hacia que Facebook
+       dejara de mandar mas y el barrido cortara antes de tiempo.
+
+       Todos esos problemas eran el mismo problema: meterle mano al HTML de
+       otro. Asi que ahora el barrido solo LEE y GUARDA, sin cambiar un pixel, y
+       el filtrado se hace en el catalogo, que es nuestro y podemos armar como
+       queramos. Lo que se junta no depende de si el filtro estaba bien puesto
+       ese dia: las joyitas viejas quedan guardadas igual. */
+    tocarLaPagina: false
   };
 
   let config = Object.assign({}, CONFIG_POR_DEFECTO);
@@ -313,8 +328,37 @@
      configuracion vigente queda marcada en el DOM y no se vuelve a mirar. Sin
      eso, cada pasada reprocesaba todo lo acumulado y el trabajo total crecia al
      cuadrado: con 4000 avisos, una pasada tardaba mas de un segundo. */
+  /* Devuelve la pagina como estaba. Hace falta al apagar el filtrado en
+     pantalla: si no, lo que quedo escondido de antes se queda escondido para
+     siempre y parece que faltan resultados. */
+  function restaurarPagina() {
+    for (const link of MPF.scraper.elementosTarjeta()) {
+      const caja = MPF.scraper.contenedorTarjeta(link);
+      if (!caja || caja === document.body) continue;
+      if (caja.dataset.mpfOculto) {
+        caja.style.display = caja.dataset.mpfDisplayPrevio || '';
+        delete caja.dataset.mpfOculto;
+        delete caja.dataset.mpfDisplayPrevio;
+      }
+      if (caja.dataset.mpfEspera || caja.dataset.mpfDuda) {
+        caja.style.opacity = '';
+        caja.style.pointerEvents = '';
+        delete caja.dataset.mpfEspera;
+        delete caja.dataset.mpfDuda;
+      }
+      caja.removeAttribute('data-mpf-motivo');
+    }
+  }
+
+  let tocabaLaPagina = false;
+
   function aplicarFiltros(completa) {
     const t0 = performance.now();
+
+    /* Si se acaba de apagar el filtrado en pantalla, primero se deshace todo
+       lo pintado. Despues de esto la extension no toca un solo pixel. */
+    if (tocabaLaPagina && !config.tocarLaPagina) restaurarPagina();
+    tocabaLaPagina = !!config.tocarLaPagina;
 
     // Al cambiar los filtros hay que reevaluar todo y recontar desde cero.
     const desdeCero = completa || versionPintada !== versionConfig;
@@ -391,7 +435,7 @@
         m.n++;
         if (m.ejemplos.length < 3) m.ejemplos.push(datos.titulo);
       }
-      aplicarVisibilidad(link, datos, veredicto);
+      if (config.tocarLaPagina) aplicarVisibilidad(link, datos, veredicto);
       link.setAttribute('data-mpf-v', versionConfig);
     }
 

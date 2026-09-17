@@ -11,7 +11,7 @@ const CONFIG = {
   consulta: 'audi a5 -permuto', pmin: 15000, pmax: 30000, moneda: 'USD',
   cotizacion: 1000, umbralAmbiguo: 500000,
   provincias: ['BA', 'CABA', 'SF', 'ER', 'LP'], zonaDesconocida: true,
-  velocidad: 'tranquilo', ocultar: true, sinPrecio: false, indexar: true
+  velocidad: 'tranquilo', ocultar: true, tocarLaPagina: true, sinPrecio: false, indexar: true
 };
 const ESPERADOS = ['Audi A5 Sportback 2.0t', 'Audi a5 quattro 3.2 At'];
 /* El de titulo cortado no coincide con el filtro, pero tampoco se puede
@@ -177,6 +177,87 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
     assert.ok(movio.despues > movio.antes, JSON.stringify(movio)));
 
   prueba('sin errores de javascript en la pagina', () => assert.deepStrictEqual(errores, []));
+
+  /* ------------------------------------------------------------------
+     MODO NORMAL: la extension NO toca la pagina de Facebook.
+
+     Esta es la promesa que importa. Esconder las que no coinciden dejaba
+     huecos en blanco y hacia que el barrido cortara antes de tiempo, asi que
+     por defecto el barrido solo lee y guarda, y el filtrado se hace en el
+     catalogo. Aca se comprueba que no quede ni un estilo ni una marca puesta,
+     y que aun asi se lean y se cuenten todas. */
+  console.log('\nModo normal: no se toca la pagina');
+  const limpia = await navegador.newPage({ viewport: { width: 393, height: 852 } });
+  const erroresLimpia = [];
+  limpia.on('pageerror', (e) => erroresLimpia.push(String(e)));
+  await limpia.goto(base + '/');
+  /* Foto de la pagina sin nuestras marcas internas. La extension anota en cada
+     tarjeta que ya la leyo -si no, tendria que releer todo en cada pasada-,
+     pero eso es contabilidad invisible: no cambia nada de lo que se ve. La
+     promesa que se comprueba aca es que, sacando esas anotaciones, la pagina
+     queda letra por letra como estaba. */
+  const foto = () => {
+    const copia = document.getElementById('cajon').cloneNode(true);
+    for (const e of copia.querySelectorAll('*')) {
+      for (const a of Array.from(e.attributes)) {
+        if (a.name.indexOf('data-mpf') === 0) e.removeAttribute(a.name);
+      }
+    }
+    return copia.innerHTML;
+  };
+  await limpia.evaluate(() => { window.__foto = null; });
+  const antesDeTodo = await limpia.evaluate(`(${foto.toString()})()`);
+  await limpia.evaluate((config) => {
+    window.chrome = {
+      storage: { local: { get: (k, cb) => cb({ config }), set: () => {} } },
+      runtime: { lastError: undefined, getURL: (p) => p,
+                 onMessage: { addListener: () => {} },
+                 sendMessage: (m, cb) => cb && cb(m && m.tipo === 'titulosConocidos'
+                   ? { ok: true, titulos: {} } : { ok: true, total: 0 }) }
+    };
+  }, Object.assign({}, CONFIG, { tocarLaPagina: false }));
+  for (const f of ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js', 'src/lib/zonas.js',
+                   'src/content/scraper.js', 'src/content/panel.js',
+                   'src/content/autoscroll.js', 'src/content/content.js']) {
+    await limpia.addScriptTag({ path: archivo(f) });
+  }
+  await limpia.waitForTimeout(1500);
+
+  const intacto = await limpia.evaluate(() => {
+    const salida = { escondidas: 0, conOpacidad: 0, conMotivo: 0, tapadas: 0 };
+    for (const celda of document.querySelectorAll('.celda, .celda > div')) {
+      if (celda.style.display === 'none') salida.escondidas++;
+      if (celda.style.opacity) salida.conOpacidad++;
+      if (celda.hasAttribute('data-mpf-motivo')) salida.conMotivo++;
+      if (celda.getClientRects().length === 0) salida.tapadas++;
+    }
+    return salida;
+  });
+  prueba('no esconde, no apaga y no marca nada', () =>
+    assert.deepStrictEqual(intacto,
+      { escondidas: 0, conOpacidad: 0, conMotivo: 0, tapadas: 0 }));
+
+  const seVen = await limpia.evaluate(() =>
+    window.MPF.scraper.elementosTarjeta()
+      .filter((c) => c.getClientRects().length > 0).length);
+  prueba('las 8 publicaciones se siguen viendo', () =>
+    assert.strictEqual(seVen, 8));
+
+  const leyoIgual = await limpia.evaluate(() => ({
+    enPantalla: window.MPF.scraper.cantidadEnPantalla(),
+    leidas: window.MPF.scraper.leerTodas().length,
+    /* Lo que se manda a guardar: tiene que ser TODO, no solo lo que coincide. */
+    coinciden: window.MPF.scraper.leerTodas().filter((d) => d.coincide).length
+  }));
+  prueba('pero las lee y las cuenta a todas igual', () =>
+    assert.strictEqual(leyoIgual.enPantalla, 8, JSON.stringify(leyoIgual)));
+
+  const sigueIgual = await limpia.evaluate(`(${foto.toString()})()`);
+  prueba('la pagina queda letra por letra como estaba', () =>
+    assert.strictEqual(sigueIgual, antesDeTodo));
+
+  prueba('sin errores de javascript en modo normal', () =>
+    assert.deepStrictEqual(erroresLimpia, []));
 
   await navegador.close();
   srv.close();

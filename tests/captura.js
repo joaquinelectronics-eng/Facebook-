@@ -11,7 +11,7 @@ const CONFIG = {
   consulta: 'audi a5 -permuto', pmin: 15000, pmax: 30000, moneda: 'USD',
   cotizacion: 1000, umbralAmbiguo: 500000,
   provincias: ['BA', 'CABA', 'SF', 'ER', 'LP'], zonaDesconocida: true,
-  ocultar: true, sinPrecio: false, indexar: true
+  ocultar: true, tocarLaPagina: true, sinPrecio: false, indexar: true
 };
 
 const AHORA = Date.now(), DIA = 86400000;

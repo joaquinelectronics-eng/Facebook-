@@ -184,6 +184,10 @@
       </div>
 
       <label class="check"><input type="checkbox" id="soloBajadas"> Solo los que bajaron de precio</label>
+      <label class="check"><input type="checkbox" id="tocarLaPagina"> Filtrar tambien en la pantalla de Facebook</label>
+      <div class="ayuda">El barrido guarda TODO lo que encuentra, coincida o no, y
+        el filtro se aplica en tu catalogo. Tocar la pantalla de Facebook dejaba
+        huecos en blanco y hacia que el barrido cortara antes de tiempo.</div>
       <label class="check"><input type="checkbox" id="ocultar" checked> Ocultar los que no coinciden</label>
       <label class="check"><input type="checkbox" id="sinPrecio"> Mostrar tambien los sin precio</label>
       <label class="check"><input type="checkbox" id="rescatarCortados"> Mostrar los de titulo cortado (no perder ninguno)</label>
@@ -246,7 +250,7 @@
       consulta: $('consulta'), pmin: $('pmin'), pmax: $('pmax'), moneda: $('moneda'),
       cotizacion: $('cotizacion'), umbral: $('umbral'), ocultar: $('ocultar'),
       velocidad: $('velocidad'), soloBajadas: $('soloBajadas'),
-      pendientes: $('pendientes'),
+      pendientes: $('pendientes'), tocarLaPagina: $('tocarLaPagina'),
       sinPrecio: $('sinPrecio'), rescatarCortados: $('rescatarCortados'),
       versionCelular: $('versionCelular'),
       indexar: $('indexar'), barrer: $('barrer'),
@@ -313,7 +317,7 @@
 
     // --- eventos hacia el orquestador ---
     const campos = [el.consulta, el.pmin, el.pmax, el.moneda, el.cotizacion,
-                    el.umbral, el.ocultar, el.sinPrecio, el.rescatarCortados,
+                    el.umbral, el.tocarLaPagina, el.ocultar, el.sinPrecio, el.rescatarCortados,
                     el.versionCelular, el.indexar, el.zonaDesc,
                     el.velocidad, el.soloBajadas]
                     .concat(checksProv());
@@ -350,6 +354,7 @@
         ocultar: el.ocultar.checked,
         sinPrecio: el.sinPrecio.checked,
         rescatarCortados: el.rescatarCortados.checked,
+        tocarLaPagina: el.tocarLaPagina.checked,
         versionCelular: el.versionCelular.checked,
         indexar: el.indexar.checked
       };
@@ -368,6 +373,7 @@
       el.ocultar.checked = c.ocultar !== false;
       el.sinPrecio.checked = !!c.sinPrecio;
       el.rescatarCortados.checked = c.rescatarCortados !== false;
+      el.tocarLaPagina.checked = !!c.tocarLaPagina;
       el.versionCelular.checked = c.versionCelular !== false;
       el.indexar.checked = c.indexar !== false;
       const elegidas = Array.isArray(c.provincias) ? c.provincias : [];

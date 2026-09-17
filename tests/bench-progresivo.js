@@ -26,7 +26,7 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
         consulta: 'audi a5 -permuto', pmin: 15000, pmax: 30000, moneda: 'USD',
         cotizacion: 1000, umbralAmbiguo: 500000,
         provincias: ['BA', 'CABA', 'SF', 'ER', 'LP'], zonaDesconocida: true,
-        ocultar: true, sinPrecio: false, indexar: false
+        ocultar: true, tocarLaPagina: true, sinPrecio: false, indexar: false
       } }), set: () => {} } },
       runtime: { lastError: undefined, getURL: (p) => p,
                  onMessage: { addListener: () => {} },

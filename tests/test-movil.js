@@ -10,7 +10,7 @@ const CONFIG = {
   consulta: 'audi a5', pmin: 15000, pmax: 30000, moneda: 'USD',
   cotizacion: 1000, umbralAmbiguo: 500000,
   provincias: ['BA', 'CABA', 'SF', 'ER', 'LP'], zonaDesconocida: true,
-  velocidad: 'tranquilo', ocultar: true, sinPrecio: false, indexar: true
+  velocidad: 'tranquilo', ocultar: true, tocarLaPagina: true, sinPrecio: false, indexar: true
 };
 const ESPERADOS = ['Audi A5 Sportback 2.0t', 'Audi a5 quattro 3.2 At'];
 const archivo = (p) => path.join(__dirname, '..', 'extension', p);

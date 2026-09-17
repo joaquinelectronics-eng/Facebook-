@@ -16,7 +16,7 @@ const CONFIG = {
   cotizacion: 1000, umbralAmbiguo: 500000,
   provincias: ['BA', 'CABA', 'SF', 'ER', 'LP'],
   zonaDesconocida: true,
-  ocultar: true, sinPrecio: false, indexar: true
+  ocultar: true, tocarLaPagina: true, sinPrecio: false, indexar: true
 };
 
 // Lo que tiene que quedar visible con esa configuracion.
