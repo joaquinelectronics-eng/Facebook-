@@ -8,7 +8,8 @@ require(path.join(__dirname, '../extension/src/lib/normalize.js'));
 require(path.join(__dirname, '../extension/src/lib/price.js'));
 require(path.join(__dirname, '../extension/src/lib/matcher.js'));
 require(path.join(__dirname, '../extension/src/lib/zonas.js'));
-const { matcher, precio, zonas } = global.window.MPF;
+require(path.join(__dirname, '../extension/src/lib/recorrida.js'));
+const { matcher, precio, zonas, recorrida } = global.window.MPF;
 
 let ok = 0;
 function prueba(nombre, fn) {
@@ -131,5 +132,56 @@ prueba('"Ciudad de Buenos Aires" no se confunde con la provincia', () =>
   assert.notStrictEqual(zonas.detectarProvincia('Ciudad de Buenos Aires'), 'BA'));
 prueba('estan las 24 jurisdicciones', () =>
   assert.strictEqual(zonas.PROVINCIAS.length, 24));
+
+/* Recorrida de varias busquedas. Existe porque Facebook corta cada busqueda:
+   medido en la pagina real, "audi a5" devolvio 261 publicaciones y ni una mas
+   al llegar al fondo, sin ningun boton de "ver mas". */
+prueba('una busqueda por linea, sin vacias', () =>
+  assert.deepStrictEqual(recorrida.limpiarLista('audi a5\n\n  a5 sportback  \n'),
+                         ['audi a5', 'a5 sportback']));
+
+prueba('no repite la misma busqueda', () =>
+  assert.deepStrictEqual(recorrida.limpiarLista('audi a5\nAUDI A5\naudi a4'),
+                         ['audi a5', 'audi a4']));
+
+prueba('arma la direccion de busqueda del telefono', () =>
+  assert.strictEqual(recorrida.armarUrl('audi a5 cabrio'),
+    'https://m.facebook.com/marketplace/category/search/?query=audi%20a5%20cabrio'));
+
+/* Los resultados no los corta solo la consulta: tambien el radio y el rango de
+   precio. Subiendo el radio a 150 km aparecen muchas mas. Esos filtros quedan
+   en la direccion, asi que se puede pegar la direccion entera. */
+prueba('una direccion pegada se usa tal cual', () => {
+  const u = 'https://m.facebook.com/marketplace/category/search/?query=audi%20a5&radius=150';
+  assert.strictEqual(recorrida.armarUrl(u), u);
+});
+
+prueba('y se le sigue sacando la consulta', () =>
+  assert.strictEqual(recorrida.consultaDeUrl(
+    'https://m.facebook.com/marketplace/category/search/?query=audi%20a5&radius=150'),
+    'audi a5'));
+
+prueba('sabe que consulta esta corriendo', () =>
+  assert.strictEqual(
+    recorrida.consultaDeUrl('https://m.facebook.com/marketplace/category/search/?query=audi%20a5'),
+    'audi a5'));
+
+prueba('la primera de la lista es la que sigue', () => {
+  const p = recorrida.siguiente({ lista: ['a', 'b', 'c'], indice: 0 });
+  assert.strictEqual(p.terminada, false);
+  assert.strictEqual(p.consulta, 'a');
+  assert.strictEqual(p.cuantas, 3);
+});
+
+prueba('avanza de a una y termina al final', () => {
+  let e = { lista: ['a', 'b'], indice: 0 };
+  e = recorrida.avanzar(e);
+  assert.strictEqual(recorrida.siguiente(e).consulta, 'b');
+  e = recorrida.avanzar(e);
+  assert.strictEqual(recorrida.siguiente(e).terminada, true);
+});
+
+prueba('una lista vacia ya esta terminada', () =>
+  assert.strictEqual(recorrida.siguiente({ lista: [], indice: 0 }).terminada, true));
 
 console.log('\n' + ok + ' pruebas de logica pasaron\n');

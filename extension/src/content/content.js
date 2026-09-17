@@ -463,6 +463,96 @@
     return n;
   }
 
+  /* ---------------------------------------------- recorrida de busquedas
+
+     Facebook corta cada busqueda: medido en la pagina real, "audi a5" devolvio
+     261 publicaciones y ni una mas al llegar al fondo, sin ningun boton de
+     "ver mas". Barrer mejor no cambia eso; preguntar distinto si.
+
+     Entonces la extension recorre sola una lista de busquedas: barre una,
+     guarda todo, se va a la siguiente. Como el catalogo no se borra, queda con
+     la UNION de todas, que es donde estan las viejas enterradas.
+
+     El estado vive en el almacenamiento y no en memoria, porque entre una
+     busqueda y la otra la pagina se recarga entera y se pierde todo. */
+  const CLAVE_RECORRIDA = 'recorrida';
+
+  /* La recorrida sigue viva entre recargas, y en algunos momentos de la carga
+     el panel todavia no existe. Avisar del avance no puede romperla. */
+  function decir(texto, activo) {
+    if (ui) ui.estado(texto, activo);
+  }
+
+  function leerRecorrida(cb) {
+    try {
+      chrome.storage.local.get(CLAVE_RECORRIDA, (g) => cb((g && g[CLAVE_RECORRIDA]) || null));
+    } catch (e) { cb(null); }
+  }
+
+  function escribirRecorrida(estado, cb) {
+    try {
+      chrome.storage.local.set({ [CLAVE_RECORRIDA]: estado }, () => cb && cb());
+    } catch (e) { cb && cb(); }
+  }
+
+  function pararRecorrida() {
+    escribirRecorrida(null);
+  }
+
+  function barrerEstaPagina(alTerminar) {
+    decir('barriendo', true);
+    MPF.autoscroll.iniciar((p) => {
+      const corriendo = MPF.autoscroll.estaCorriendo();
+      decir(p.estado + ' · tanda ' + p.tanda, corriendo);
+      if (!corriendo) {
+        vaciarColaDeIndexado();
+        pedirTotalCatalogo();
+        if (alTerminar) alTerminar(p);
+      }
+    }, { velocidad: config.velocidad });
+  }
+
+  function arrancarRecorrida(lista) {
+    escribirRecorrida({ lista, indice: 0 }, () => {
+      const paso = MPF.recorrida.siguiente({ lista, indice: 0 });
+      decir('busqueda 1 de ' + paso.cuantas + ': ' + paso.consulta, true);
+      location.assign(paso.url);
+    });
+  }
+
+  /* Al cargar cada pagina se mira si hay una recorrida a medias. Si la
+     direccion es la que pedimos, se barre y despues se pasa a la siguiente. */
+  function seguirRecorrida() {
+    leerRecorrida((estado) => {
+      if (!estado || !estado.lista || !estado.lista.length) return;
+      const paso = MPF.recorrida.siguiente(estado);
+      if (paso.terminada) {
+        escribirRecorrida(null);
+        decir('recorrida terminada: ' + estado.lista.length + ' busquedas', false);
+        return;
+      }
+      const aca = MPF.recorrida.consultaDeUrl(location.href);
+      if (MPF.normalizar(aca) !== MPF.normalizar(paso.consulta)) {
+        // Todavia no llegamos a la pagina de esta busqueda.
+        location.assign(paso.url);
+        return;
+      }
+      decir('busqueda ' + (paso.indice + 1) + ' de ' + paso.cuantas +
+                ': ' + paso.consulta, true);
+      barrerEstaPagina(() => {
+        const nuevo = MPF.recorrida.avanzar(estado);
+        if (nuevo.terminada) {
+          escribirRecorrida(null);
+          decir('recorrida terminada: ' + estado.lista.length + ' busquedas', false);
+          return;
+        }
+        escribirRecorrida({ lista: nuevo.lista, indice: nuevo.indice }, () => {
+          location.assign(MPF.recorrida.siguiente(nuevo).url);
+        });
+      });
+    });
+  }
+
   // --- guardado en el catalogo, en lotes para no saturar el service worker ---
   function encolarParaIndexar(items) {
     if (!config.indexar) return;
@@ -642,6 +732,9 @@
     pedirTitulos: () => pedirTitulosConocidos(),
     aplicarFiltros,
     pasada,
+    /* Arrancar la recorrida sin tocar el panel: asi se puede probar de punta a
+       punta, y tambien dispararla desde la consola. */
+    recorrer: (texto) => arrancarRecorrida(MPF.recorrida.limpiarLista(texto)),
     buscar: buscarEnLeidas,
     titulos: () => Array.from(cache.values()).map((d) => d.titulo),
     cuantasEnCache: () => cache.size,
@@ -752,15 +845,16 @@
       },
       alBarrer() {
         if (MPF.autoscroll.estaCorriendo()) {
+          pararRecorrida();
           MPF.autoscroll.parar();
           return;
         }
-        ui.estado('barriendo', true);
-        MPF.autoscroll.iniciar((p) => {
-          const corriendo = MPF.autoscroll.estaCorriendo();
-          ui.estado(p.estado + ' · tanda ' + p.tanda, corriendo);
-          if (!corriendo) { vaciarColaDeIndexado(); pedirTotalCatalogo(); }
-        }, { velocidad: config.velocidad });
+        barrerEstaPagina();
+      },
+      alRecorrer(texto) {
+        const lista = MPF.recorrida.limpiarLista(texto);
+        if (!lista.length) { decir('escribi al menos una busqueda', false); return; }
+        arrancarRecorrida(lista);
       },
       alAbrirCatalogo() {
         try { chrome.runtime.sendMessage({ tipo: 'abrirCatalogo' }); } catch (e) {}
@@ -791,6 +885,9 @@
         pasada();
         pedirTotalCatalogo();
         pedirTitulosConocidos();
+        /* Si quedo una recorrida a medias -aunque haya sido en otra pestania o
+           antes de cerrar el navegador-, sigue sola desde donde iba. */
+        setTimeout(seguirRecorrida, 2500);
       });
     } catch (e) {
       configCargada = true;   // sin almacenamiento se sigue con lo de fabrica

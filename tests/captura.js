@@ -58,7 +58,7 @@ const EJEMPLO = [
                    ? { ok: true, titulos: {} } : { ok: true, total: 428 }) }
     };
   }, CONFIG);
-  for (const f of ['src/lib/normalize.js','src/lib/price.js','src/lib/matcher.js', 'src/lib/zonas.js',
+  for (const f of ['src/lib/normalize.js','src/lib/price.js','src/lib/matcher.js', 'src/lib/zonas.js', 'src/lib/recorrida.js',
                    'src/content/scraper.js','src/content/panel.js',
                    'src/content/autoscroll.js','src/content/content.js']) {
     await p1.addScriptTag({ path: archivo(f) });

@@ -11,8 +11,9 @@ const assert = require('assert');
 
 const archivo = (p) => path.join(__dirname, '..', 'extension', p);
 const PAGINA = fs.readFileSync(path.join(__dirname, 'fixture-generico.html'), 'utf8');
+const recorrida = require(path.join(__dirname, '..', 'extension', 'src', 'lib', 'recorrida.js'));
 const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js',
-                 'src/lib/zonas.js', 'src/content/scraper.js', 'src/content/panel.js',
+                 'src/lib/zonas.js', 'src/lib/recorrida.js', 'src/content/scraper.js', 'src/content/panel.js',
                  'src/content/autoscroll.js', 'src/content/content.js'];
 
 (async () => {
@@ -77,6 +78,87 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
                               Object.assign({}, BASE, { versionCelular: false }));
   prueba('con la casilla apagada se queda donde esta', () =>
     assert.ok(/^https:\/\/www\.facebook\.com\//.test(apagado), apagado));
+
+  /* --------------------------------------------------------------
+     Recorrer varias busquedas sola.
+
+     Facebook corta cada busqueda: medido en la pagina real, "audi a5" devolvio
+     261 y ni una mas. Por eso la extension recorre una lista, barre cada una y
+     el catalogo se queda con la union. Aca se comprueba que pase de la primera
+     a la segunda y que al final se de por terminada. */
+  console.log('\nRecorrer varias busquedas');
+  const visitadas = [];
+  const pagina = await navegador.newPage({ viewport: { width: 393, height: 852 } });
+  const erroresR = [];
+  pagina.on('pageerror', (e) => erroresR.push(String(e)));
+
+  /* El almacenamiento tiene que sobrevivir a las recargas, igual que el de
+     verdad: si viviera en la pagina, al navegar se perderia y la recorrida se
+     cortaria en la primera. */
+  let guardado = { config: Object.assign({}, BASE, { velocidad: 'turbo' }) };
+  await pagina.exposeFunction('leerGuardado', () => guardado);
+  await pagina.exposeFunction('escribirGuardado', (parche) => {
+    guardado = Object.assign({}, guardado, parche);
+    return true;
+  });
+  await pagina.exposeFunction('anotarVisita', (url) => { visitadas.push(url); });
+
+  await pagina.route('**://*.facebook.com/**', (ruta) =>
+    ruta.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: PAGINA }));
+
+  await pagina.addInitScript(() => {
+    window.chrome = {
+      storage: {
+        local: {
+          get: (claves, cb) => window.leerGuardado().then((g) => {
+            if (typeof claves === 'string') { const o = {}; o[claves] = g[claves]; return cb(o); }
+            cb(g);
+          }),
+          set: (parche, cb) => window.escribirGuardado(parche).then(() => cb && cb())
+        },
+        onChanged: { addListener: () => {} }
+      },
+      runtime: { lastError: undefined, getURL: (p) => p,
+                 onMessage: { addListener: () => {} },
+                 sendMessage: (m, cb) => cb && cb({ ok: true, total: 0, titulos: {} }) }
+    };
+  });
+
+  pagina.on('framenavigated', (f) => { if (f === pagina.mainFrame()) visitadas.push(f.url()); });
+
+  /* La extension de verdad se inyecta sola en cada pagina. Aca hay que hacer
+     lo mismo a mano: si se inyecta una sola vez, al navegar a la segunda
+     busqueda no queda nadie para seguir la recorrida. */
+  const fuente = GUIONES.map((g) => fs.readFileSync(archivo(g), 'utf8')).join('\n;\n');
+  await pagina.addInitScript(fuente);
+
+  await pagina.goto('https://m.facebook.com/marketplace/category/search/?query=audi%20a5');
+  // Se pide la recorrida como la pediria el usuario desde el panel.
+  await pagina.evaluate(() =>
+    window.MPF.diagnostico.recorrer('audi a5\na5 sportback'));
+
+  /* Se espera a que la recorrida se de por terminada, no una cantidad fija de
+     segundos: con un tiempo fijo la prueba salia verde 2 de cada 3 veces,
+     segun cuanto tardara el barrido. Una prueba asi no sirve para nada. */
+  for (let i = 0; i < 120 && guardado.recorrida; i++) {
+    await pagina.waitForTimeout(500);
+  }
+
+  const consultas = visitadas
+    .map((u) => recorrida.consultaDeUrl(u))
+    .filter(Boolean);
+  prueba('pasa de la primera busqueda a la segunda', () => {
+    assert.ok(consultas.indexOf('audi a5') >= 0, JSON.stringify(visitadas));
+    assert.ok(consultas.indexOf('a5 sportback') >= 0, JSON.stringify(visitadas));
+  });
+
+  prueba('al terminar no queda ninguna recorrida a medias', () =>
+    assert.ok(!guardado.recorrida, JSON.stringify(guardado.recorrida)));
+
+  prueba('sin errores de javascript durante la recorrida', () =>
+    assert.deepStrictEqual(erroresR, []));
+
+  await pagina.close();
 
   await navegador.close();
   if (fallas) { console.error('\n' + fallas + ' pruebas de la version de celular fallaron\n'); process.exit(1); }

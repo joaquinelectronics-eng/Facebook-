@@ -59,7 +59,7 @@ const EN_ESPERA = ['122', '127'];
     };
   }, CONFIG);
 
-  for (const f of ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js', 'src/lib/zonas.js',
+  for (const f of ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js', 'src/lib/zonas.js', 'src/lib/recorrida.js',
                    'src/content/scraper.js', 'src/content/panel.js',
                    'src/content/autoscroll.js', 'src/content/content.js']) {
     await pagina.addScriptTag({ path: archivo(f) });
@@ -611,7 +611,7 @@ const EN_ESPERA = ['122', '127'];
       runtime: { lastError: undefined, getURL: (p) => p,
                  onMessage: { addListener: () => {} }, sendMessage: (m, cb) => cb && cb({ ok: true }) } };
   });
-  for (const f of ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js', 'src/lib/zonas.js',
+  for (const f of ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js', 'src/lib/zonas.js', 'src/lib/recorrida.js',
                    'src/content/scraper.js', 'src/content/panel.js',
                    'src/content/autoscroll.js', 'src/content/content.js']) {
     await fuera.addScriptTag({ path: archivo(f) }).catch(() => {});

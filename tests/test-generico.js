@@ -39,7 +39,7 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
                    ? { ok: true, titulos: {} } : { ok: true, total: 0 }) }
     };
   }, CONFIG);
-  for (const f of ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js', 'src/lib/zonas.js',
+  for (const f of ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js', 'src/lib/zonas.js', 'src/lib/recorrida.js',
                    'src/content/scraper.js', 'src/content/panel.js',
                    'src/content/autoscroll.js', 'src/content/content.js']) {
     await pagina.addScriptTag({ path: archivo(f) });
@@ -216,7 +216,7 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
                    ? { ok: true, titulos: {} } : { ok: true, total: 0 }) }
     };
   }, Object.assign({}, CONFIG, { tocarLaPagina: false }));
-  for (const f of ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js', 'src/lib/zonas.js',
+  for (const f of ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js', 'src/lib/zonas.js', 'src/lib/recorrida.js',
                    'src/content/scraper.js', 'src/content/panel.js',
                    'src/content/autoscroll.js', 'src/content/content.js']) {
     await limpia.addScriptTag({ path: archivo(f) });

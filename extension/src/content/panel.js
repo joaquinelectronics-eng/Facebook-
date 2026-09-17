@@ -101,6 +101,12 @@
   .motivo .cab b { color: #ffb74d; font-variant-numeric: tabular-nums; }
   .motivo ul { margin: 3px 0 0; padding-left: 14px; color: #79828f; font-size: 10.5px; }
   .motivo li { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  textarea {
+    width: 100%; box-sizing: border-box; padding: 7px 9px; border-radius: 7px;
+    border: 1px solid #333a45; background: #0f1216; color: #e9edf2;
+    font: inherit; font-size: 12.5px; outline: none; resize: vertical;
+  }
+  textarea:focus { border-color: #4a8cff; }
   .buscador { padding: 6px 10px 2px; }
   .hallazgos { padding: 0 10px 8px; display: grid; gap: 5px; max-height: 180px; overflow-y: auto; }
   .hallazgo { font-size: 11px; border-left: 2px solid #3d4450; padding-left: 7px; }
@@ -219,6 +225,20 @@
       </div>
       <div class="pendientes" id="pendientes"></div>
 
+      <details id="detRecorrida">
+        <summary>Recorrer varias busquedas</summary>
+        <div class="zonaPie">
+          <div class="ayuda" style="margin-bottom:6px">
+            Facebook corta cada busqueda -medido: 261 y ni una mas-. Preguntando
+            distinto trae otra rebanada, y el catalogo se queda con todas juntas.
+            Una busqueda por linea.
+          </div>
+          <textarea id="listaBusquedas" rows="5" spellcheck="false"
+            placeholder="audi a5&#10;a5 sportback&#10;a5 quattro&#10;audi cabrio"></textarea>
+          <button id="recorrer" class="secundario" style="margin-top:6px">Recorrer todas</button>
+        </div>
+      </details>
+
       <div class="pie">
         <button class="primario" id="barrer">Barrer hasta el fondo</button>
         <div class="estado" id="estado">listo</div>
@@ -251,6 +271,7 @@
       cotizacion: $('cotizacion'), umbral: $('umbral'), ocultar: $('ocultar'),
       velocidad: $('velocidad'), soloBajadas: $('soloBajadas'),
       pendientes: $('pendientes'), tocarLaPagina: $('tocarLaPagina'),
+      listaBusquedas: $('listaBusquedas'), recorrer: $('recorrer'),
       sinPrecio: $('sinPrecio'), rescatarCortados: $('rescatarCortados'),
       versionCelular: $('versionCelular'),
       indexar: $('indexar'), barrer: $('barrer'),
@@ -335,6 +356,7 @@
       callbacks.alCambiar(leerConfig());
     });
     el.barrer.addEventListener('click', () => callbacks.alBarrer());
+    el.recorrer.addEventListener('click', () => callbacks.alRecorrer(el.listaBusquedas.value));
     el.catalogo.addEventListener('click', () => callbacks.alAbrirCatalogo());
     el.guardarBusq.addEventListener('click', () => callbacks.alGuardarBusqueda());
     el.frenar.addEventListener('click', (e) => { e.stopPropagation(); callbacks.alBarrer(); });
