@@ -49,8 +49,23 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     const soloBajadas = $('soloBajadas').checked;
     const zona = $('zona').value;
 
+    const dudosas = $('dudosas') ? $('dudosas').checked : true;
+
     let lista = todos.filter((it) => {
-      if (!filtro.vacia && !filtro.evaluar(it.titulo).coincide) return false;
+      /* MISMA REGLA QUE EN LA PANTALLA: un titulo que no se pudo leer entero no
+         alcanza para decir que no. Facebook manda muchos titulos recortados y
+         algunos vacios; si se descartan por no coincidir, las guardamos para no
+         perderlas y despues el catalogo las esconde igual. */
+      if (!filtro.vacia) {
+        const r = filtro.evaluar(it.titulo);
+        if (!r.coincide) {
+          const enDuda = !it.titulo || it.tituloCortado || it.tituloDudoso;
+          /* Si lo que fallo fue una palabra excluida, es un no de verdad: esa
+             palabra esta escrita, no es cuestion de lo que no se llego a leer. */
+          const soloLeFalta = !it.titulo || /^falta:/.test(r.motivo || '');
+          if (!(dudosas && enDuda && soloLeFalta)) return false;
+        }
+      }
       const p = it.precioUSD;
       if (pmin != null && (p == null || p < pmin)) return false;
       if (pmax != null && (p == null || p > pmax)) return false;
@@ -122,8 +137,47 @@ import { corridasPorDia } from '../lib/agenda.mjs';
 
     // El titulo se asigna como texto, nunca como HTML: viene de una pagina externa.
     el.querySelector('.tit').textContent = it.titulo || '';
-    el.querySelector('a.abrir').href = it.url;
+    ponerEnlace(el.querySelector('a.abrir'), it);
     return el;
+  }
+
+  /* A donde lleva el boton.
+
+     En la version de celular las tarjetas de Facebook no son enlaces: no hay
+     de donde sacar la direccion de la publicacion. Antes se ponia una
+     direccion vacia, y un enlace vacio apunta a la pagina donde uno esta, asi
+     que el boton reabria el catalogo.
+
+     Inventar la direccion no es opcion: los numeros largos que hay en una
+     tarjeta son de las fotos, no de la publicacion, y llevarian a otro auto.
+     Asi que cuando no hay direccion se busca el titulo exacto en Marketplace,
+     que deja la publicacion a un toque, y el boton lo dice. */
+  function urlDeBusqueda(titulo) {
+    // Sin los puntos suspensivos: Facebook manda el titulo recortado.
+    const limpio = String(titulo || '').replace(/(?:\u2026|\.\.\.)\s*$/, '').trim();
+    if (!limpio) return '';
+    return 'https://m.facebook.com/marketplace/category/search/?query=' +
+           encodeURIComponent(limpio);
+  }
+
+  function ponerEnlace(a, it) {
+    if (it.url) {
+      a.href = it.url;
+      a.textContent = 'Abrir en Facebook';
+      a.removeAttribute('aria-disabled');
+      return;
+    }
+    const busqueda = urlDeBusqueda(it.titulo);
+    if (busqueda) {
+      a.href = busqueda;
+      a.textContent = 'Buscar en Facebook';
+      a.removeAttribute('aria-disabled');
+      return;
+    }
+    /* Ni direccion ni titulo: mejor un boton apagado que uno que miente. */
+    a.removeAttribute('href');
+    a.textContent = 'sin enlace';
+    a.setAttribute('aria-disabled', 'true');
   }
 
   function pintar() {
@@ -193,7 +247,7 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     pintar();
   }
 
-  for (const id of ['consulta', 'pmin', 'pmax', 'orden', 'soloBajadas', 'zona']) {
+  for (const id of ['consulta', 'pmin', 'pmax', 'orden', 'soloBajadas', 'dudosas', 'zona']) {
     const el = $(id);
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', pintar);
   }

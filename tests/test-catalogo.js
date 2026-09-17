@@ -20,6 +20,17 @@ const ITEMS = [
   { id:'3', titulo:'Audi A4 2.0 2016', precio:19000, moneda:'USD', precioUSD:19000,
     ubicacion:'Cordoba, CB', provincia:'CB', anio:2016, veces:2,
     vistoPrimera:AHORA-5*DIA, vistoUltima:AHORA, url:'https://www.facebook.com/marketplace/item/3/',
+    historial:[] },
+  /* Leida en la version de celular: ahi las tarjetas no son enlaces, asi que no
+     hay direccion de la publicacion. El titulo ademas viene recortado. */
+  { id:'m4', titulo:'Audi Cabriolet 2.0 Tfsi Quattro A\u2026', precio:24000, moneda:'USD', precioUSD:24000,
+    ubicacion:'Tigre, BA', provincia:'BA', anio:2016, veces:1,
+    vistoPrimera:AHORA-2*DIA, vistoUltima:AHORA, url:'', tituloCortado:true,
+    historial:[] },
+  // Ni direccion ni titulo: no hay a donde mandarlo.
+  { id:'m5', titulo:'', precio:18000, moneda:'USD', precioUSD:18000,
+    ubicacion:'Moron, BA', provincia:'BA', veces:1,
+    vistoPrimera:AHORA-DIA, vistoUltima:AHORA, url:'', tituloDudoso:true,
     historial:[] }
 ];
 
@@ -76,7 +87,7 @@ const BUSQUEDAS = [
 
   console.log('\nCatalogo');
   const tarjetas = await pagina.$$eval('.tarjeta .tit', (n) => n.map((x) => x.textContent));
-  prueba('pinta las publicaciones guardadas', () => assert.strictEqual(tarjetas.length, 3));
+  prueba('pinta las publicaciones guardadas', () => assert.strictEqual(tarjetas.length, 5));
   prueba('ordena de la mas vieja a la mas nueva', () =>
     assert.strictEqual(tarjetas[0], 'Audi A5 Sportback 2017'));
 
@@ -90,8 +101,72 @@ const BUSQUEDAS = [
 
   await pagina.fill('#consulta', 'audi a5');
   await pagina.waitForTimeout(200);
-  const trasFiltrar = await pagina.$$eval('.tarjeta', (n) => n.length);
-  prueba('la busqueda estricta filtra el A4', () => assert.strictEqual(trasFiltrar, 2));
+  const conDudosas = await pagina.$$eval('.tarjeta .tit', (n) => n.map((x) => x.textContent));
+  prueba('la busqueda estricta filtra el A4', () =>
+    assert.ok(!conDudosas.some((t) => /A4/.test(t)), JSON.stringify(conDudosas)));
+
+  /* Las que Facebook mando con el titulo cortado o sin titulo no se pueden
+     descartar: no se sabe que decia. Se guardaron justamente para no perderlas,
+     asi que el catalogo tampoco las tira. */
+  prueba('pero deja las que no se pudieron leer enteras', () => {
+    // El titulo cortado no dice "a5": podria decirlo del otro lado del corte.
+    assert.ok(conDudosas.some((t) => /Cabriolet/.test(t)), JSON.stringify(conDudosas));
+    assert.ok(conDudosas.some((t) => !t), JSON.stringify(conDudosas));
+    assert.strictEqual(conDudosas.length, 4);
+  });
+
+  await pagina.uncheck('#dudosas');
+  await pagina.waitForTimeout(200);
+  const sinDudosas = await pagina.$$eval('.tarjeta .tit', (n) => n.map((x) => x.textContent));
+  prueba('y se pueden sacar con la casilla', () => {
+    assert.strictEqual(sinDudosas.length, 2, JSON.stringify(sinDudosas));
+    assert.ok(!sinDudosas.some((t) => /Cabriolet/.test(t)), JSON.stringify(sinDudosas));
+  });
+  await pagina.check('#dudosas');
+  await pagina.waitForTimeout(200);
+
+  /* El boton llevaba al catalogo de vuelta: una direccion vacia apunta a la
+     pagina donde uno esta. Pasa con todo lo leido en la version de celular,
+     que es casi todo. */
+  console.log('\nEl boton de abrir');
+  const enlaces = await pagina.evaluate(() => {
+    const salida = [];
+    for (const t of document.querySelectorAll('#grilla .tarjeta')) {
+      const a = t.querySelector('a.abrir');
+      salida.push({
+        titulo: (t.querySelector('.tit') || {}).textContent || '',
+        href: a.getAttribute('href') || '',
+        texto: (a.textContent || '').trim()
+      });
+    }
+    return salida;
+  });
+  const porTitulo = (t) => enlaces.find((x) => x.titulo.indexOf(t) === 0);
+
+  prueba('con direccion, lleva a la publicacion', () => {
+    const a = porTitulo('Audi A5 2.0 TFSI');
+    assert.strictEqual(a.href, 'https://www.facebook.com/marketplace/item/1/');
+    assert.strictEqual(a.texto, 'Abrir en Facebook');
+  });
+
+  prueba('sin direccion, busca el titulo en Marketplace', () => {
+    const a = porTitulo('Audi Cabriolet');
+    assert.strictEqual(a.texto, 'Buscar en Facebook');
+    assert.strictEqual(a.href,
+      'https://m.facebook.com/marketplace/category/search/?query=' +
+      encodeURIComponent('Audi Cabriolet 2.0 Tfsi Quattro A'));
+  });
+
+  prueba('sin direccion y sin titulo, el boton no miente', () => {
+    const a = enlaces.find((x) => !x.titulo);
+    assert.ok(a, 'no se pinto la que no tiene titulo: ' + JSON.stringify(enlaces));
+    assert.strictEqual(a.texto, 'sin enlace');
+    assert.strictEqual(a.href, '');
+  });
+
+  prueba('ninguno apunta a la pagina del catalogo', () =>
+    assert.deepStrictEqual(
+      enlaces.filter((x) => x.href === '' && x.texto !== 'sin enlace'), []));
 
   console.log('\nCorridas automaticas');
   await pagina.evaluate(() => { document.getElementById('detAuto').open = true; });
