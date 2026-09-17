@@ -143,23 +143,16 @@ import { corridasPorDia } from '../lib/agenda.mjs';
 
   /* A donde lleva el boton.
 
-     En la version de celular las tarjetas de Facebook no son enlaces: no hay
-     de donde sacar la direccion de la publicacion. Antes se ponia una
-     direccion vacia, y un enlace vacio apunta a la pagina donde uno esta, asi
-     que el boton reabria el catalogo.
+     Una direccion vacia apunta a la pagina donde uno esta, asi que "Abrir en
+     Facebook" reabria el catalogo. Se probo mandar a buscar el titulo en
+     Marketplace y no sirve: Facebook no encuentra la publicacion por su
+     titulo. Asi que o hay direccion de verdad, o el boton queda apagado: un
+     boton que no lleva a ningun lado hace perder mas tiempo del que ahorra.
 
-     Inventar la direccion no es opcion: los numeros largos que hay en una
-     tarjeta son de las fotos, no de la publicacion, y llevarian a otro auto.
-     Asi que cuando no hay direccion se busca el titulo exacto en Marketplace,
-     que deja la publicacion a un toque, y el boton lo dice. */
-  function urlDeBusqueda(titulo) {
-    // Sin los puntos suspensivos: Facebook manda el titulo recortado.
-    const limpio = String(titulo || '').replace(/(?:\u2026|\.\.\.)\s*$/, '').trim();
-    if (!limpio) return '';
-    return 'https://m.facebook.com/marketplace/category/search/?query=' +
-           encodeURIComponent(limpio);
-  }
-
+     La direccion sale del scraper, que la busca en la tarjeta aunque no sea un
+     enlace. Lo unico que se acepta es un texto que diga /marketplace/item/ con
+     su numero: los otros numeros largos de una tarjeta son de las fotos y
+     llevarian a otro auto. */
   function ponerEnlace(a, it) {
     if (it.url) {
       a.href = it.url;
@@ -167,14 +160,6 @@ import { corridasPorDia } from '../lib/agenda.mjs';
       a.removeAttribute('aria-disabled');
       return;
     }
-    const busqueda = urlDeBusqueda(it.titulo);
-    if (busqueda) {
-      a.href = busqueda;
-      a.textContent = 'Buscar en Facebook';
-      a.removeAttribute('aria-disabled');
-      return;
-    }
-    /* Ni direccion ni titulo: mejor un boton apagado que uno que miente. */
     a.removeAttribute('href');
     a.textContent = 'sin enlace';
     a.setAttribute('aria-disabled', 'true');

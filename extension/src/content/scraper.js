@@ -50,6 +50,53 @@
     return 'm' + h.toString(36);
   }
 
+  /* EL ENLACE DE LA PUBLICACION en la version de celular.
+
+     Las tarjetas no son enlaces, asi que antes se guardaba vacio y el catalogo
+     no tenia a donde mandarte. Buscar el titulo en Marketplace no sirve:
+     Facebook no encuentra la publicacion por su titulo.
+
+     Lo que SI se puede hacer sin inventar nada es buscar la direccion literal.
+     Importa la diferencia: buscar "un numero largo" traeria el id de la foto y
+     te mandaria a otro auto. Aca solo se acepta un texto que diga
+     /marketplace/item/<numero>, que no puede ser otra cosa que una publicacion.
+     Se mira en los enlaces y en todos los atributos de la tarjeta, porque
+     Facebook mete la direccion en atributos propios segun la pantalla. */
+  const RE_URL_ITEM = /\/marketplace\/item\/(\d+)/;
+  const RE_ITEM_SUELTO = /\/item\/(\d+)/;
+  const TOPE_NODOS_POR_TARJETA = 80;
+
+  function urlDePublicacion(id) {
+    return 'https://www.facebook.com/marketplace/item/' + id + '/';
+  }
+
+  function idEnTexto(texto) {
+    const t = String(texto || '');
+    if (t.length < 10 || t.indexOf('/item/') < 0) return '';
+    const m = RE_URL_ITEM.exec(t) || RE_ITEM_SUELTO.exec(t);
+    return m ? m[1] : '';
+  }
+
+  function urlDeTarjetaMovil(caja) {
+    const enlace = caja.querySelector('a[href*="/item/"]');
+    if (enlace) {
+      const id = idEnTexto(enlace.getAttribute('href'));
+      if (id) return urlDePublicacion(id);
+    }
+    const nodos = caja.querySelectorAll('*');
+    const tope = Math.min(nodos.length, TOPE_NODOS_POR_TARJETA);
+    for (let i = -1; i < tope; i++) {
+      const n = i < 0 ? caja : nodos[i];
+      const attrs = n.attributes;
+      if (!attrs) continue;
+      for (let j = 0; j < attrs.length; j++) {
+        const id = idEnTexto(attrs[j].value);
+        if (id) return urlDePublicacion(id);
+      }
+    }
+    return '';
+  }
+
   /* Los textos de una tarjeta. Facebook los envuelve en ServerTextArea, pero no
      siempre: hay pantallas donde ese componente no aparece. Cuando no esta se
      agrupan igual que en la version de escritorio, mirando la forma del arbol y
@@ -544,7 +591,7 @@
       km,
       anio: mAnio ? Number(mAnio[1]) : null,
       provincia: MPF.zonas ? MPF.zonas.detectarProvincia(ubicacion) : null,
-      url: '',            // la version movil no expone el enlace de la publicacion
+      url: urlDeTarjetaMovil(caja),
       imagen: img ? img.getAttribute('src') || '' : '',
       _nodo: caja,
       _link: caja
@@ -753,6 +800,7 @@
                   estructuraDe, esBloqueDeTexto,
                   MAX_REINTENTOS, convieneReintentar,
                   partirTituloYZona, pareceZonaSuelta, pareceCortado,
+                  urlDeTarjetaMovil, idEnTexto,
                   limpiarUbicacion, extraerKm, cantidadEnPantalla, contenedorTarjeta,
                   SELECTOR_ITEM };
 })();

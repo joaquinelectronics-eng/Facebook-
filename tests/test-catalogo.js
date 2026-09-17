@@ -149,17 +149,11 @@ const BUSQUEDAS = [
     assert.strictEqual(a.texto, 'Abrir en Facebook');
   });
 
-  prueba('sin direccion, busca el titulo en Marketplace', () => {
+  /* Mandar a buscar el titulo en Marketplace no sirve: Facebook no encuentra la
+     publicacion asi. Entre un boton que no lleva a ningun lado y ninguno,
+     ninguno: hace perder menos tiempo. */
+  prueba('sin direccion, el boton queda apagado en vez de mentir', () => {
     const a = porTitulo('Audi Cabriolet');
-    assert.strictEqual(a.texto, 'Buscar en Facebook');
-    assert.strictEqual(a.href,
-      'https://m.facebook.com/marketplace/category/search/?query=' +
-      encodeURIComponent('Audi Cabriolet 2.0 Tfsi Quattro A'));
-  });
-
-  prueba('sin direccion y sin titulo, el boton no miente', () => {
-    const a = enlaces.find((x) => !x.titulo);
-    assert.ok(a, 'no se pinto la que no tiene titulo: ' + JSON.stringify(enlaces));
     assert.strictEqual(a.texto, 'sin enlace');
     assert.strictEqual(a.href, '');
   });

@@ -60,7 +60,8 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
 
   const leidas = await pagina.evaluate(() => window.MPF.scraper.leerTodas().map((d) => ({
     titulo: d.titulo, precio: d.precioTexto, zona: d.ubicacion,
-    provincia: d.provincia, km: d.km, anterior: d.precioAnteriorTexto, id: d.id
+    provincia: d.provincia, km: d.km, anterior: d.precioAnteriorTexto, id: d.id,
+    url: d.url
   })));
   prueba('lee las 6 publicaciones y descarta el boton de la interfaz', () =>
     assert.strictEqual(leidas.length, 6, JSON.stringify(leidas.map((x) => x.titulo))));
@@ -79,6 +80,20 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
     const a = leidas.find((x) => x.titulo === 'Audi a5 quattro 3.2 At');
     assert.strictEqual(a.anterior, '$26.500');
   });
+  /* El catalogo tiene que poder mandarte a la publicacion. En la version de
+     celular la tarjeta no es un enlace, pero la direccion esta en un atributo.
+     Buscar el titulo en Facebook no sirve: no la encuentra asi. */
+  prueba('saca la direccion de la publicacion aunque no sea un enlace', () => {
+    const a = leidas.find((x) => x.titulo === 'Audi A5 Sportback 2.0t');
+    assert.ok(a, JSON.stringify(leidas.map((x) => x.titulo)));
+    assert.strictEqual(a.url, 'https://www.facebook.com/marketplace/item/1122334455667788/');
+  });
+
+  prueba('no inventa direcciones donde no las hay', () => {
+    const a = leidas.find((x) => x.titulo === 'Audi a5 quattro 3.2 At');
+    assert.strictEqual(a.url, '');
+  });
+
   prueba('cada publicacion tiene un id propio y estable', () => {
     const ids = leidas.map((x) => x.id);
     assert.strictEqual(new Set(ids).size, ids.length, 'hay ids repetidos');

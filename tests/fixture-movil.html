@@ -14,7 +14,11 @@ const items = [
   {p:'$9.500.000',  t:'Vendo barata cupe audi a5 2012', z:'Pilar, BA'},
   {p:'$1.000',      t:'2008 audi A5 Cupe',              z:'Gualeguaychú, ER', extra:'100 mil millas'},
   {p:'$13.800',     t:'Audi A1 Sportback Único',   z:'Ciudad de Buenos Aires, CF'},
-  {p:'$19.500',     t:'Audi A5 Sportback 2.0t',         z:'Lanús Este, BA'},
+  /* Con la direccion de la publicacion escondida en un atributo propio de
+     Facebook, que es como viene en la version de celular: la tarjeta no es un
+     enlace pero la direccion esta ahi. */
+  {p:'$19.500',     t:'Audi A5 Sportback 2.0t',         z:'Lanús Este, BA',
+   ruta:'/marketplace/item/1122334455667788/?ref=search'},
   {p:'$22.000',     p2:'$26.500', t:'Audi a5 quattro 3.2 At', z:'Quilmes, BA'},
   {p:'$24.000',     t:'Audi A5 Coupe 2013',             z:'Villa Carlos Paz'},
   // Un boton de la interfaz: mismo tipo de contenedor, pero sin precio.
@@ -31,6 +35,7 @@ for (const it of items) {
   caja.setAttribute('tabindex', '0');
   caja.setAttribute('data-focusable', 'true');
   caja.setAttribute('data-action-id', String(accion++));
+  if (it.ruta) caja.setAttribute('data-navigation-uri', it.ruta);
   caja.innerHTML = it.boton
     ? texto(it.boton)
     : '<div><img src="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></div>' +
