@@ -226,10 +226,23 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     grilla.appendChild(trozo);
 
     const conBaja = lista.filter(bajaDePrecio).length;
+
+    /* Cuantas se pueden abrir y cuantas no. Sin este numero, "no extrajo
+       ningun enlace" y "extrajo pero no emparejo" se ven exactamente igual, y
+       son problemas distintos: uno es leer, el otro es cruzar. */
+    let propio = 0, emparejado = 0, sinNada = 0;
+    for (const it of lista) {
+      if (it.url) propio++;
+      else if (urlDe(it).url) emparejado++;
+      else sinNada++;
+    }
+
     $('resumen').textContent =
       lista.length.toLocaleString('es-AR') + ' de ' + todos.length.toLocaleString('es-AR') +
       ' publicaciones guardadas' +
       (conBaja ? ' · ' + conBaja + ' bajaron de precio' : '') +
+      ' · enlace: ' + propio + ' propio, ' + emparejado + ' emparejado, ' +
+      sinNada + ' sin enlace' +
       (lista.length > 600 ? ' · mostrando las primeras 600' : '');
 
     $('vacio').classList.toggle('oculto', todos.length > 0);

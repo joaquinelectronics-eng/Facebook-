@@ -200,6 +200,12 @@ const BUSQUEDAS = [
     assert.strictEqual(a.href, '');
   });
 
+  const resumenEnlaces = await pagina.textContent('#resumen');
+  prueba('el resumen dice cuantas se pueden abrir y cuantas no', () => {
+    assert.ok(/enlace: \d+ propio, \d+ emparejado, \d+ sin enlace/.test(resumenEnlaces),
+              resumenEnlaces);
+  });
+
   prueba('ninguno apunta a la pagina del catalogo', () =>
     assert.deepStrictEqual(
       enlaces.filter((x) => x.href === '' && x.texto !== 'sin enlace'), []));

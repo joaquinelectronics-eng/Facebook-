@@ -63,7 +63,7 @@
      por el catalogo, de ahi sale. Cuanto mas se usa, mas titulos se conocen. */
   let titulosConocidos = Object.create(null);
   let versionPintada = -1;
-  let contVistos = 0, contOk = 0, contEnDuda = 0, contConEnlace = 0;
+  let contVistos = 0, contOk = 0, contEnDuda = 0;
   /* Cuenta por que se descarto cada tarjeta, con ejemplos. Es la unica forma
      de saber si faltan resultados por culpa del filtro o porque Facebook no
      los mando: sin esto hay que adivinar. */
@@ -387,7 +387,6 @@
       contOk = 0;
       motivos = new Map();
       contEnDuda = 0;
-      contConEnlace = 0;
       versionPintada = versionConfig;
     }
 
@@ -438,7 +437,6 @@
 
       contVistos++;
       if (veredicto.enDuda) contEnDuda++;
-      if (datos.url) contConEnlace++;
       if (veredicto.pasa && !veredicto.enEspera) {
         contOk++;
         if (veredicto.parcial) {
@@ -470,9 +468,19 @@
       /* Lo que esta en pantalla y todavia no se pudo leer. Sin este numero no
          hay manera de saber si faltan resultados porque los escondio el filtro
          o porque nunca se llegaron a leer, que es muy distinto. */
-      ui.pendientes(sinLeerEnPantalla(), contEnDuda, contConEnlace);
+      ui.pendientes(sinLeerEnPantalla(), contEnDuda, cuantasConEnlace());
     }
     return { vistos: contVistos, ok: contOk, ms: ultimoCostoMs };
+  }
+
+  /* Cuantas de las leidas traen el enlace de la publicacion. Se cuenta sobre lo
+     leido y no sumando en cada pasada: sumando, las pasadas que solo miran lo
+     nuevo volvian a contar lo de antes y el numero terminaba siendo mas grande
+     que la cantidad de publicaciones, que es imposible y no se le puede creer. */
+  function cuantasConEnlace() {
+    let n = 0;
+    for (const d of cache.values()) if (d.url) n++;
+    return n;
   }
 
   /* Tarjetas que estan en pantalla pero de las que todavia no se saco nada:
