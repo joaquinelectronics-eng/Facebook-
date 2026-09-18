@@ -883,6 +883,16 @@
          en el celular Facebook no manda NI UN enlace de publicacion -medido: 0
          en toda la pagina- y en escritorio las tarjetas si son enlaces. */
       alIrAEscritorio() {
+        /* Con la emulacion de telefono de las herramientas del navegador
+           encendida, Chrome firma TODOS los pedidos como si fuera un iPhone, asi
+           que Facebook devuelve la version de celular tambien en www y el boton
+           parece no hacer nada. La extension ya pide sola la version de celular
+           para m.facebook.com, asi que esa emulacion ya no hace falta: apagarla
+           es lo que destraba esto. Se avisa en vez de no hacer nada. */
+        if (/iPhone|iPad|Android|Mobile/i.test(navigator.userAgent)) {
+          decir('apaga el modo telefono del navegador y proba de nuevo', false);
+          return;
+        }
         const destino = conMarcaDeEscritorio(
           'https://www.facebook.com' + location.pathname + location.search);
         decir('yendo a escritorio a juntar los enlaces', true);

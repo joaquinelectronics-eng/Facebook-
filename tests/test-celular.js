@@ -122,6 +122,38 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
   });
   await pEsc.close();
 
+  /* Y si el navegador esta en modo telefono, ese boton no puede funcionar:
+     Chrome firma todo como iPhone y Facebook devuelve la version de celular
+     tambien en www. Antes se quedaba quieto sin decir nada, que es lo peor. */
+  const pMovil = await navegador.newPage({
+    viewport: { width: 393, height: 852 },
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 ' +
+               '(KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1'
+  });
+  await pMovil.route('**://*.facebook.com/**', (ruta) =>
+    ruta.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: PAGINA }));
+  await pMovil.addInitScript((c) => {
+    window.chrome = {
+      storage: { local: { get: (k, cb) => cb({ config: c }), set: () => {} } },
+      runtime: { lastError: undefined, getURL: (p) => p,
+                 onMessage: { addListener: () => {} },
+                 sendMessage: (m, cb) => cb && cb({ ok: true, total: 0, titulos: {} }) }
+    };
+  }, Object.assign({}, BASE));
+  await pMovil.addInitScript(GUIONES.map((g) => fs.readFileSync(archivo(g), 'utf8')).join('\n;\n'));
+  await pMovil.goto('https://m.facebook.com/marketplace/category/search/?query=audi%20a5');
+  await pMovil.waitForTimeout(2500);
+  await pMovil.evaluate(() =>
+    document.getElementById('mpf-host').shadowRoot.getElementById('escritorio').click());
+  await pMovil.waitForTimeout(2000);
+  const avisoModoTelefono = await pMovil.evaluate(() =>
+    document.getElementById('mpf-host').shadowRoot.getElementById('estado').textContent);
+  prueba('en modo telefono no se queda mudo: avisa', () =>
+    assert.ok(/modo telefono/.test(avisoModoTelefono), JSON.stringify(avisoModoTelefono)));
+  prueba('y no se mueve de donde esta', () =>
+    assert.ok(/m\.facebook\.com/.test(pMovil.url()), pMovil.url()));
+  await pMovil.close();
+
   /* --------------------------------------------------------------
      Recorrer varias busquedas sola.
 
