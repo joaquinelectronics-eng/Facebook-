@@ -122,6 +122,37 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
   });
   await pEsc.close();
 
+  /* El caso que rompia de verdad: ya en escritorio, al aplicar un filtro de
+     precio Facebook reescribe la direccion y se lleva puesta la marca. Sin
+     nada mas, la pasada siguiente veia www sin marca y devolvia al celular
+     justo cuando uno estaba trabajando. */
+  console.log('\nQuedarse en escritorio aunque Facebook borre la marca');
+  const pFiltro = await navegador.newPage({ viewport: { width: 1280, height: 900 } });
+  await pFiltro.route('**://*.facebook.com/**', (ruta) =>
+    ruta.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: PAGINA }));
+  await pFiltro.addInitScript((c) => {
+    window.chrome = {
+      storage: { local: { get: (k, cb) => cb({ config: c }), set: () => {} } },
+      runtime: { lastError: undefined, getURL: (p) => p,
+                 onMessage: { addListener: () => {} },
+                 sendMessage: (m, cb) => cb && cb({ ok: true, total: 0, titulos: {} }) }
+    };
+  }, Object.assign({}, BASE));
+  await pFiltro.addInitScript(GUIONES.map((g) => fs.readFileSync(archivo(g), 'utf8')).join('\n;\n'));
+  await pFiltro.goto('https://www.facebook.com/marketplace/category/search/?query=audi%20a5#mpf=escritorio');
+  await pFiltro.waitForTimeout(2500);
+
+  // Facebook cambia la direccion al aplicar un filtro, y la marca se pierde.
+  await pFiltro.evaluate(() => history.replaceState({}, '',
+    '/marketplace/category/search/?query=audi%20a5&maxPrice=16000'));
+  await pFiltro.waitForTimeout(4000);
+
+  prueba('sigue en escritorio despues de aplicar un filtro', () =>
+    assert.ok(/^https:\/\/www\.facebook\.com\//.test(pFiltro.url()), pFiltro.url()));
+  prueba('y la marca ya no esta en la direccion', () =>
+    assert.ok(!/mpf=escritorio/.test(pFiltro.url()), pFiltro.url()));
+  await pFiltro.close();
+
   /* Y si el navegador esta en modo telefono, ese boton no puede funcionar:
      Chrome firma todo como iPhone y Facebook devuelve la version de celular
      tambien en www. Antes se quedaba quieto sin decir nada, que es lo peor. */

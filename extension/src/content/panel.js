@@ -431,6 +431,13 @@
       el.pendientes.innerHTML = partes.join(' &middot; ');
     }
 
+    /* El mismo boton hace las dos cosas, segun donde estemos. */
+    function modoEscritorio(activo) {
+      el.escritorio.textContent = activo
+        ? 'Volver a la version de celular'
+        : 'Ir a escritorio (los enlaces)';
+    }
+
     function estado(texto, barriendo) {
       el.estado.textContent = texto;
       el.punto.classList.toggle('activo', !!barriendo);
@@ -558,7 +565,8 @@
     }
     el.detMotivos.addEventListener('toggle', () => pintarMotivos(ultimoMapa, ultimoTotal));
 
-    return { leerConfig, escribirConfig, marcador, pendientes, estado, avisoBusqueda, mostrar, costo, motivos };
+    return { leerConfig, escribirConfig, marcador, pendientes, estado, avisoBusqueda,
+             mostrar, costo, motivos, modoEscritorio };
   }
 
   MPF.panel = { crear };

@@ -91,9 +91,32 @@
      guarda en uno el otro no lo ve. Escrito con sessionStorage la marca se
      perdia justo al cambiar de version, que es el unico momento en que sirve. */
   const MARCA_ESCRITORIO = '#mpf=escritorio';
+  const CLAVE_MODO_ESCRITORIO = 'mpfModoEscritorio';
 
+  /* Una vez que se llego a escritorio, se queda en escritorio.
+
+     La marca viaja en la direccion para poder cruzar de m.facebook.com a
+     www.facebook.com, que son origenes distintos. Pero Facebook reescribe la
+     direccion cuando uno toca sus filtros -al aplicar un limite de precio, por
+     ejemplo- y se lleva puesta la marca. Sin nada mas, la pasada siguiente veia
+     una direccion de www sin marca y te devolvia al celular en el peor momento.
+
+     Asi que al llegar se anota en la sesion. Ahi ya estamos en www, que es un
+     solo origen, y la anotacion sobrevive a todo lo que Facebook le haga a la
+     direccion. */
   function pidieronEscritorio() {
-    return location.hash.indexOf('mpf=escritorio') >= 0;
+    const enLaDireccion = location.hash.indexOf('mpf=escritorio') >= 0 ||
+                          location.search.indexOf('mpf=escritorio') >= 0;
+    if (enLaDireccion) {
+      try { sessionStorage.setItem(CLAVE_MODO_ESCRITORIO, '1'); } catch (e) {}
+      return true;
+    }
+    try { return sessionStorage.getItem(CLAVE_MODO_ESCRITORIO) === '1'; }
+    catch (e) { return false; }
+  }
+
+  function salirDeEscritorio() {
+    try { sessionStorage.removeItem(CLAVE_MODO_ESCRITORIO); } catch (e) {}
   }
 
   function conMarcaDeEscritorio(url) {
@@ -679,6 +702,7 @@
       }
       if (!ui) { montarPanel(); return; }   // recien entraste a Marketplace
       ui.mostrar(true);
+      ui.modoEscritorio(pidieronEscritorio());
 
       /* PRIMERO se lee todo lo nuevo, sin tocar un solo estilo. Leer el texto
          de una tarjeta obliga al navegador a recalcular el layout, y si entre
@@ -891,6 +915,14 @@
          en el celular Facebook no manda NI UN enlace de publicacion -medido: 0
          en toda la pagina- y en escritorio las tarjetas si son enlaces. */
       alIrAEscritorio() {
+        /* Ya en escritorio, el mismo boton vuelve al celular: si no, una vez
+           que se entra no hay como salir sin cerrar la pestania. */
+        if (pidieronEscritorio()) {
+          salirDeEscritorio();
+          decir('volviendo a la version de celular', true);
+          location.assign('https://m.facebook.com' + location.pathname + location.search);
+          return;
+        }
         /* Con la emulacion de telefono de las herramientas del navegador
            encendida, Chrome firma TODOS los pedidos como si fuera un iPhone, asi
            que Facebook devuelve la version de celular tambien en www y el boton
