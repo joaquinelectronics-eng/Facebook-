@@ -12,33 +12,53 @@ html,body{margin:0;height:100%;font-family:sans-serif;background:#fff}
 <div id="raiz"></div>
 <script>
 const items = [
-  {p:'$19.500', t:'Audi A5 Sportback 2.0t',    z:'Lanús Este, BA',       id:'1101'},
+  {p:'$19.500', t:'Audi A5 Sportback 2.0t',    z:'Lanús Este, BA',       id:'1101', interno:true},
   {p:'$13.800', t:'Audi A1 Sportback Único',   z:'Ciudad de Buenos Aires, CF', id:'1102'},
-  {p:'$22.000', t:'Audi a5 quattro 3.2 At',    z:'Quilmes, BA',          id:'1103'}
+  {p:'$22.000', t:'Audi a5 quattro 3.2 At',    z:'Quilmes, BA',          id:'1103', interno:true}
 ];
 const PIX = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 const raiz = document.getElementById('raiz');
-for (let i = 0; i < items.length; i += 2) {
-  const fila = document.createElement('div');
-  fila.className = 'fila';
-  for (const it of items.slice(i, i + 2)) {
-    const celda = document.createElement('div');
-    celda.className = 'celda';
-    const caja = document.createElement('div');
-    const partes = it.p.match(/^(\D+)(.+)$/);
-    caja.innerHTML =
-      '<div class="foto"><img src="' + PIX + '"></div>' +
-      '<div class="t"><span>' + partes[1] + '</span><span>' + partes[2] + '</span></div>' +
-      '<div class="t">' + it.t + '</div>' +
-      '<div class="t">' + it.z + '</div>';
-    // Tocar la tarjeta navega, igual que en Facebook: no hay href en ningun lado.
-    caja.addEventListener('click', () => {
-      location.assign('/marketplace/item/' + it.id + '/?ref=search');
-    });
-    celda.appendChild(caja);
-    fila.appendChild(celda);
+
+/* La lista se vuelve a dibujar al volver atras, como hace Facebook. Sin esto
+   la navegacion por adentro dejaba la pagina vacia y la busqueda no podia
+   encontrar la tarjeta siguiente: un defecto de la prueba, no del codigo. */
+function pintar() {
+  raiz.innerHTML = '';
+  for (let i = 0; i < items.length; i += 2) {
+    const fila = document.createElement('div');
+    fila.className = 'fila';
+    for (const it of items.slice(i, i + 2)) {
+      const celda = document.createElement('div');
+      celda.className = 'celda';
+      const caja = document.createElement('div');
+      const partes = it.p.match(/^(\D+)(.+)$/);
+      caja.innerHTML =
+        '<div class="foto"><img src="' + PIX + '"></div>' +
+        '<div class="t"><span>' + partes[1] + '</span><span>' + partes[2] + '</span></div>' +
+        '<div class="t">' + it.t + '</div>' +
+        '<div class="t">' + it.z + '</div>';
+      /* Tocar la tarjeta navega, igual que en Facebook: no hay href en ningun
+         lado. La primera navega POR ADENTRO -sin recargar-, que es como lo
+         hace la version de celular de verdad, y la otra recarga. Las dos
+         tienen que andar: mirando solo la recarga, la de adentro entraba y se
+         quedaba. */
+      caja.addEventListener('click', () => {
+        const destino = '/marketplace/item/' + it.id + '/?ref=search';
+        if (it.interno) {
+          history.pushState({}, '', destino);
+          raiz.innerHTML = '<h1>' + it.t + '</h1>';
+        } else {
+          location.assign(destino);
+        }
+      });
+      celda.appendChild(caja);
+      fila.appendChild(celda);
+    }
+    raiz.appendChild(fila);
   }
-  raiz.appendChild(fila);
 }
+
+pintar();
+window.addEventListener('popstate', pintar);
 </script>
 </body></html>

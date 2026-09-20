@@ -914,7 +914,15 @@
          volvia a mirar: quedaban huerfanas, sin filtrar y sin contar. El cache
          esta indexado por id de publicacion y esos datos no cambian porque uno
          navegue, asi que no hay ninguna razon para tirarlo. */
-      urlPrevia = location.href;
+      /* En el celular, entrar a una publicacion NO recarga la pagina: Facebook
+         cambia la direccion por adentro. Por eso mirar la carga, pageshow y
+         popstate no alcanzaba: la busqueda de enlaces entraba a la primera y
+         se quedaba ahi para siempre, porque nadie se enteraba de que ya
+         estabamos adentro. El cambio de direccion se nota aca. */
+      if (location.href !== urlPrevia) {
+        urlPrevia = location.href;
+        setTimeout(seguirCaza, 900);
+      }
 
       // Si corresponde ir a la version de celular, se va y no se hace nada mas.
       if (irAVersionCelular()) return;
