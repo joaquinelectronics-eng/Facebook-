@@ -132,24 +132,64 @@ import { corridasPorDia } from '../lib/agenda.mjs';
      servir por mas vueltas que le demos, y hay que saberlo con un numero y no
      probando. Esto cuenta cuantas llaves de cada tipo aparecen en los dos
      lados a la vez. */
+  /* Los numeros que trae el nombre de la foto. Las dos versiones pueden pedir
+     la MISMA foto en otro tamanio, y ahi el archivo se llama distinto aunque
+     los ids de adentro sean los mismos. Comparando el nombre entero eso no
+     coincide nunca; comparando los numeros, si. */
+  function idsDeFoto(it) {
+    const n = claveDeFoto(it);
+    if (!n) return '';
+    const numeros = n.match(/\d{8,}/g);
+    return numeros ? numeros.join('_') : '';
+  }
+
+  function claveZonaKm(it) {
+    const precio = claveDePrecio(it);
+    const zona = MPF.normalizar(it.ubicacion || '');
+    if (!precio || !zona) return '';
+    return precio + '|' + zona + '|' + (it.km != null ? it.km : '');
+  }
+
+  function claveZona(it) {
+    const precio = claveDePrecio(it);
+    const zona = MPF.normalizar(it.ubicacion || '');
+    return precio && zona ? precio + '|' + zona : '';
+  }
+
+  /* CUAL LLAVE PUEDE VINCULAR.
+
+     Para pegarle el enlace a una publicacion que no lo tiene hace falta un
+     dato que aparezca de los DOS lados. Cual sirve no se puede razonar: hay
+     que medirlo. Esto prueba varias a la vez y dice, de las que no tienen
+     enlace, cuantas podrian conseguirlo con cada una. */
   function puentes() {
-    const conFoto = new Set(), sinFoto = new Set();
-    const conPrecio = new Set(), sinPrecio = new Set();
+    const llaves = {
+      foto: claveDeFoto,
+      'foto-id': idsDeFoto,
+      'precio+zona': claveZona,
+      'precio+zona+km': claveZonaKm
+    };
+    const conEnlace = {};
+    for (const nombre in llaves) conEnlace[nombre] = new Set();
     for (const it of todos) {
-      const f = claveDeFoto(it);
-      const p = claveDePrecio(it);
-      if (it.url) {
-        if (f) conFoto.add(f);
-        if (p) conPrecio.add(p);
-      } else {
-        if (f) sinFoto.add(f);
-        if (p) sinPrecio.add(p);
+      if (!it.url) continue;
+      for (const nombre in llaves) {
+        const k = llaves[nombre](it);
+        if (k) conEnlace[nombre].add(k);
       }
     }
-    let fotos = 0, precios = 0;
-    for (const f of sinFoto) if (conFoto.has(f)) fotos++;
-    for (const p of sinPrecio) if (conPrecio.has(p)) precios++;
-    return { fotos, precios, sinEnlaceConFoto: sinFoto.size };
+    const alcance = {};
+    for (const nombre in llaves) alcance[nombre] = 0;
+    let sinEnlace = 0;
+    for (const it of todos) {
+      if (it.url) continue;
+      sinEnlace++;
+      for (const nombre in llaves) {
+        const k = llaves[nombre](it);
+        if (k && conEnlace[nombre].has(k)) alcance[nombre]++;
+      }
+    }
+    return { alcance, sinEnlace };
   }
 
   function urlDe(it) {
@@ -369,8 +409,9 @@ import { corridasPorDia } from '../lib/agenda.mjs';
       ' · enlace: ' + propio + ' propio, ' + emparejado + ' emparejado, ' +
       sinNada + ' sin enlace' +
       (sinFoto ? ' (' + sinFoto + ' de esas, sin foto guardada)' : '') +
-      ' · puentes: ' + puente.fotos + ' fotos y ' + puente.precios +
-      ' precios aparecen de los dos lados' +
+      ' · de ' + puente.sinEnlace + ' sin enlace, podrian vincularse por: ' +
+      Object.keys(puente.alcance)
+        .map((k) => puente.alcance[k] + ' ' + k).join(', ') +
       ' · de las que traen enlace: ' + conEnlaceYTitulo + ' con titulo, ' +
       conEnlaceSinTitulo + ' sin titulo' +
       (lista.length > 600 ? ' · mostrando las primeras 600' : '');
