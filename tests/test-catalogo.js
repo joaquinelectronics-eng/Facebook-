@@ -60,6 +60,37 @@ const ITEMS = [
     vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA,
     url:'https://www.facebook.com/marketplace/item/666777/', historial:[] },
 
+  /* La foto es la llave mas firme: el nombre del archivo lleva el id adentro y
+     es el mismo desde el celular y desde escritorio. Aca ni el precio ni el
+     titulo alcanzarian -hay otro al mismo precio y el titulo no se parece-,
+     pero la foto no deja lugar a dudas. */
+  { id:'m9', titulo:'Oportunidad unica\u2026', precio:9000, moneda:'USD', precioUSD:9000,
+    ubicacion:'Tigre, BA', provincia:'BA', veces:1, tituloCortado:true,
+    imagen:'https://scontent.xx.fbcdn.net/v/t45.5328-4/492118012_7788990011_n.jpg?oh=aa&oe=bb',
+    vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA, url:'', historial:[] },
+  { id:'d9', titulo:'Audi A4 2.0 TDI impecable', precio:9000, moneda:'USD', precioUSD:9000,
+    ubicacion:'San Isidro, BA', provincia:'BA', veces:1,
+    imagen:'https://scontent.yy.fbcdn.net/v/t45.5328-4/492118012_7788990011_n.jpg?oh=zz&oe=ww&stp=c0',
+    vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA,
+    url:'https://www.facebook.com/marketplace/item/121212/', historial:[] },
+
+  /* Un concesionario que usa la misma foto -su cartel- en dos publicaciones.
+     Ahi la foto no dice nada y no se empareja. */
+  { id:'m10', titulo:'Audi A4 del concesionario\u2026', precio:15000, moneda:'USD', precioUSD:15000,
+    ubicacion:'Colon, ER', provincia:'ER', veces:1, tituloCortado:true,
+    imagen:'https://scontent.xx.fbcdn.net/v/t45.5328-4/777000111_5566778899_n.jpg',
+    vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA, url:'', historial:[] },
+  { id:'d10a', titulo:'Audi A4 usado', precio:15000, moneda:'USD', precioUSD:15000,
+    ubicacion:'Colon, ER', provincia:'ER', veces:1,
+    imagen:'https://scontent.xx.fbcdn.net/v/t45.5328-4/777000111_5566778899_n.jpg',
+    vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA,
+    url:'https://www.facebook.com/marketplace/item/333/', historial:[] },
+  { id:'d10b', titulo:'Audi A6 usado', precio:15000, moneda:'USD', precioUSD:15000,
+    ubicacion:'Colon, ER', provincia:'ER', veces:1,
+    imagen:'https://scontent.xx.fbcdn.net/v/t45.5328-4/777000111_5566778899_n.jpg',
+    vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA,
+    url:'https://www.facebook.com/marketplace/item/444/', historial:[] },
+
   /* Dos publicaciones distintas con el mismo precio y la misma zona: ahi no se
      puede saber cual es cual, asi que no se empareja ninguna. */
   { id:'m7', titulo:'Audi A5 Ambiente 2014', precio:27000, moneda:'USD', precioUSD:27000,
@@ -128,7 +159,7 @@ const BUSQUEDAS = [
 
   console.log('\nCatalogo');
   const tarjetas = await pagina.$$eval('.tarjeta .tit', (n) => n.map((x) => x.textContent));
-  prueba('pinta las publicaciones guardadas', () => assert.strictEqual(tarjetas.length, 13));
+  prueba('pinta las publicaciones guardadas', () => assert.strictEqual(tarjetas.length, 18));
   prueba('ordena de la mas vieja a la mas nueva', () =>
     assert.strictEqual(tarjetas[0], 'Audi A5 Sportback 2017'));
 
@@ -157,7 +188,7 @@ const BUSQUEDAS = [
     // El titulo cortado no dice "a5": podria decirlo del otro lado del corte.
     assert.ok(conDudosas.some((t) => /Cabriolet/.test(t)), JSON.stringify(conDudosas));
     assert.ok(conDudosas.some((t) => !t), JSON.stringify(conDudosas));
-    assert.strictEqual(conDudosas.length, 10);
+    assert.strictEqual(conDudosas.length, 12);
   });
 
   await pagina.uncheck('#dudosas');
@@ -230,6 +261,18 @@ const BUSQUEDAS = [
     const a = porTitulo('VENDO Audi A4 1.8T Nafta Manu');
     assert.ok(a, JSON.stringify(enlaces.map((x) => x.titulo)));
     assert.strictEqual(a.href, 'https://www.facebook.com/marketplace/item/444555/');
+  });
+
+  prueba('la foto empareja aunque el precio y el titulo no alcancen', () => {
+    const a = porTitulo('Oportunidad unica');
+    assert.ok(a, JSON.stringify(enlaces.map((x) => x.titulo)));
+    assert.strictEqual(a.href, 'https://www.facebook.com/marketplace/item/121212/');
+  });
+
+  prueba('pero una foto repetida en dos publicaciones no empareja', () => {
+    const a = porTitulo('Audi A4 del concesionario');
+    assert.ok(a, JSON.stringify(enlaces.map((x) => x.titulo)));
+    assert.strictEqual(a.texto, 'sin enlace');
   });
 
   prueba('ninguno apunta a la pagina del catalogo', () =>

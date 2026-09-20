@@ -58,6 +58,28 @@ import { corridasPorDia } from '../lib/agenda.mjs';
      acepta cuando hay UNA sola candidata. Si dos publicaciones comparten
      precio y zona no se elige ninguna: mandarte al auto equivocado es peor que
      no mandarte a ninguno. */
+  /* LA FOTO ES LA MEJOR LLAVE.
+
+     Las fotos de Facebook tienen un nombre propio con el id adentro
+     -"492118012_1234567890_..._n.jpg"- y ese nombre es el mismo se lea desde
+     el celular o desde escritorio. Si dos publicaciones muestran la misma
+     foto, son la misma publicacion. Es mucho mas firme que el precio, que se
+     repite todo el tiempo.
+
+     Se usa solo el nombre del archivo y no la direccion entera: el resto lleva
+     fichas que cambian en cada carga y en cada version, asi que comparando la
+     direccion completa no coincidiria nunca. */
+  function claveDeFoto(it) {
+    const src = String(it.imagen || '');
+    if (!src || src.indexOf('data:') === 0) return '';
+    let ruta = src;
+    try { ruta = new URL(src, location.href).pathname; } catch (e) {}
+    const nombre = ruta.split('/').filter(Boolean).pop() || '';
+    // Tiene que parecer un nombre de foto de verdad, no un icono de la interfaz.
+    if (nombre.length < 12 || !/\d{6,}/.test(nombre)) return '';
+    return nombre;
+  }
+
   function claveDePrecio(it) {
     return it.precioUSD != null ? String(Math.round(it.precioUSD)) : '';
   }
@@ -76,17 +98,26 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     return a.indexOf(b) === 0 || b.indexOf(a) === 0;
   }
 
-  /* precio -> las publicaciones con direccion que valen ese precio. */
+  /* precio -> las publicaciones con direccion que valen ese precio.
+     foto   -> lo mismo, pero por nombre de foto. */
   let porPrecio = new Map();
+  let porFoto = new Map();
 
   function armarCruce() {
     porPrecio = new Map();
+    porFoto = new Map();
     for (const it of todos) {
       if (!it.url) continue;
-      const k = claveDePrecio(it);
-      if (!k) continue;
-      if (!porPrecio.has(k)) porPrecio.set(k, []);
-      porPrecio.get(k).push(it);
+      const p = claveDePrecio(it);
+      if (p) {
+        if (!porPrecio.has(p)) porPrecio.set(p, []);
+        porPrecio.get(p).push(it);
+      }
+      const f = claveDeFoto(it);
+      if (f) {
+        if (!porFoto.has(f)) porFoto.set(f, []);
+        porFoto.get(f).push(it);
+      }
     }
   }
 
@@ -95,6 +126,19 @@ import { corridasPorDia } from '../lib/agenda.mjs';
      mandar a ninguno. */
   function urlDe(it) {
     if (it.url) return { url: it.url, emparejada: false };
+
+    /* Primero la foto, que es la llave mas firme. Igual se exige que quede una
+       sola: un concesionario puede usar la misma foto -su cartel- en varias
+       publicaciones, y ahi la foto no dice nada. */
+    const foto = claveDeFoto(it);
+    if (foto) {
+      const mismas = porFoto.get(foto) || [];
+      const direcciones = new Set(mismas.map((c) => c.url));
+      if (direcciones.size === 1) {
+        return { url: mismas[0].url, emparejada: true, porFoto: true };
+      }
+    }
+
     const k = claveDePrecio(it);
     if (!k) return { url: '', emparejada: false };
 
@@ -236,7 +280,11 @@ import { corridasPorDia } from '../lib/agenda.mjs';
       a.textContent = 'Abrir en Facebook';
       /* Se avisa cuando la direccion no vino con la publicacion sino de cruzar
          precio y zona con lo leido en la version de escritorio. */
-      if (r.emparejada) a.title = 'enlace emparejado por precio y zona';
+      if (r.emparejada) {
+        a.title = r.porFoto
+          ? 'enlace emparejado por la foto'
+          : 'enlace emparejado por precio y titulo';
+      }
       else a.removeAttribute('title');
       a.removeAttribute('aria-disabled');
       return;
