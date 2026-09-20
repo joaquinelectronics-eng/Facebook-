@@ -252,6 +252,11 @@ const BUSQUEDAS = [
   });
 
   const resumenEnlaces = await pagina.textContent('#resumen');
+  prueba('el resumen dice si las que traen enlace traen tambien titulo', () => {
+    assert.ok(/de las que traen enlace: \d+ con titulo, \d+ sin titulo/.test(resumenEnlaces),
+              resumenEnlaces);
+  });
+
   prueba('el resumen dice cuantas se pueden abrir y cuantas no', () => {
     assert.ok(/enlace: \d+ propio, \d+ emparejado, \d+ sin enlace/.test(resumenEnlaces),
               resumenEnlaces);

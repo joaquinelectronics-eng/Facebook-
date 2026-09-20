@@ -124,6 +124,34 @@ import { corridasPorDia } from '../lib/agenda.mjs';
   /* Se busca de lo mas especifico a lo mas general, y solo se acepta cuando
      queda UNA sola candidata. Con dos, mandar al auto equivocado es peor que no
      mandar a ninguno. */
+  /* CUAL LLAVE PUEDE VINCULAR.
+
+     Para pegarle el enlace a una publicacion que no lo tiene hace falta una
+     llave que exista de los DOS lados: en la que trae enlace y en la que no.
+     Si las fotos que mandan las dos versiones son distintas, la foto no puede
+     servir por mas vueltas que le demos, y hay que saberlo con un numero y no
+     probando. Esto cuenta cuantas llaves de cada tipo aparecen en los dos
+     lados a la vez. */
+  function puentes() {
+    const conFoto = new Set(), sinFoto = new Set();
+    const conPrecio = new Set(), sinPrecio = new Set();
+    for (const it of todos) {
+      const f = claveDeFoto(it);
+      const p = claveDePrecio(it);
+      if (it.url) {
+        if (f) conFoto.add(f);
+        if (p) conPrecio.add(p);
+      } else {
+        if (f) sinFoto.add(f);
+        if (p) sinPrecio.add(p);
+      }
+    }
+    let fotos = 0, precios = 0;
+    for (const f of sinFoto) if (conFoto.has(f)) fotos++;
+    for (const p of sinPrecio) if (conPrecio.has(p)) precios++;
+    return { fotos, precios, sinEnlaceConFoto: sinFoto.size };
+  }
+
   function urlDe(it) {
     if (it.url) return { url: it.url, emparejada: false };
 
@@ -307,12 +335,22 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     grilla.appendChild(trozo);
 
     const conBaja = lista.filter(bajaDePrecio).length;
+    const puente = puentes();
 
     /* Cuantas se pueden abrir y cuantas no. Sin este numero, "no extrajo
        ningun enlace" y "extrajo pero no emparejo" se ven exactamente igual, y
        son problemas distintos: uno es leer, el otro es cruzar. */
     let propio = 0, emparejado = 0, sinNada = 0, sinFoto = 0;
+    /* La pregunta que decide si alcanza con barrer escritorio: de las que
+       traen enlace -que solo salen de ahi-, cuantas traen tambien el titulo.
+       Si son pocas, escritorio no alcanza solo y el paso por el celular hace
+       falta. Es un dato, no una impresion. */
+    let conEnlaceYTitulo = 0, conEnlaceSinTitulo = 0;
     for (const it of lista) {
+      if (it.url) {
+        if (it.titulo && !it.tituloDudoso) conEnlaceYTitulo++;
+        else conEnlaceSinTitulo++;
+      }
       if (it.url) propio++;
       else if (urlDe(it).url) emparejado++;
       else {
@@ -331,6 +369,10 @@ import { corridasPorDia } from '../lib/agenda.mjs';
       ' · enlace: ' + propio + ' propio, ' + emparejado + ' emparejado, ' +
       sinNada + ' sin enlace' +
       (sinFoto ? ' (' + sinFoto + ' de esas, sin foto guardada)' : '') +
+      ' · puentes: ' + puente.fotos + ' fotos y ' + puente.precios +
+      ' precios aparecen de los dos lados' +
+      ' · de las que traen enlace: ' + conEnlaceYTitulo + ' con titulo, ' +
+      conEnlaceSinTitulo + ' sin titulo' +
       (lista.length > 600 ? ' · mostrando las primeras 600' : '');
 
     $('vacio').classList.toggle('oculto', todos.length > 0);
