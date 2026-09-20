@@ -498,10 +498,19 @@ async function aplicarVersionCelular(encendido) {
   } catch (e) { /* sin permiso o navegador viejo: se sigue sin esto */ }
 }
 
+/* La regla va SIEMPRE, no siga el ajuste del panel.
+
+   Son dos cosas distintas y yo las habia atado:
+     - "Abrir Marketplace en la version de celular" es ir solo a m.facebook.com
+     - la regla es que m.facebook.com sirva la version de celular cuando uno
+       ya esta ahi
+
+   Atadas, al apagar lo primero se apagaba lo segundo y la version de celular
+   dejaba de funcionar aunque uno escribiera la direccion a mano. La regla solo
+   toca m.facebook.com, un dominio al que no se llega sin querer, asi que
+   tenerla puesta no molesta a nadie. */
 async function sincronizarVersionCelular() {
-  const guardada = await chrome.storage.local.get('config');
-  const c = (guardada && guardada.config) || {};
-  await aplicarVersionCelular(c.versionCelular !== false);
+  await aplicarVersionCelular(true);
 }
 
 /* La regla vive en el navegador, no en la pagina: si cambia el ajuste hay que
