@@ -37,7 +37,7 @@ const ITEMS = [
      sin direccion; en escritorio viene la direccion pero sin titulo. Se
      emparejan por precio y zona, que los dos lados si traen. */
   { id:'m6', titulo:'Audi A5 Coupe Quattro 2015', precio:26000, moneda:'USD', precioUSD:26000,
-    ubicacion:'Pilar, BA', provincia:'BA', veces:1,
+    ubicacion:'Pilar, BA', provincia:'BA', veces:1, anio:2015,
     vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA, url:'', historial:[] },
   { id:'d6', titulo:'', precio:26000, moneda:'USD', precioUSD:26000,
     ubicacion:'Pilar, BA', provincia:'BA', veces:1, tituloDudoso:true,
@@ -94,7 +94,7 @@ const ITEMS = [
   /* Dos publicaciones distintas con el mismo precio y la misma zona: ahi no se
      puede saber cual es cual, asi que no se empareja ninguna. */
   { id:'m7', titulo:'Audi A5 Ambiente 2014', precio:27000, moneda:'USD', precioUSD:27000,
-    ubicacion:'Tigre, BA', provincia:'BA', veces:1,
+    ubicacion:'Tigre, BA', provincia:'BA', veces:1, anio:2014,
     vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA, url:'', historial:[] },
   { id:'d7a', titulo:'', precio:27000, moneda:'USD', precioUSD:27000,
     ubicacion:'Tigre, BA', provincia:'BA', veces:1, tituloDudoso:true,
@@ -204,6 +204,33 @@ const BUSQUEDAS = [
   /* El boton llevaba al catalogo de vuelta: una direccion vacia apunta a la
      pagina donde uno esta. Pasa con todo lo leido en la version de celular,
      que es casi todo. */
+  /* Casi todos ponen el anio en el titulo, asi que se puede filtrar por ahi.
+     Lo que NO se puede es descartar en silencio las que no tienen anio: no se
+     sabe si son viejas o si no se pudo leer. */
+  console.log('\nFiltro por anio');
+  await pagina.fill('#consulta', '');
+  await pagina.fill('#anioMin', '2017');
+  await pagina.check('#dudosas');
+  await pagina.waitForTimeout(200);
+  const desde2017 = await pagina.$$eval('#grilla .tarjeta .tit', (n) => n.map((x) => x.textContent));
+  prueba('no muestra los anteriores al anio pedido', () => {
+    assert.ok(!desde2017.some((t) => /A4 2\.0 2016|Coupe Quattro 2015|Ambiente 2014/.test(t)),
+              JSON.stringify(desde2017));
+  });
+  prueba('pero deja las que si llegan al anio', () =>
+    assert.ok(desde2017.some((t) => /Sportback 2017|Quattro 2018/.test(t)),
+              JSON.stringify(desde2017)));
+
+  await pagina.uncheck('#dudosas');
+  await pagina.waitForTimeout(200);
+  const sinAnioFuera = await pagina.$$eval('#grilla .tarjeta .tit', (n) => n.map((x) => x.textContent));
+  prueba('las que no tienen anio se sacan con la misma casilla', () =>
+    assert.ok(sinAnioFuera.length < desde2017.length,
+              JSON.stringify([desde2017.length, sinAnioFuera.length])));
+  await pagina.check('#dudosas');
+  await pagina.fill('#anioMin', '');
+  await pagina.waitForTimeout(200);
+
   console.log('\nEl boton de abrir');
   const enlaces = await pagina.evaluate(() => {
     const salida = [];

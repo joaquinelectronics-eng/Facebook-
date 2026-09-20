@@ -235,6 +235,10 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     const pmin = $('pmin').value === '' ? null : Number($('pmin').value);
     const pmax = $('pmax').value === '' ? null : Number($('pmax').value);
     const soloBajadas = $('soloBajadas').checked;
+    /* Casi todos ponen el anio en el titulo, asi que se puede filtrar por ahi
+       sin pedirle nada a Facebook. El anio sale del titulo al leer la tarjeta. */
+    const anioMin = $('anioMin') && $('anioMin').value !== ''
+      ? Number($('anioMin').value) : null;
     const zona = $('zona').value;
 
     const dudosas = $('dudosas') ? $('dudosas').checked : true;
@@ -259,6 +263,13 @@ import { corridasPorDia } from '../lib/agenda.mjs';
       const p = it.precioUSD;
       if (pmin != null && (p == null || p < pmin)) return false;
       if (pmax != null && (p == null || p > pmax)) return false;
+      if (anioMin != null) {
+        /* Sin anio no se puede decir que sea mas viejo: se trata igual que un
+           titulo que no se pudo leer, y entra o no segun esa misma casilla.
+           Descartarlas en silencio seria perder justo las que no se leyeron. */
+        if (it.anio == null) { if (!dudosas) return false; }
+        else if (it.anio < anioMin) return false;
+      }
       if (soloBajadas && !bajaDePrecio(it)) return false;
       if (soloAbribles && !urlDe(it).url) return false;
       if (zona) {
@@ -468,8 +479,8 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     pintar();
   }
 
-  for (const id of ['consulta', 'pmin', 'pmax', 'orden', 'soloBajadas', 'dudosas',
-                    'soloAbribles', 'zona']) {
+  for (const id of ['consulta', 'pmin', 'pmax', 'anioMin', 'orden', 'soloBajadas',
+                    'dudosas', 'soloAbribles', 'zona']) {
     const el = $(id);
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', pintar);
   }
