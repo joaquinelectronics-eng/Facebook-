@@ -275,6 +275,20 @@ const BUSQUEDAS = [
     assert.strictEqual(a.texto, 'sin enlace');
   });
 
+  /* Para poder trabajar hoy con lo que ya sirve, sin esperar a que todo
+     empareje: los enlaces solo vienen de escritorio y juntarlos lleva tiempo. */
+  await pagina.check('#soloAbribles');
+  await pagina.waitForTimeout(200);
+  const abribles = await pagina.evaluate(() =>
+    Array.from(document.querySelectorAll('#grilla .tarjeta a.abrir'))
+      .map((a) => a.getAttribute('href') || ''));
+  prueba('se puede ver solo lo que se puede abrir', () => {
+    assert.ok(abribles.length > 0, 'no quedo ninguna');
+    assert.deepStrictEqual(abribles.filter((h) => !h), []);
+  });
+  await pagina.uncheck('#soloAbribles');
+  await pagina.waitForTimeout(200);
+
   prueba('ninguno apunta a la pagina del catalogo', () =>
     assert.deepStrictEqual(
       enlaces.filter((x) => x.href === '' && x.texto !== 'sin enlace'), []));

@@ -430,8 +430,13 @@
       if (sinLeer > 0) partes.push('sin poder leer: <b>' + sinLeer + '</b>');
       if (enDuda > 0) partes.push('titulo cortado: <b>' + enDuda + '</b>');
       /* En el celular Facebook no manda ningun enlace; en escritorio si. Este
-         numero deja ver de una si la pasada por escritorio los esta juntando. */
-      if (conEnlace > 0) partes.push('con enlace: <b>' + conEnlace + '</b>');
+         numero deja ver de una si la pasada por escritorio los esta juntando.
+
+         Dice "juntados" y no "con enlace" porque cuenta TODO lo leido en esta
+         pagina, no lo que hay ahora en pantalla: Facebook va sacando tarjetas
+         de arriba mientras uno baja. Puesto al lado de "en pantalla" parecia un
+         numero imposible, y un numero que no cierra no se puede usar. */
+      if (conEnlace > 0) partes.push('enlaces juntados: <b>' + conEnlace + '</b>');
       el.pendientes.innerHTML = partes.join(' &middot; ');
     }
 

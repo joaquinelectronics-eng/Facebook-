@@ -170,6 +170,8 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     const zona = $('zona').value;
 
     const dudosas = $('dudosas') ? $('dudosas').checked : true;
+    /* Para trabajar con lo que sirve hoy, sin esperar a que todo empareje. */
+    const soloAbribles = $('soloAbribles') ? $('soloAbribles').checked : false;
 
     let lista = todos.filter((it) => {
       /* MISMA REGLA QUE EN LA PANTALLA: un titulo que no se pudo leer entero no
@@ -190,6 +192,7 @@ import { corridasPorDia } from '../lib/agenda.mjs';
       if (pmin != null && (p == null || p < pmin)) return false;
       if (pmax != null && (p == null || p > pmax)) return false;
       if (soloBajadas && !bajaDePrecio(it)) return false;
+      if (soloAbribles && !urlDe(it).url) return false;
       if (zona) {
         const prov = it.provincia || MPF.zonas.detectarProvincia(it.ubicacion);
         if (prov !== zona) return false;
@@ -382,7 +385,8 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     pintar();
   }
 
-  for (const id of ['consulta', 'pmin', 'pmax', 'orden', 'soloBajadas', 'dudosas', 'zona']) {
+  for (const id of ['consulta', 'pmin', 'pmax', 'orden', 'soloBajadas', 'dudosas',
+                    'soloAbribles', 'zona']) {
     const el = $(id);
     el.addEventListener(el.tagName === 'SELECT' || el.type === 'checkbox' ? 'change' : 'input', pintar);
   }
