@@ -77,6 +77,35 @@
     return m ? m[1] : '';
   }
 
+  /* LA FOTO DE LA PUBLICACION.
+
+     Sirve para mucho mas que mostrarla: el nombre del archivo lleva el id
+     adentro y es el mismo desde el celular y desde escritorio, asi que es la
+     mejor manera de reconocer que dos tarjetas son la misma publicacion.
+
+     Por eso no alcanza con mirar el src de un <img>: Facebook tambien pinta la
+     foto como fondo de un div, y en esas tarjetas nos quedabamos sin nada.
+     Nosotros mismos ya contabamos los fondos al buscar tarjetas; aca faltaba. */
+  function fotoDeTarjeta(caja) {
+    const img = caja.querySelector('img[src]');
+    if (img) {
+      const src = img.getAttribute('src') || '';
+      if (src && src.indexOf('data:') !== 0) return src;
+    }
+    // Un srcset: se toma la primera direccion, que es lo que hay que comparar.
+    const conSet = caja.querySelector('img[srcset]');
+    if (conSet) {
+      const primera = (conSet.getAttribute('srcset') || '').split(',')[0].trim().split(/\s+/)[0];
+      if (primera && primera.indexOf('data:') !== 0) return primera;
+    }
+    // Y la foto puesta como fondo, que es como viene en varias pantallas.
+    for (const e of caja.querySelectorAll('[style*="background-image"]')) {
+      const m = /url\(["']?([^"')]+)["']?\)/.exec(e.getAttribute('style') || '');
+      if (m && m[1] && m[1].indexOf('data:') !== 0) return m[1];
+    }
+    return '';
+  }
+
   function urlDeTarjetaMovil(caja) {
     const enlace = caja.querySelector('a[href*="/item/"]');
     if (enlace) {
@@ -592,7 +621,7 @@
       anio: mAnio ? Number(mAnio[1]) : null,
       provincia: MPF.zonas ? MPF.zonas.detectarProvincia(ubicacion) : null,
       url: urlDeTarjetaMovil(caja),
-      imagen: img ? img.getAttribute('src') || '' : '',
+      imagen: fotoDeTarjeta(caja),
       _nodo: caja,
       _link: caja
     };
@@ -742,7 +771,7 @@
       anio: mAnio ? Number(mAnio[1]) : null,
       provincia: MPF.zonas ? MPF.zonas.detectarProvincia(ubicacion) : null,
       url: urlLimpia(link.getAttribute('href') || ''),
-      imagen: img ? img.getAttribute('src') || '' : '',
+      imagen: fotoDeTarjeta(caja),
       _nodo: caja,
       _link: link
     };
@@ -800,7 +829,7 @@
                   estructuraDe, esBloqueDeTexto,
                   MAX_REINTENTOS, convieneReintentar,
                   partirTituloYZona, pareceZonaSuelta, pareceCortado,
-                  urlDeTarjetaMovil, idEnTexto,
+                  urlDeTarjetaMovil, idEnTexto, fotoDeTarjeta,
                   limpiarUbicacion, extraerKm, cantidadEnPantalla, contenedorTarjeta,
                   SELECTOR_ITEM };
 })();

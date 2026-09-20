@@ -61,7 +61,7 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
   const leidas = await pagina.evaluate(() => window.MPF.scraper.leerTodas().map((d) => ({
     titulo: d.titulo, precio: d.precioTexto, zona: d.ubicacion,
     provincia: d.provincia, km: d.km, anterior: d.precioAnteriorTexto, id: d.id,
-    url: d.url
+    url: d.url, imagen: d.imagen
   })));
   prueba('lee las 6 publicaciones y descarta el boton de la interfaz', () =>
     assert.strictEqual(leidas.length, 6, JSON.stringify(leidas.map((x) => x.titulo))));
@@ -92,6 +92,15 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
   prueba('no inventa direcciones donde no las hay', () => {
     const a = leidas.find((x) => x.titulo === 'Audi a5 quattro 3.2 At');
     assert.strictEqual(a.url, '');
+  });
+
+  /* La foto es la llave para reconocer la misma publicacion leida de los dos
+     lados, asi que hay que sacarla aunque venga como fondo y no como <img>. */
+  prueba('lee la foto aunque venga como fondo y no como imagen', () => {
+    const a = leidas.find((x) => x.titulo === 'Audi A5 Coupe 2013');
+    assert.ok(a, JSON.stringify(leidas.map((x) => x.titulo)));
+    assert.strictEqual(a.imagen,
+      'https://scontent.xx.fbcdn.net/v/t45.5328-4/998877665_4433221100_n.jpg');
   });
 
   prueba('cada publicacion tiene un id propio y estable', () => {

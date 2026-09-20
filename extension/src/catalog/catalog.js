@@ -308,11 +308,17 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     /* Cuantas se pueden abrir y cuantas no. Sin este numero, "no extrajo
        ningun enlace" y "extrajo pero no emparejo" se ven exactamente igual, y
        son problemas distintos: uno es leer, el otro es cruzar. */
-    let propio = 0, emparejado = 0, sinNada = 0;
+    let propio = 0, emparejado = 0, sinNada = 0, sinFoto = 0;
     for (const it of lista) {
       if (it.url) propio++;
       else if (urlDe(it).url) emparejado++;
-      else sinNada++;
+      else {
+        sinNada++;
+        /* Sin foto guardada no se puede emparejar por foto, que es la llave
+           buena. Saber cuantas son distingue "no encuentra el par" de "nunca
+           guardamos con que buscarlo". */
+        if (!claveDeFoto(it)) sinFoto++;
+      }
     }
 
     $('resumen').textContent =
@@ -321,6 +327,7 @@ import { corridasPorDia } from '../lib/agenda.mjs';
       (conBaja ? ' · ' + conBaja + ' bajaron de precio' : '') +
       ' · enlace: ' + propio + ' propio, ' + emparejado + ' emparejado, ' +
       sinNada + ' sin enlace' +
+      (sinFoto ? ' (' + sinFoto + ' de esas, sin foto guardada)' : '') +
       (lista.length > 600 ? ' · mostrando las primeras 600' : '');
 
     $('vacio').classList.toggle('oculto', todos.length > 0);
