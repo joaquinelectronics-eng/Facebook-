@@ -178,6 +178,38 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
 
   prueba('sin errores de javascript en la pagina', () => assert.deepStrictEqual(errores, []));
 
+  /* Releer las que quedaron sin titulo: sube por la pagina para que Facebook
+     las dibuje. Aca se comprueba que la pasada se mueve hacia ARRIBA y que
+     termina sola, que es lo que hace que no quede colgada. */
+  const relectura = await pagina.evaluate(async () => {
+    /* Una tarjeta como las que deja Facebook cuando todavia no dibujo el
+       titulo: foto y precio, nada mas. Sin una asi la relectura no tendria
+       nada que hacer y la prueba no probaria nada. */
+    const fila = document.createElement('div');
+    fila.className = 'fila';
+    fila.innerHTML =
+      '<div class="celda"><div>' +
+      '<div class="foto"><img src="data:image/gif;base64,' +
+      'R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></div>' +
+      '<div class="t"><span>$</span><span>21.500</span></div>' +
+      '<div class="t">Olivos, BA</div>' +
+      '</div></div>';
+    document.getElementById('raiz').appendChild(fila);
+    await new Promise((r) => setTimeout(r, 900));
+
+    const cajon = document.getElementById('cajon');
+    cajon.scrollTop = cajon.scrollHeight;
+    const antes = cajon.scrollTop;
+    const esperando = window.MPF.diagnostico.motivos()
+      .filter((m) => /esperando/.test(m.motivo)).length;
+    await window.MPF.diagnostico.releer();
+    return { antes, despues: cajon.scrollTop, esperando };
+  });
+  prueba('hay una sin titulo para releer', () =>
+    assert.strictEqual(relectura.esperando, 1, JSON.stringify(relectura)));
+  prueba('la relectura sube por la pagina y termina sola', () =>
+    assert.ok(relectura.despues < relectura.antes, JSON.stringify(relectura)));
+
   /* ------------------------------------------------------------------
      MODO NORMAL: la extension NO toca la pagina de Facebook.
 

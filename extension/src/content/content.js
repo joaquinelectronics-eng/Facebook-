@@ -494,7 +494,7 @@
     ultimoCostoMs = performance.now() - t0;
     if (ui) {
       ui.marcador(contVistos, contOk);
-      const sinTit = motivos.get('esperando que Facebook dibuje el titulo');
+      const sinTit = motivos.get(MOTIVO_ESPERANDO);
       ui.costo(ultimoCostoMs, contVistos, sinTit ? sinTit.n : 0);
       ui.motivos(motivos, contVistos - contOk);
       /* Lo que esta en pantalla y todavia no se pudo leer. Sin este numero no
@@ -513,6 +513,52 @@
     let n = 0;
     for (const d of cache.values()) if (d.url) n++;
     return n;
+  }
+
+  const MOTIVO_ESPERANDO = 'esperando que Facebook dibuje el titulo';
+
+  function cuantasEsperando() {
+    const m = motivos.get(MOTIVO_ESPERANDO);
+    return m ? m.n : 0;
+  }
+
+  /* RELEER LAS QUE QUEDARON SIN TITULO.
+
+     Facebook solo dibuja el titulo de las tarjetas que estan cerca de la
+     pantalla. Barriendo rapido quedan cientos de esqueletos -foto y precio,
+     sin titulo- lejos de la vista, y ahi se quedan: esperar no sirve, porque
+     Facebook no va a dibujar algo que nadie esta mirando. Hay que volver a
+     pasar por encima de ellas.
+
+     Esto sube de a una pantalla, le da tiempo a que las dibuje, y las relee.
+     Corta solo cuando no queda ninguna o cuando se llego arriba de todo. */
+  let releyendo = false;
+
+  function pararRelectura() { releyendo = false; }
+
+  async function releerLasQueFaltan() {
+    if (releyendo) { pararRelectura(); return; }
+    releyendo = true;
+    const dormir = (ms) => new Promise((r) => setTimeout(r, ms));
+    const cajon = MPF.autoscroll.cajonDeScroll();
+    const alto = cajon ? cajon.clientHeight : window.innerHeight;
+    const arriba = () => (cajon ? cajon.scrollTop : window.scrollY) <= 0;
+
+    for (let paso = 0; releyendo && paso < 400; paso++) {
+      aplicarFiltros(true);
+      const faltan = cuantasEsperando();
+      decir('releyendo las que faltan: ' + faltan, true);
+      if (!faltan || arriba()) break;
+      if (cajon) cajon.scrollBy(0, -Math.round(alto * 0.8));
+      else window.scrollBy(0, -Math.round(alto * 0.8));
+      /* La espera es lo que hace que funcione: hay que darle tiempo a Facebook
+         a dibujar lo que acaba de entrar en pantalla antes de volver a leer. */
+      await dormir(700);
+    }
+    aplicarFiltros(true);
+    const quedan = cuantasEsperando();
+    releyendo = false;
+    decir(quedan ? 'quedaron ' + quedan + ' sin titulo' : 'listo: todas con titulo', false);
   }
 
   /* Tarjetas que estan en pantalla pero de las que todavia no se saco nada:
@@ -798,6 +844,7 @@
     pasada,
     /* Arrancar la recorrida sin tocar el panel: asi se puede probar de punta a
        punta, y tambien dispararla desde la consola. */
+    releer: () => releerLasQueFaltan(),
     recorrer: (texto, escritorio) =>
       arrancarRecorrida(MPF.recorrida.limpiarLista(texto), escritorio),
     buscar: buscarEnLeidas,
@@ -911,6 +958,7 @@
       alBarrer() {
         if (MPF.autoscroll.estaCorriendo()) {
           pararRecorrida();
+          pararRelectura();
           MPF.autoscroll.parar();
           return;
         }
@@ -925,6 +973,7 @@
          extension manda todo al celular y volvia a traerte. Y hace falta ir:
          en el celular Facebook no manda NI UN enlace de publicacion -medido: 0
          en toda la pagina- y en escritorio las tarjetas si son enlaces. */
+      alReleer() { releerLasQueFaltan(); },
       alIrAEscritorio() {
         /* Ya en escritorio, el mismo boton vuelve al celular: si no, una vez
            que se entra no hay como salir sin cerrar la pestania. */

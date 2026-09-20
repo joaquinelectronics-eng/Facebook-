@@ -9,10 +9,14 @@
   :host { all: initial; }
   .caja {
     position: fixed; top: 90px; right: 18px; z-index: 2147483000;
-    width: 310px; font: 13px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
+    width: 380px; font: 13px/1.45 -apple-system, "Segoe UI", Roboto, sans-serif;
     /* En la version movil la pantalla es angosta: el panel se achica solo en
        vez de irse de la pantalla y dejar los botones fuera de alcance. */
     max-width: calc(100vw - 36px);
+    /* Y se puede agrandar tirando de la esquina: los textos largos -el estado
+       del barrido, los motivos- no entraban y habia que leerlos de a pedazos
+       moviendo el panel para los costados. */
+    resize: horizontal; min-width: 300px;
     color: #e9edf2; background: #171a20; border: 1px solid #2c323c;
     border-radius: 12px; box-shadow: 0 12px 40px rgba(0,0,0,.45); overflow: hidden;
   }
@@ -35,6 +39,8 @@
   .frenar:hover { background: #cc4438; }
   .frenar.visible { display: block; }
   .cuerpo { padding: 11px; display: grid; gap: 9px; max-height: 72vh; overflow-y: auto; }
+  /* Los avisos largos se parten en varias lineas en vez de cortarse. */
+  .estado, .pendientes { white-space: normal; overflow-wrap: anywhere; }
   .cuerpo.oculto { display: none; }
   label { display: block; font-size: 10.5px; text-transform: uppercase;
           letter-spacing: .6px; color: #8b94a3; margin-bottom: 3px; }
@@ -249,6 +255,7 @@
              celular trae los titulos y el escritorio los enlaces, asi que se
              pasa de uno al otro todo el tiempo. Va en el pie, que queda fijo
              aunque el panel este scrolleado. -->
+        <button class="secundario" id="releer">Releer las que faltan</button>
         <button class="secundario" id="escritorio">Ir a escritorio (los enlaces)</button>
       </div>
 
@@ -278,6 +285,7 @@
       cotizacion: $('cotizacion'), umbral: $('umbral'), ocultar: $('ocultar'),
       velocidad: $('velocidad'), soloBajadas: $('soloBajadas'),
       pendientes: $('pendientes'), tocarLaPagina: $('tocarLaPagina'),
+      releer: $('releer'),
       listaBusquedas: $('listaBusquedas'), recorrer: $('recorrer'),
       recorrerEscritorio: $('recorrerEscritorio'),
       escritorio: $('escritorio'),
@@ -368,6 +376,7 @@
     el.recorrer.addEventListener('click', () =>
       callbacks.alRecorrer(el.listaBusquedas.value, el.recorrerEscritorio.checked));
     el.escritorio.addEventListener('click', () => callbacks.alIrAEscritorio());
+    el.releer.addEventListener('click', () => callbacks.alReleer());
     el.catalogo.addEventListener('click', () => callbacks.alAbrirCatalogo());
     el.guardarBusq.addEventListener('click', () => callbacks.alGuardarBusqueda());
     el.frenar.addEventListener('click', (e) => { e.stopPropagation(); callbacks.alBarrer(); });
