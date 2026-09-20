@@ -102,8 +102,6 @@ import { corridasPorDia } from '../lib/agenda.mjs';
      foto   -> lo mismo, pero por nombre de foto. */
   let porPrecio = new Map();
   let porFoto = new Map();
-  let todosJuntos = [];
-  let fotosRepetidas = new Set();
 
   function armarCruce() {
     porPrecio = new Map();
@@ -121,13 +119,6 @@ import { corridasPorDia } from '../lib/agenda.mjs';
         porFoto.get(f).push(it);
       }
     }
-    /* Las fotos que aparecen en mas de una publicacion de verdad -distinto
-       enlace- no sirven ni para emparejar ni para juntar. */
-    fotosRepetidas = new Set();
-    for (const [k, lista] of porFoto) {
-      if (new Set(lista.map((x) => x.url)).size > 1) fotosRepetidas.add(k);
-    }
-    todosJuntos = juntarRepetidas(todos);
   }
 
   /* Se busca de lo mas especifico a lo mas general, y solo se acepta cuando
@@ -171,62 +162,6 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     return { url: candidatas[0].url, emparejada: true };
   }
 
-  /* UNA PUBLICACION, UNA TARJETA.
-
-     El mismo auto entra dos veces: una leida en el celular -con titulo y sin
-     enlace- y otra en escritorio -con enlace-. Como se guardan con ids
-     distintos, el catalogo las mostraba separadas, y la mitad de lo que se ve
-     son sombras sin enlace de publicaciones que SI se pueden abrir. Eso hace
-     parecer que faltan enlaces cuando en realidad estan.
-
-     Se juntan por la foto, que es la llave firme. Sin foto, se exige precio
-     igual y titulo identico y largo: es preferible mostrar una de mas que
-     juntar dos autos distintos en una sola tarjeta. */
-  function claveDeJuntar(it) {
-    const foto = claveDeFoto(it);
-    /* Una foto que aparece en publicaciones distintas -el cartel de un
-       concesionario- no identifica nada. Juntando por ahi se meterian tres
-       autos distintos en una sola tarjeta y desaparecerian dos. */
-    if (foto && !fotosRepetidas.has(foto)) return 'f|' + foto;
-    const precio = claveDePrecio(it);
-    const titulo = tituloParaCruce(it);
-    if (!precio || titulo.length < 8) return '';
-    return 'p|' + precio + '|' + titulo;
-  }
-
-  function juntarRepetidas(lista) {
-    const grupos = new Map();
-    const salida = [];
-    for (const it of lista) {
-      const k = claveDeJuntar(it);
-      if (!k) { salida.push(it); continue; }
-      const ya = grupos.get(k);
-      if (!ya) {
-        const copia = Object.assign({}, it);
-        grupos.set(k, copia);
-        salida.push(copia);
-        continue;
-      }
-      /* Se queda la que tiene enlace y el titulo mas completo, y la fecha mas
-         vieja de las dos: la publicacion es vieja aunque la hayamos visto hoy. */
-      if (!ya.url && it.url) ya.url = it.url;
-      if ((it.titulo || '').length > (ya.titulo || '').length) {
-        ya.titulo = it.titulo;
-        /* Las marcas de "no se pudo leer" son del titulo, asi que al quedarse
-           con el mejor hay que recalcularlas: si no, un titulo completo seguia
-           marcado como cortado y se colaba en el filtro como si fuera dudoso. */
-        ya.tituloCortado = /(?:\u2026|\.\.\.)\s*$/.test(ya.titulo);
-        ya.tituloDudoso = !ya.titulo;
-      }
-      if (!ya.imagen && it.imagen) ya.imagen = it.imagen;
-      ya.vistoPrimera = Math.min(ya.vistoPrimera || Infinity, it.vistoPrimera || Infinity);
-      ya.vistoUltima = Math.max(ya.vistoUltima || 0, it.vistoUltima || 0);
-      if ((it.historial || []).length > (ya.historial || []).length) ya.historial = it.historial;
-      ya.juntadas = (ya.juntadas || 1) + 1;
-    }
-    return salida;
-  }
-
   function filtrarYOrdenar() {
     const filtro = MPF.matcher.compilar($('consulta').value);
     const pmin = $('pmin').value === '' ? null : Number($('pmin').value);
@@ -238,11 +173,7 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     /* Para trabajar con lo que sirve hoy, sin esperar a que todo empareje. */
     const soloAbribles = $('soloAbribles') ? $('soloAbribles').checked : false;
 
-    /* Se junta ANTES de filtrar, no despues. Si se filtrara primero, la copia
-       leida en escritorio -que trae el enlace pero a veces el titulo peor- se
-       cae por el filtro de titulo, y queda la del celular, que no tiene enlace.
-       Juntando primero, cada auto llega al filtro con lo mejor de los dos. */
-    let lista = todosJuntos.filter((it) => {
+    let lista = todos.filter((it) => {
       /* MISMA REGLA QUE EN LA PANTALLA: un titulo que no se pudo leer entero no
          alcanza para decir que no. Facebook manda muchos titulos recortados y
          algunos vacios; si se descartan por no coincidir, las guardamos para no
@@ -380,9 +311,8 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     /* Cuantas se pueden abrir y cuantas no. Sin este numero, "no extrajo
        ningun enlace" y "extrajo pero no emparejo" se ven exactamente igual, y
        son problemas distintos: uno es leer, el otro es cruzar. */
-    let propio = 0, emparejado = 0, sinNada = 0, sinFoto = 0, repetidas = 0;
+    let propio = 0, emparejado = 0, sinNada = 0, sinFoto = 0;
     for (const it of lista) {
-      if (it.juntadas) repetidas++;
       if (it.url) propio++;
       else if (urlDe(it).url) emparejado++;
       else {
@@ -397,7 +327,6 @@ import { corridasPorDia } from '../lib/agenda.mjs';
     $('resumen').textContent =
       lista.length.toLocaleString('es-AR') + ' de ' + todos.length.toLocaleString('es-AR') +
       ' publicaciones guardadas' +
-      (repetidas ? ' · ' + repetidas + ' vistas de los dos lados, juntadas' : '') +
       (conBaja ? ' · ' + conBaja + ' bajaron de precio' : '') +
       ' · enlace: ' + propio + ' propio, ' + emparejado + ' emparejado, ' +
       sinNada + ' sin enlace' +
