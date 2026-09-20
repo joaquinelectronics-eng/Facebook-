@@ -159,7 +159,7 @@ const BUSQUEDAS = [
 
   console.log('\nCatalogo');
   const tarjetas = await pagina.$$eval('.tarjeta .tit', (n) => n.map((x) => x.textContent));
-  prueba('pinta las publicaciones guardadas', () => assert.strictEqual(tarjetas.length, 18));
+  prueba('pinta las publicaciones guardadas', () => assert.strictEqual(tarjetas.length, 17));
   prueba('ordena de la mas vieja a la mas nueva', () =>
     assert.strictEqual(tarjetas[0], 'Audi A5 Sportback 2017'));
 
@@ -188,7 +188,7 @@ const BUSQUEDAS = [
     // El titulo cortado no dice "a5": podria decirlo del otro lado del corte.
     assert.ok(conDudosas.some((t) => /Cabriolet/.test(t)), JSON.stringify(conDudosas));
     assert.ok(conDudosas.some((t) => !t), JSON.stringify(conDudosas));
-    assert.strictEqual(conDudosas.length, 12);
+    assert.strictEqual(conDudosas.length, 11);
   });
 
   await pagina.uncheck('#dudosas');
@@ -205,6 +205,11 @@ const BUSQUEDAS = [
      pagina donde uno esta. Pasa con todo lo leido en la version de celular,
      que es casi todo. */
   console.log('\nEl boton de abrir');
+  /* Sin filtro de busqueda: lo que se prueba aca es de donde sale el enlace de
+     cada publicacion, no que busqueda la trae. */
+  await pagina.fill('#consulta', '');
+  await pagina.check('#dudosas');
+  await pagina.waitForTimeout(200);
   const enlaces = await pagina.evaluate(() => {
     const salida = [];
     for (const t of document.querySelectorAll('#grilla .tarjeta')) {
@@ -263,10 +268,15 @@ const BUSQUEDAS = [
     assert.strictEqual(a.href, 'https://www.facebook.com/marketplace/item/444555/');
   });
 
-  prueba('la foto empareja aunque el precio y el titulo no alcancen', () => {
-    const a = porTitulo('Oportunidad unica');
+  /* El mismo auto leido de los dos lados queda en UNA tarjeta, con el enlace de
+     escritorio y el mejor de los dos titulos. Antes se veian dos, y la del
+     celular -sin enlace- hacia parecer que faltaban enlaces. */
+  prueba('junta el mismo auto leido de los dos lados', () => {
+    const a = porTitulo('Audi A4 2.0 TDI impecable');
     assert.ok(a, JSON.stringify(enlaces.map((x) => x.titulo)));
     assert.strictEqual(a.href, 'https://www.facebook.com/marketplace/item/121212/');
+    assert.ok(!enlaces.some((x) => /Oportunidad unica/.test(x.titulo)),
+              'quedo la copia sin enlace: ' + JSON.stringify(enlaces.map((x) => x.titulo)));
   });
 
   prueba('pero una foto repetida en dos publicaciones no empareja', () => {
