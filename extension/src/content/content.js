@@ -24,9 +24,18 @@
     /* Por defecto encendido: entre ver una de mas y perder una buena, se ve
        una de mas. Se puede apagar desde el panel. */
     rescatarCortados: true,
-    /* Ir solo a la version de celular al entrar a Marketplace. Es ahi donde
-       Facebook manda los titulos; en la de escritorio la mayoria vienen vacios. */
-    versionCelular: true,
+    /* APAGADO. Se trabaja en escritorio.
+
+       Se prendio porque en escritorio faltaban los titulos. Medido sobre 1990
+       publicaciones guardadas: de las 454 que traen enlace, 454 tienen titulo
+       y 0 no. O sea que escritorio da las dos cosas, y el celular ninguna de
+       las dos por si solo -de ahi no viene ni un enlace-.
+
+       Peor todavia: lo leido en el celular queda sin enlace para siempre.
+       Emparejarlo despues tampoco sirve; medido, de 1357 sin enlace solo 130
+       tienen una foto que aparezca tambien en alguna con enlace. El resto no
+       tiene par en la base y nunca lo va a tener. */
+    versionCelular: false,
 
     /* NO SE TOCA LA PAGINA DE FACEBOOK.
 

@@ -51,8 +51,11 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
     return donde;
   }
 
+  /* Se trabaja en escritorio -es de donde vienen los enlaces y los titulos-,
+     asi que ir sola al celular esta APAGADO por defecto. Estas pruebas lo
+     prenden a proposito, que es la unica forma de probar ese camino. */
   const BASE = { consulta: 'audi a5', provincias: ['BA'], zonaDesconocida: true,
-                 ocultar: true, indexar: false };
+                 ocultar: true, indexar: false, versionCelular: true };
 
   console.log('\nIr solo a la version de celular');
 
@@ -79,6 +82,16 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
                               Object.assign({}, BASE, { versionCelular: false }));
   prueba('con la casilla apagada se queda donde esta', () =>
     assert.ok(/^https:\/\/www\.facebook\.com\//.test(apagado), apagado));
+
+  /* Y de fabrica viene apagada: se trabaja en escritorio, que es de donde
+     salen los enlaces y los titulos. Medido sobre 1990 publicaciones: de las
+     454 con enlace, 454 tienen titulo y 0 no. */
+  const deFabrica = await abrir(
+    'https://www.facebook.com/marketplace/category/search/?query=audi%20a5',
+    { consulta: 'audi a5', provincias: ['BA'], zonaDesconocida: true,
+      ocultar: true, indexar: false });
+  prueba('de fabrica se queda en escritorio', () =>
+    assert.ok(/^https:\/\/www\.facebook\.com\//.test(deFabrica), deFabrica));
 
   /* Hace falta poder ir a escritorio a proposito: en el celular Facebook no
      manda ni un enlace de publicacion -medido: 0 en toda la pagina- y en
