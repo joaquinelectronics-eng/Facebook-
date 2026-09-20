@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Marketplace con tarjetas que navegan</title>
+<style>
+html,body{margin:0;height:100%;font-family:sans-serif;background:#fff}
+.fila{display:flex}.celda{width:50%}.t{padding:4px}.foto{height:150px}
+</style></head>
+<body>
+<!-- Replica de la version de celular: las tarjetas NO son enlaces y en toda la
+     pagina no hay ni una direccion de publicacion. Al tocarlas, en cambio, el
+     navegador va a /marketplace/item/<numero>/, que es de donde hay que sacar
+     el enlace. Es la unica forma que quedaba. -->
+<div id="raiz"></div>
+<script>
+const items = [
+  {p:'$19.500', t:'Audi A5 Sportback 2.0t',    z:'Lanús Este, BA',       id:'1101'},
+  {p:'$13.800', t:'Audi A1 Sportback Único',   z:'Ciudad de Buenos Aires, CF', id:'1102'},
+  {p:'$22.000', t:'Audi a5 quattro 3.2 At',    z:'Quilmes, BA',          id:'1103'}
+];
+const PIX = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
+const raiz = document.getElementById('raiz');
+for (let i = 0; i < items.length; i += 2) {
+  const fila = document.createElement('div');
+  fila.className = 'fila';
+  for (const it of items.slice(i, i + 2)) {
+    const celda = document.createElement('div');
+    celda.className = 'celda';
+    const caja = document.createElement('div');
+    const partes = it.p.match(/^(\D+)(.+)$/);
+    caja.innerHTML =
+      '<div class="foto"><img src="' + PIX + '"></div>' +
+      '<div class="t"><span>' + partes[1] + '</span><span>' + partes[2] + '</span></div>' +
+      '<div class="t">' + it.t + '</div>' +
+      '<div class="t">' + it.z + '</div>';
+    // Tocar la tarjeta navega, igual que en Facebook: no hay href en ningun lado.
+    caja.addEventListener('click', () => {
+      location.assign('/marketplace/item/' + it.id + '/?ref=search');
+    });
+    celda.appendChild(caja);
+    fila.appendChild(celda);
+  }
+  raiz.appendChild(fila);
+}
+</script>
+</body></html>

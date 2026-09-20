@@ -662,6 +662,174 @@
     });
   }
 
+  /* ------------------------------------------------- buscar los enlaces que faltan
+
+     En la version de celular las tarjetas no son enlaces y Facebook no escribe
+     la direccion de la publicacion en ningun lado -medido: cero en toda la
+     pagina-. Pero al TOCAR una tarjeta, la direccion del navegador pasa a ser
+     .../marketplace/item/<numero>/. Ahi esta el enlace.
+
+     Entonces se hace eso mismo, solo con las que coinciden con el filtro: se
+     entra, se anota el numero, se vuelve atras y se sigue con la siguiente. Se
+     hace solo con las que coinciden porque son pocas -las que uno de verdad
+     quiere abrir- y asi son tres entradas y no doscientas.
+
+     El estado vive en el almacenamiento: entrar a una publicacion recarga la
+     pagina entera y en memoria no sobrevive nada. */
+  const CLAVE_CAZA = 'cazaEnlaces';
+  const TOPE_CAZA = 40;
+
+  function idDeUrlItem(href) {
+    const m = /\/marketplace\/item\/(\d+)/.exec(String(href || ''));
+    return m ? m[1] : '';
+  }
+
+  /* Como se reconoce una tarjeta despues de volver atras: por lo que se ve en
+     ella. El id que armamos nosotros no sirve si el titulo se leyo distinto. */
+  function senia(d) {
+    return MPF.normalizar((d.titulo || '') + '|' + (d.precioTexto || '') +
+                          '|' + (d.ubicacion || ''));
+  }
+
+  function leerCaza(cb) {
+    try {
+      chrome.storage.local.get(CLAVE_CAZA, (g) => cb((g && g[CLAVE_CAZA]) || null));
+    } catch (e) { cb(null); }
+  }
+
+  function escribirCaza(estado, cb) {
+    try {
+      chrome.storage.local.set({ [CLAVE_CAZA]: estado }, () => cb && cb());
+    } catch (e) { cb && cb(); }
+  }
+
+  /* Las que coinciden con el filtro y todavia no tienen enlace. */
+  function sinEnlaceQueCoinciden() {
+    const out = [];
+    for (const d of cache.values()) {
+      if (d.url || !d.coincide) continue;
+      out.push({ senia: senia(d), titulo: d.titulo, id: d.id });
+    }
+    return out.slice(0, TOPE_CAZA);
+  }
+
+  function arrancarCaza() {
+    const faltan = sinEnlaceQueCoinciden();
+    if (!faltan.length) { decir('no falta ningun enlace de las que coinciden', false); return; }
+    escribirCaza({ cola: faltan, hechos: 0 }, () => {
+      decir('buscando ' + faltan.length + ' enlaces', true);
+      seguirCaza();
+    });
+  }
+
+  function pararCaza() { escribirCaza(null); }
+
+  /* Cuando una tarjeta no se deja abrir se sigue con la que viene. Quedarse
+     trabado en una es peor que perderla. */
+  function saltearObjetivo() {
+    leerCaza((estado) => {
+      if (!estado || !estado.cola || !estado.cola.length) return;
+      const resto = estado.cola.slice(1);
+      if (!resto.length) {
+        escribirCaza(null);
+        decir('listo: se buscaron ' + (estado.hechos || 0) + ' enlaces', false);
+        return;
+      }
+      escribirCaza({ cola: resto, hechos: estado.hechos || 0, intentos: 0 }, seguirCaza);
+    });
+  }
+
+  function seguirCaza() {
+    leerCaza((estado) => {
+      if (!estado || !estado.cola) return;
+      if (!estado.cola.length) {
+        /* Ya se busco la ultima: se limpia. Sin esto quedaba una busqueda
+           "a medias" con la cola vacia, y al volver a entrar no arrancaba. */
+        escribirCaza(null);
+        decir('listo: se buscaron ' + (estado.hechos || 0) + ' enlaces', false);
+        return;
+      }
+
+      /* Estamos DENTRO de una publicacion: se anota el enlace y se vuelve. */
+      const id = idDeUrlItem(location.href);
+      if (id) {
+        const objetivo = estado.cola[0];
+        const datos = cache.get(objetivo.id) || { id: objetivo.id, titulo: objetivo.titulo };
+        guardarEnlaceHallado(datos, 'https://www.facebook.com/marketplace/item/' + id + '/');
+        const resto = estado.cola.slice(1);
+        escribirCaza({ cola: resto, hechos: (estado.hechos || 0) + 1, intentos: 0 }, () => {
+          history.back();
+        });
+        return;
+      }
+
+      /* Estamos en la lista: se busca la tarjeta y se la toca. */
+      const objetivo = estado.cola[0];
+      const tarjetas = MPF.scraper.elementosTarjeta();
+      for (const el of tarjetas) {
+        const d = MPF.scraper.extraerDeTarjeta(el);
+        if (!d || senia(d) !== objetivo.senia) continue;
+        decir('entrando a: ' + (objetivo.titulo || 'sin titulo') +
+              ' (' + ((estado.hechos || 0) + 1) + ' de ' +
+              ((estado.hechos || 0) + estado.cola.length) + ')', true);
+        el.scrollIntoView({ block: 'center' });
+        /* Se toca en el MEDIO de la tarjeta, como haria una persona, y no sobre
+           el elemento que nosotros dedujimos. La caja que deducimos suele ser
+           la de afuera, y Facebook pone el manejador mas adentro: los eventos
+           suben, no bajan, asi que un click sobre la de afuera no llega nunca
+           al que escucha. */
+        setTimeout(() => {
+          /* Se toca la FOTO, no el centro de la caja. La caja que deducimos a
+             veces es mas grande que la publicacion -puede ser la fila entera-,
+             y ahi el centro cae en el vacio al lado del auto y el toque no le
+             llega a nadie. La foto siempre esta adentro de lo que se puede
+             tocar. */
+          const ancla = el.querySelector('img') ||
+                        el.querySelector('[data-mcomponent="ServerTextArea"]') || el;
+          const r = ancla.getBoundingClientRect();
+          const x = Math.round(r.left + r.width / 2);
+          const y = Math.round(r.top + r.height / 2);
+          /* elementsFromPoint y no elementFromPoint: arriba puede haber algo
+             -nuestro propio panel, sin ir mas lejos- y entonces el de mas
+             arriba no es el que hay que tocar. */
+          const bajoElDedo = document.elementsFromPoint(x, y) || [];
+          let aTocar = ancla;
+          for (const cand of bajoElDedo) {
+            if (el.contains(cand)) { aTocar = cand; break; }
+          }
+          aTocar.click();
+          /* Si el toque no llevo a ningun lado, no se puede quedar esperando
+             para siempre: se pasa a la siguiente. */
+          setTimeout(() => { if (!idDeUrlItem(location.href)) saltearObjetivo(); }, 4000);
+        }, 400);
+        return;
+      }
+
+      /* Todavia no aparecio. No se descarta al primer intento: al volver atras
+         Facebook rearma la lista y tarda, asi que buscarla una sola vez la
+         perdia siempre. Se reintenta un rato y recien despues se saltea. */
+      const intentos = (estado.intentos || 0) + 1;
+      if (intentos < 8) {
+        escribirCaza({ cola: estado.cola, hechos: estado.hechos || 0, intentos },
+                     () => setTimeout(seguirCaza, 1200));
+        return;
+      }
+      saltearObjetivo();
+    });
+  }
+
+  /* El enlace hallado se guarda en el catalogo sobre la misma ficha: el fondo
+     junta lo nuevo con lo que ya habia, asi que no se pierde nada de lo leido. */
+  function guardarEnlaceHallado(datos, url) {
+    datos.url = url;
+    cache.set(datos.id, datos);
+    try {
+      chrome.runtime.sendMessage({ tipo: 'guardar', items: [Object.assign({}, datos, {
+        _nodo: undefined, _link: undefined, _veredicto: undefined
+      })] });
+    } catch (e) {}
+  }
+
   // --- guardado en el catalogo, en lotes para no saturar el service worker ---
   function encolarParaIndexar(items) {
     if (!config.indexar) return;
@@ -845,6 +1013,8 @@
     /* Arrancar la recorrida sin tocar el panel: asi se puede probar de punta a
        punta, y tambien dispararla desde la consola. */
     releer: () => releerLasQueFaltan(),
+    buscarEnlaces: () => arrancarCaza(),
+    pararBusquedaDeEnlaces: () => pararCaza(),
     recorrer: (texto, escritorio) =>
       arrancarRecorrida(MPF.recorrida.limpiarLista(texto), escritorio),
     buscar: buscarEnLeidas,
@@ -959,6 +1129,7 @@
         if (MPF.autoscroll.estaCorriendo()) {
           pararRecorrida();
           pararRelectura();
+          pararCaza();
           MPF.autoscroll.parar();
           return;
         }
@@ -974,6 +1145,7 @@
          en el celular Facebook no manda NI UN enlace de publicacion -medido: 0
          en toda la pagina- y en escritorio las tarjetas si son enlaces. */
       alReleer() { releerLasQueFaltan(); },
+      alBuscarEnlaces() { arrancarCaza(); },
       alIrAEscritorio() {
         /* Ya en escritorio, el mismo boton vuelve al celular: si no, una vez
            que se entra no hay como salir sin cerrar la pestania. */
@@ -1030,6 +1202,9 @@
         /* Si quedo una recorrida a medias -aunque haya sido en otra pestania o
            antes de cerrar el navegador-, sigue sola desde donde iba. */
         setTimeout(seguirRecorrida, 2500);
+        /* Si quedo una caza de enlaces a medias -entrar a una publicacion
+           recarga la pagina- sigue sola desde donde iba. */
+        setTimeout(seguirCaza, 3000);
       });
     } catch (e) {
       configCargada = true;   // sin almacenamiento se sigue con lo de fabrica
@@ -1046,6 +1221,12 @@
         if (ui) ui.estado('detenido con Escape', false);
       }
     }, true);
+
+    /* Al volver atras el navegador puede restaurar la pagina tal cual estaba,
+       sin volver a ejecutar nada. Sin esto, la busqueda de enlaces entraba a
+       la primera publicacion y despues se quedaba quieta para siempre. */
+    window.addEventListener('pageshow', () => { setTimeout(seguirCaza, 1200); });
+    window.addEventListener('popstate', () => { setTimeout(seguirCaza, 1200); });
 
     new MutationObserver(pasada).observe(document.body, { childList: true, subtree: true });
     window.addEventListener('beforeunload', vaciarColaDeIndexado);
