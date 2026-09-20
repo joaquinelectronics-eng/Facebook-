@@ -58,34 +58,64 @@ import { corridasPorDia } from '../lib/agenda.mjs';
      acepta cuando hay UNA sola candidata. Si dos publicaciones comparten
      precio y zona no se elige ninguna: mandarte al auto equivocado es peor que
      no mandarte a ninguno. */
-  function claveDeCruce(it) {
-    const precio = it.precioUSD != null ? String(Math.round(it.precioUSD)) : '';
-    const zona = MPF.normalizar(it.ubicacion || '');
-    if (!precio || !zona) return '';
-    return precio + '|' + zona;
+  function claveDePrecio(it) {
+    return it.precioUSD != null ? String(Math.round(it.precioUSD)) : '';
   }
 
-  /* clave -> la unica direccion que le corresponde, o null si hay varias. */
-  let cruce = new Map();
+  /* El titulo cortado es un dato, no un estorbo. Facebook manda "VENDO Audi A4
+     1.8T..." y lo que se ve es el PRINCIPIO del titulo de verdad, asi que si el
+     candidato empieza igual, es el mismo auto. Cruzando solo por precio y zona
+     no alcanzaba: seis A4 a US$ 9.000 en Buenos Aires empatan entre ellos y no
+     se emparejaba ninguno. */
+  function tituloParaCruce(it) {
+    return MPF.normalizar(String(it.titulo || '').replace(/(?:\u2026|\.\.\.)\s*$/, '').trim());
+  }
+
+  function titulosCompatibles(a, b) {
+    if (!a || !b) return true;    // si a uno le falta el titulo, no contradice
+    return a.indexOf(b) === 0 || b.indexOf(a) === 0;
+  }
+
+  /* precio -> las publicaciones con direccion que valen ese precio. */
+  let porPrecio = new Map();
 
   function armarCruce() {
-    const porClave = new Map();
+    porPrecio = new Map();
     for (const it of todos) {
       if (!it.url) continue;
-      const k = claveDeCruce(it);
+      const k = claveDePrecio(it);
       if (!k) continue;
-      const ya = porClave.get(k);
-      if (ya === undefined) porClave.set(k, it.url);
-      else if (ya !== it.url) porClave.set(k, null);   // ambigua: no se usa
+      if (!porPrecio.has(k)) porPrecio.set(k, []);
+      porPrecio.get(k).push(it);
     }
-    cruce = porClave;
   }
 
+  /* Se busca de lo mas especifico a lo mas general, y solo se acepta cuando
+     queda UNA sola candidata. Con dos, mandar al auto equivocado es peor que no
+     mandar a ninguno. */
   function urlDe(it) {
     if (it.url) return { url: it.url, emparejada: false };
-    const k = claveDeCruce(it);
-    const hallada = k ? cruce.get(k) : null;
-    return hallada ? { url: hallada, emparejada: true } : { url: '', emparejada: false };
+    const k = claveDePrecio(it);
+    if (!k) return { url: '', emparejada: false };
+
+    const mismoPrecio = porPrecio.get(k) || [];
+    if (!mismoPrecio.length) return { url: '', emparejada: false };
+
+    const miTitulo = tituloParaCruce(it);
+    let candidatas = mismoPrecio.filter(
+      (c) => titulosCompatibles(miTitulo, tituloParaCruce(c)));
+
+    // Si el titulo no alcanzo para decidir, la zona desempata.
+    if (candidatas.length > 1) {
+      const miZona = MPF.normalizar(it.ubicacion || '');
+      const conZona = candidatas.filter(
+        (c) => MPF.normalizar(c.ubicacion || '') === miZona);
+      if (conZona.length) candidatas = conZona;
+    }
+
+    const direcciones = new Set(candidatas.map((c) => c.url));
+    if (direcciones.size !== 1) return { url: '', emparejada: false };
+    return { url: candidatas[0].url, emparejada: true };
   }
 
   function filtrarYOrdenar() {

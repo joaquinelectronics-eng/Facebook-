@@ -44,6 +44,22 @@ const ITEMS = [
     vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA,
     url:'https://www.facebook.com/marketplace/item/999888777/', historial:[] },
 
+  /* El caso que fallaba de verdad: varios A4 al mismo precio en la misma
+     provincia. Por precio y zona empatan todos y no se emparejaba ninguno,
+     pero el titulo cortado alcanza para decidir, porque es el principio del
+     titulo de verdad. */
+  { id:'m8', titulo:'VENDO Audi A4 1.8T Nafta Manu\u2026', precio:9000, moneda:'USD', precioUSD:9000,
+    ubicacion:'Mar del Plata, BA', provincia:'BA', veces:1, tituloCortado:true,
+    vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA, url:'', historial:[] },
+  { id:'d8', titulo:'VENDO Audi A4 1.8T Nafta Manual 2009', precio:9000, moneda:'USD', precioUSD:9000,
+    ubicacion:'Mar del Plata, BA', provincia:'BA', veces:1,
+    vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA,
+    url:'https://www.facebook.com/marketplace/item/444555/', historial:[] },
+  { id:'d8b', titulo:'Audi A4 permuto financio', precio:9000, moneda:'USD', precioUSD:9000,
+    ubicacion:'Mar del Plata, BA', provincia:'BA', veces:1,
+    vistoPrimera:AHORA-3*DIA, vistoUltima:AHORA,
+    url:'https://www.facebook.com/marketplace/item/666777/', historial:[] },
+
   /* Dos publicaciones distintas con el mismo precio y la misma zona: ahi no se
      puede saber cual es cual, asi que no se empareja ninguna. */
   { id:'m7', titulo:'Audi A5 Ambiente 2014', precio:27000, moneda:'USD', precioUSD:27000,
@@ -112,7 +128,7 @@ const BUSQUEDAS = [
 
   console.log('\nCatalogo');
   const tarjetas = await pagina.$$eval('.tarjeta .tit', (n) => n.map((x) => x.textContent));
-  prueba('pinta las publicaciones guardadas', () => assert.strictEqual(tarjetas.length, 10));
+  prueba('pinta las publicaciones guardadas', () => assert.strictEqual(tarjetas.length, 13));
   prueba('ordena de la mas vieja a la mas nueva', () =>
     assert.strictEqual(tarjetas[0], 'Audi A5 Sportback 2017'));
 
@@ -127,8 +143,12 @@ const BUSQUEDAS = [
   await pagina.fill('#consulta', 'audi a5');
   await pagina.waitForTimeout(200);
   const conDudosas = await pagina.$$eval('.tarjeta .tit', (n) => n.map((x) => x.textContent));
-  prueba('la busqueda estricta filtra el A4', () =>
-    assert.ok(!conDudosas.some((t) => /A4/.test(t)), JSON.stringify(conDudosas)));
+  /* Los A4 con el titulo entero se descartan. El que viene cortado no: lo que
+     falta podria decir a5, y perder una buena es peor que ver una de mas. */
+  prueba('la busqueda estricta filtra los A4 que se leyeron enteros', () => {
+    const enteros = conDudosas.filter((t) => /A4/.test(t) && !/\u2026|\.\.\./.test(t));
+    assert.deepStrictEqual(enteros, [], JSON.stringify(conDudosas));
+  });
 
   /* Las que Facebook mando con el titulo cortado o sin titulo no se pueden
      descartar: no se sabe que decia. Se guardaron justamente para no perderlas,
@@ -137,7 +157,7 @@ const BUSQUEDAS = [
     // El titulo cortado no dice "a5": podria decirlo del otro lado del corte.
     assert.ok(conDudosas.some((t) => /Cabriolet/.test(t)), JSON.stringify(conDudosas));
     assert.ok(conDudosas.some((t) => !t), JSON.stringify(conDudosas));
-    assert.strictEqual(conDudosas.length, 9);
+    assert.strictEqual(conDudosas.length, 10);
   });
 
   await pagina.uncheck('#dudosas');
@@ -204,6 +224,12 @@ const BUSQUEDAS = [
   prueba('el resumen dice cuantas se pueden abrir y cuantas no', () => {
     assert.ok(/enlace: \d+ propio, \d+ emparejado, \d+ sin enlace/.test(resumenEnlaces),
               resumenEnlaces);
+  });
+
+  prueba('el titulo cortado desempata entre varias al mismo precio', () => {
+    const a = porTitulo('VENDO Audi A4 1.8T Nafta Manu');
+    assert.ok(a, JSON.stringify(enlaces.map((x) => x.titulo)));
+    assert.strictEqual(a.href, 'https://www.facebook.com/marketplace/item/444555/');
   });
 
   prueba('ninguno apunta a la pagina del catalogo', () =>
