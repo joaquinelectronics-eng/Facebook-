@@ -264,6 +264,57 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
   prueba('sin errores de javascript durante la recorrida', () =>
     assert.deepStrictEqual(erroresR, []));
 
+  /* La misma recorrida, pero en escritorio: es de donde salen los enlaces.
+     Barriendo solo el celular el catalogo queda lleno de publicaciones que no
+     se pueden abrir, que es exactamente lo que estaba pasando. */
+  const visitadasEsc = [];
+  const pRec = await navegador.newPage({ viewport: { width: 1280, height: 900 } });
+  let guardadoEsc = { config: Object.assign({}, BASE, { velocidad: 'turbo' }) };
+  await pRec.exposeFunction('leerGuardadoEsc', () => guardadoEsc);
+  await pRec.exposeFunction('escribirGuardadoEsc', (parche) => {
+    guardadoEsc = Object.assign({}, guardadoEsc, parche);
+    return true;
+  });
+  await pRec.route('**://*.facebook.com/**', (ruta) =>
+    ruta.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: PAGINA }));
+  await pRec.addInitScript(() => {
+    window.chrome = {
+      storage: {
+        local: {
+          get: (claves, cb) => window.leerGuardadoEsc().then((g) => {
+            if (typeof claves === 'string') { const o = {}; o[claves] = g[claves]; return cb(o); }
+            cb(g);
+          }),
+          set: (parche, cb) => window.escribirGuardadoEsc(parche).then(() => cb && cb())
+        },
+        onChanged: { addListener: () => {} }
+      },
+      runtime: { lastError: undefined, getURL: (p) => p,
+                 onMessage: { addListener: () => {} },
+                 sendMessage: (m, cb) => cb && cb({ ok: true, total: 0, titulos: {} }) }
+    };
+  });
+  await pRec.addInitScript(GUIONES.map((g) => fs.readFileSync(archivo(g), 'utf8')).join('\n;\n'));
+  pRec.on('framenavigated', (f) => {
+    if (f === pRec.mainFrame()) visitadasEsc.push(f.url());
+  });
+  await pRec.goto('https://m.facebook.com/marketplace/category/search/?query=audi%20a5');
+  await pRec.waitForTimeout(2500);
+  await pRec.evaluate(() =>
+    window.MPF.diagnostico.recorrer('audi a5\na5 sportback', true));
+  for (let i = 0; i < 120 && guardadoEsc.recorrida; i++) {
+    await pRec.waitForTimeout(500);
+  }
+
+  prueba('la recorrida en escritorio va a www y no al celular', () => {
+    const enWww = visitadasEsc.filter((u) => /^https:\/\/www\.facebook\.com\//.test(u));
+    assert.ok(enWww.length >= 2, JSON.stringify(visitadasEsc));
+    const consultas = enWww.map((u) => recorrida.consultaDeUrl(u));
+    assert.ok(consultas.indexOf('audi a5') >= 0, JSON.stringify(visitadasEsc));
+    assert.ok(consultas.indexOf('a5 sportback') >= 0, JSON.stringify(visitadasEsc));
+  });
+  await pRec.close();
+
   await pagina.close();
 
   await navegador.close();

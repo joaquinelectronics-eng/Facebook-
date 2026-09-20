@@ -49,9 +49,20 @@
     return /^https?:\/\//i.test(String(linea || '').trim());
   }
 
-  function armarUrl(consulta) {
+  /* La misma lista se puede recorrer en escritorio. Hace falta de verdad: los
+     enlaces de las publicaciones solo vienen de ahi -en el celular Facebook no
+     manda ninguno-, asi que barrer solo el celular deja un catalogo que no se
+     puede abrir. La direccion de escritorio se arma cambiando el dominio y
+     dejando el resto igual, que es lo unico que ya sabemos que funciona. */
+  const MARCA_ESCRITORIO = '#mpf=escritorio';
+  const BASE_ESCRITORIO = 'https://www.facebook.com/marketplace/category/search/';
+
+  function armarUrl(consulta, escritorio) {
     const t = String(consulta || '').trim();
     if (esDireccion(t)) return t;
+    if (escritorio) {
+      return BASE_ESCRITORIO + '?query=' + encodeURIComponent(t) + MARCA_ESCRITORIO;
+    }
     return BASE + '?query=' + encodeURIComponent(t);
   }
 
@@ -67,6 +78,7 @@
      Devuelve { terminada, indice, consulta, url, cuantas }. */
   function siguiente(estado) {
     const lista = (estado && estado.lista) || [];
+    const escritorio = !!(estado && estado.escritorio);
     const indice = Math.max(0, Number((estado && estado.indice) || 0));
     if (!lista.length || indice >= lista.length) {
       return { terminada: true, indice: lista.length, consulta: '', url: '',
@@ -76,7 +88,7 @@
       terminada: false,
       indice,
       consulta: lista[indice],
-      url: armarUrl(lista[indice]),
+      url: armarUrl(lista[indice], escritorio),
       cuantas: lista.length
     };
   }
@@ -84,7 +96,8 @@
   function avanzar(estado) {
     const lista = (estado && estado.lista) || [];
     const indice = Math.max(0, Number((estado && estado.indice) || 0)) + 1;
-    return { lista, indice, terminada: indice >= lista.length };
+    return { lista, indice, escritorio: !!(estado && estado.escritorio),
+             terminada: indice >= lista.length };
   }
 
   const api = { limpiarLista, armarUrl, consultaDeUrl, siguiente, avanzar,

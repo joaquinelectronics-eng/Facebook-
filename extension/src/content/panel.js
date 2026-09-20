@@ -235,6 +235,8 @@
           </div>
           <textarea id="listaBusquedas" rows="5" spellcheck="false"
             placeholder="audi a5&#10;a5 sportback&#10;a5 quattro&#10;audi cabrio"></textarea>
+          <label class="check" style="margin-top:6px"><input type="checkbox" id="recorrerEscritorio" checked>
+            Recorrer en escritorio (para traer los enlaces)</label>
           <button id="recorrer" class="secundario" style="margin-top:6px">Recorrer todas</button>
         </div>
       </details>
@@ -277,6 +279,7 @@
       velocidad: $('velocidad'), soloBajadas: $('soloBajadas'),
       pendientes: $('pendientes'), tocarLaPagina: $('tocarLaPagina'),
       listaBusquedas: $('listaBusquedas'), recorrer: $('recorrer'),
+      recorrerEscritorio: $('recorrerEscritorio'),
       escritorio: $('escritorio'),
       sinPrecio: $('sinPrecio'), rescatarCortados: $('rescatarCortados'),
       versionCelular: $('versionCelular'),
@@ -362,7 +365,8 @@
       callbacks.alCambiar(leerConfig());
     });
     el.barrer.addEventListener('click', () => callbacks.alBarrer());
-    el.recorrer.addEventListener('click', () => callbacks.alRecorrer(el.listaBusquedas.value));
+    el.recorrer.addEventListener('click', () =>
+      callbacks.alRecorrer(el.listaBusquedas.value, el.recorrerEscritorio.checked));
     el.escritorio.addEventListener('click', () => callbacks.alIrAEscritorio());
     el.catalogo.addEventListener('click', () => callbacks.alAbrirCatalogo());
     el.guardarBusq.addEventListener('click', () => callbacks.alGuardarBusqueda());

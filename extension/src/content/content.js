@@ -565,9 +565,9 @@
     }, { velocidad: config.velocidad });
   }
 
-  function arrancarRecorrida(lista) {
-    escribirRecorrida({ lista, indice: 0 }, () => {
-      const paso = MPF.recorrida.siguiente({ lista, indice: 0 });
+  function arrancarRecorrida(lista, escritorio) {
+    escribirRecorrida({ lista, indice: 0, escritorio: !!escritorio }, () => {
+      const paso = MPF.recorrida.siguiente({ lista, indice: 0, escritorio: !!escritorio });
       decir('busqueda 1 de ' + paso.cuantas + ': ' + paso.consulta, true);
       location.assign(conMarcaDeEscritorio(paso.url));
     });
@@ -599,7 +599,8 @@
           decir('recorrida terminada: ' + estado.lista.length + ' busquedas', false);
           return;
         }
-        escribirRecorrida({ lista: nuevo.lista, indice: nuevo.indice }, () => {
+        escribirRecorrida({ lista: nuevo.lista, indice: nuevo.indice,
+                            escritorio: nuevo.escritorio }, () => {
           location.assign(conMarcaDeEscritorio(MPF.recorrida.siguiente(nuevo).url));
         });
       });
@@ -788,7 +789,8 @@
     pasada,
     /* Arrancar la recorrida sin tocar el panel: asi se puede probar de punta a
        punta, y tambien dispararla desde la consola. */
-    recorrer: (texto) => arrancarRecorrida(MPF.recorrida.limpiarLista(texto)),
+    recorrer: (texto, escritorio) =>
+      arrancarRecorrida(MPF.recorrida.limpiarLista(texto), escritorio),
     buscar: buscarEnLeidas,
     titulos: () => Array.from(cache.values()).map((d) => d.titulo),
     cuantasEnCache: () => cache.size,
@@ -905,10 +907,10 @@
         }
         barrerEstaPagina();
       },
-      alRecorrer(texto) {
+      alRecorrer(texto, escritorio) {
         const lista = MPF.recorrida.limpiarLista(texto);
         if (!lista.length) { decir('escribi al menos una busqueda', false); return; }
-        arrancarRecorrida(lista);
+        arrancarRecorrida(lista, escritorio);
       },
       /* Un boton para llegar a escritorio, porque a mano no se podia: la
          extension manda todo al celular y volvia a traerte. Y hace falta ir:

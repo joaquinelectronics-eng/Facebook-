@@ -161,6 +161,23 @@ prueba('y se le sigue sacando la consulta', () =>
     'https://m.facebook.com/marketplace/category/search/?query=audi%20a5&radius=150'),
     'audi a5'));
 
+/* Los enlaces solo vienen de escritorio, asi que hay que poder recorrer la
+   misma lista ahi. La direccion se arma cambiando el dominio y dejando el
+   resto igual, que es lo unico que ya sabemos que funciona. */
+prueba('la misma lista se puede recorrer en escritorio', () =>
+  assert.strictEqual(recorrida.armarUrl('audi a5', true),
+    'https://www.facebook.com/marketplace/category/search/?query=audi%20a5#mpf=escritorio'));
+
+prueba('y el paso siguiente respeta que sea en escritorio', () => {
+  const p = recorrida.siguiente({ lista: ['audi a5'], indice: 0, escritorio: true });
+  assert.ok(/^https:\/\/www\.facebook\.com\//.test(p.url), p.url);
+  assert.ok(/mpf=escritorio/.test(p.url), p.url);
+});
+
+prueba('al avanzar no se pierde que era en escritorio', () =>
+  assert.strictEqual(
+    recorrida.avanzar({ lista: ['a', 'b'], indice: 0, escritorio: true }).escritorio, true));
+
 prueba('sabe que consulta esta corriendo', () =>
   assert.strictEqual(
     recorrida.consultaDeUrl('https://m.facebook.com/marketplace/category/search/?query=audi%20a5'),
