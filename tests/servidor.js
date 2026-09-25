@@ -21,7 +21,10 @@ function servir(raiz, alias) {
   return new Promise((resolver) => {
     const srv = http.createServer((req, resp) => {
       const rel = decodeURIComponent(String(req.url).split('?')[0]);
-      const mapeado = alias && Object.keys(alias).find((k) => rel === k || rel === k + '/');
+      /* Un alias que termina en '*' vale para todo lo que empieza asi:
+         /marketplace/item/* sirve cualquier publicacion. */
+      const mapeado = alias && Object.keys(alias).find((k) => rel === k || rel === k + '/' ||
+        (k.endsWith('*') && rel.startsWith(k.slice(0, -1))));
       const destino = mapeado ? path.resolve(raiz, alias[mapeado]) : path.join(raiz, rel);
       if (!destino.startsWith(raiz)) { resp.writeHead(403); return resp.end(); }
       fs.readFile(destino, (err, datos) => {

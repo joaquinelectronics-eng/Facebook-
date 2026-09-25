@@ -3,6 +3,7 @@
 <style>
 html,body{margin:0;font-family:sans-serif;background:#fff}
 .fila{display:flex}.celda{width:50%}.t{padding:4px}.foto{height:150px}
+.foto img{display:block;width:100%;height:100%}
 </style></head>
 <body>
 <!-- Replica de la version de celular: las tarjetas NO son enlaces y en toda la
@@ -34,7 +35,12 @@ for (let i = 0; i < 30; i++) {
     id: String(2001 + i),
     /* Casi todas navegan POR ADENTRO -sin recargar-, que es como lo hace la
        version de celular de verdad; una recarga. Las dos tienen que andar. */
-    interno: i !== 9
+    interno: i !== 9,
+    /* En esta, tocar la FOTO abre el auto de al lado: pasa en la pagina de
+       verdad cuando la caja que se deduce agarra la foto de otro. Antes se
+       guardaba el enlace de donde se cayera y el catalogo abria cualquier
+       auto. */
+    fotoAbre: i === 17 ? 16 : null
   });
 }
 window.ITEMS_PRUEBA = items;
@@ -59,11 +65,13 @@ function tarjeta(it) {
    escrita de otra forma y abajo "similares". Todo eso tiene pinta de tarjeta,
    y leerlo llenaba el catalogo de duplicados. */
 function pintarPublicacion(it) {
+  // Medido en la pagina real: la pestania pasa a tener el titulo del auto.
+  document.title = it.t;
   const partes = it.p.match(/^(\D+)(.+)$/);
   raiz.innerHTML =
     '<div><div class="foto"><img src="' + PIX + '"></div>' +
     '<h1>' + it.t + '</h1>' +
-    '<div><span>' + partes[1] + '</span><span>' + partes[2] + '</span></div>' +
+    '<div>' + it.p + ' por artículo · Disponible</div>' +
     '<p>Publicado hace 2 semanas en ' + it.z + '</p></div>' +
     '<h2>Similares</h2>' +
     '<div class="fila"><div class="celda"><div><div class="foto"><img src="' + PIX + '"></div>' +
@@ -82,15 +90,22 @@ function agregarLote() {
       celda.className = 'celda';
       const caja = tarjeta(it);
       // Tocar la tarjeta navega, igual que en Facebook: no hay href en ningun lado.
-      caja.addEventListener('click', () => {
-        const destino = '/marketplace/item/' + it.id + '/?ref=search';
-        if (it.interno) {
+      const abrir = (cual) => {
+        const destino = '/marketplace/item/' + cual.id + '/?ref=search';
+        if (cual.interno) {
           history.pushState({}, '', destino);
-          pintarPublicacion(it);
+          pintarPublicacion(cual);
         } else {
           location.assign(destino);
         }
-      });
+      };
+      caja.addEventListener('click', () => abrir(it));
+      if (it.fotoAbre != null) {
+        caja.querySelector('img').addEventListener('click', (e) => {
+          e.stopPropagation();
+          abrir(items[it.fotoAbre]);
+        });
+      }
       celda.appendChild(caja);
       fila.appendChild(celda);
     }
@@ -102,6 +117,7 @@ function agregarLote() {
 /* Al volver atras Facebook rearma la lista DESDE ARRIBA y solo con el primer
    lote: las que estaban mas abajo no existen hasta que alguien baja. */
 function pintarLista() {
+  document.title = 'Marketplace';
   raiz.innerHTML = '';
   cargados = 0;
   agregarLote();

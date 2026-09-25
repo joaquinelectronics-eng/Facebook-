@@ -708,7 +708,7 @@
     const out = [];
     for (const d of cache.values()) {
       if (d.url || !d.coincide) continue;
-      out.push({ senia: senia(d), titulo: d.titulo, id: d.id });
+      out.push({ senia: senia(d), titulo: d.titulo, precio: d.precioTexto, id: d.id });
     }
     return out.slice(0, TOPE_CAZA);
   }
@@ -744,6 +744,12 @@
   /* La publicacion desde la que ya se pidio volver: volver dos veces saca de
      la lista. */
   let volviendoDe = '';
+  /* Desde cuando se esta adentro de la publicacion actual, para darle tiempo
+     a Facebook a dibujarla antes de decidir si es el auto buscado. */
+  let adentroDe = '';
+  let adentroDesde = 0;
+  /* Cada toque tiene su numero: el vigilante de un toque viejo no decide nada. */
+  let toqueActual = 0;
 
   /* Donde esta parada la lista. Hace falta para volver al mismo lugar despues
      de entrar a una publicacion: Facebook rearma la lista desde arriba. */
@@ -764,6 +770,68 @@
     else window.scrollBy(0, Math.round(alto * 0.9));
   }
 
+  /* ¿ES ESTE EL AUTO QUE SE BUSCABA?
+
+     El toque puede ir a parar a otro auto, y antes se guardaba el enlace de
+     donde se cayera: habia autos que abrian cualquier otro. Ahora, antes de
+     guardar, se compara con la publicacion misma. Medido adentro de una en
+     la version de celular: el titulo de la pestania es el del auto, el titulo
+     aparece tambien solo en su renglon, la lista no queda escondida abajo y
+     el primer precio dibujado es el del auto ("$7.500 por artículo ·
+     Disponible"). Tienen que coincidir el titulo Y el precio. */
+  const ESPERA_COMPROBAR = 5000;   // Facebook dibuja la publicacion de a poco
+  const RE_MONEDA = /(?:u\$s|us\$|usd|ars|\$)/i;
+
+  function renglonesDibujados(tope) {
+    const out = [];
+    // El panel propio vive en su propia raiz y este recorrido no entra ahi.
+    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = w.nextNode()) && out.length < tope) {
+      const t = n.textContent.trim();
+      const el = n.parentElement;
+      if (t && el && el.getClientRects().length) out.push(t);
+    }
+    return out;
+  }
+
+  function mismoTitulo(visto, buscado) {
+    // Facebook le antepone a la pestania los avisos sin leer: "(4) Audi ..."
+    const a = MPF.normalizar(String(visto || '').replace(/^\(\d+\)\s*/, ''));
+    const b = MPF.normalizar(String(buscado || '').replace(/\s*(?:\u2026|\.\.\.)\s*$/, ''));
+    if (!a || !b) return false;
+    // Si en la lista vino cortado, alcanza con que empiece igual.
+    return MPF.scraper.pareceCortado(buscado) ? a.startsWith(b) : a === b;
+  }
+
+  function esLaPublicacionBuscada(objetivo) {
+    const renglones = renglonesDibujados(60);
+    if (!mismoTitulo(document.title, objetivo.titulo) &&
+        !renglones.some((r) => mismoTitulo(r, objetivo.titulo))) return false;
+    const buscado = objetivo.precio ? MPF.precio.parsearPrecio(objetivo.precio).valor : null;
+    if (buscado == null) return true;
+    const i = renglones.findIndex((r) => RE_MONEDA.test(r));
+    if (i < 0) return false;
+    // A veces el signo y el numero vienen en pedazos separados.
+    const texto = /\d/.test(renglones[i]) ? renglones[i] : renglones[i] + ' ' + (renglones[i + 1] || '');
+    const visto = MPF.precio.parsearPrecio(texto).valor;
+    return visto != null && Math.abs(visto - buscado) < 0.5;
+  }
+
+  /* El renglon del titulo dentro de la tarjeta: es lo que se toca en el
+     segundo intento. La foto puede ser la del auto de al lado cuando la caja
+     que se dedujo agarro dos; el titulo es siempre el de este. */
+  function elementoDelTitulo(el, titulo) {
+    const buscado = MPF.normalizar(titulo);
+    if (!buscado) return null;
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let n;
+    while ((n = w.nextNode())) {
+      if (MPF.normalizar(n.textContent) === buscado) return n.parentElement;
+    }
+    return null;
+  }
+
   /* Cuando una tarjeta no se deja abrir se sigue con la que viene. Quedarse
      trabado en una es peor que perderla.
 
@@ -771,23 +839,34 @@
      si en ese tiempo ya se entro, se anoto el enlace y se volvio, la primera
      de la cola ya es otra: sin esta cuenta se salteaba esa otra sin haberla
      buscado. Una de cada dos se perdia asi. */
-  function saltearObjetivo(idEsperado, hechosEsperados) {
+  function saltearObjetivo(idEsperado, hechosEsperados, reintentar) {
     leerCaza((estado) => {
       if (!estado || !estado.cola || !estado.cola.length) return;
       if (estado.cola[0].id !== idEsperado ||
           (estado.hechos || 0) !== hechosEsperados) return;
+      // Si la foto no llevo a ningun lado, antes de rendirse se toca el titulo.
+      if (reintentar && !estado.toque) {
+        escribirCaza(Object.assign({}, estado, { toque: 1 }), () => programarCaza(0));
+        return;
+      }
       const resto = estado.cola.slice(1);
+      const perdidas = (estado.perdidas || 0) + 1;
       if (!resto.length) {
         escribirCaza(null);
-        decir('listo: se buscaron ' + (estado.hechos || 0) + ' enlaces', false);
+        decir(mensajeFinal(estado.hechos || 0, perdidas), false);
         return;
       }
       /* La siguiente esta debajo de la ultima donde se entro, no debajo de
          donde termino de buscar esta: se vuelve ahi. */
       if (estado.volverA != null) irAPosicion(estado.volverA);
-      escribirCaza(Object.assign({}, estado, { cola: resto, intentos: 0, saltos: 0 }),
+      escribirCaza(Object.assign({}, estado, { cola: resto, perdidas, intentos: 0, saltos: 0, toque: 0 }),
                    () => programarCaza(0));
     });
+  }
+
+  function mensajeFinal(hechos, perdidas) {
+    return 'listo: ' + hechos + ' enlaces guardados' +
+           (perdidas ? ', ' + perdidas + ' no se pudieron abrir o no eran el auto' : '');
   }
 
   function seguirCaza() {
@@ -797,30 +876,47 @@
         /* Ya se busco la ultima: se limpia. Sin esto quedaba una busqueda
            "a medias" con la cola vacia, y al volver a entrar no arrancaba. */
         escribirCaza(null);
-        decir('listo: se buscaron ' + (estado.hechos || 0) + ' enlaces', false);
+        decir(mensajeFinal(estado.hechos || 0, estado.perdidas || 0), false);
         return;
       }
 
-      /* Estamos DENTRO de una publicacion: se anota el enlace y se vuelve. */
+      /* Estamos DENTRO de una publicacion: se comprueba que sea el auto
+         buscado, se anota el enlace y se vuelve. */
       const id = idDeUrlItem(location.href);
       if (id) {
         tocandoHasta = 0;
+        toqueActual++;   // se entro: el vigilante de ese toque ya no corre
         if (volviendoDe === location.href) return;   // ya se pidio volver
-        volviendoDe = location.href;
+        if (adentroDe !== location.href) { adentroDe = location.href; adentroDesde = Date.now(); }
         const objetivo = estado.cola[0];
         const hallados = estado.hallados || [];
-        /* Un numero que ya se le dio a otra es que se entro a la equivocada:
-           no se le pega a esta un enlace que no es el suyo. */
-        if (!hallados.includes(id)) {
-          const datos = cache.get(objetivo.id) || { id: objetivo.id, titulo: objetivo.titulo };
-          guardarEnlaceHallado(datos, 'https://www.facebook.com/marketplace/item/' + id + '/');
+        /* Un numero que ya se le dio a otra es que se entro a la equivocada. */
+        const repetida = hallados.includes(id);
+        const esEsta = !repetida && esLaPublicacionBuscada(objetivo);
+        if (!esEsta && !repetida && Date.now() - adentroDesde < ESPERA_COMPROBAR) {
+          programarCaza(400);   // todavia se esta dibujando
+          return;
         }
+        volviendoDe = location.href;
         /* Se conserva todo lo demas -sobre todo donde estaba la lista-: antes
            se escribia de cero y eso se perdia. */
-        escribirCaza(Object.assign({}, estado, {
-          cola: estado.cola.slice(1), hechos: (estado.hechos || 0) + 1,
-          intentos: 0, saltos: 0, hallados: hallados.concat(id)
-        }), () => { history.back(); });
+        let cambio;
+        if (esEsta) {
+          const datos = cache.get(objetivo.id) || { id: objetivo.id, titulo: objetivo.titulo };
+          guardarEnlaceHallado(datos, 'https://www.facebook.com/marketplace/item/' + id + '/');
+          cambio = { cola: estado.cola.slice(1), hechos: (estado.hechos || 0) + 1,
+                     hallados: hallados.concat(id), toque: 0 };
+        } else if (!estado.toque) {
+          /* No era este auto: no se guarda nada y se vuelve a probar con la
+             misma, esta vez tocando el titulo. */
+          decir('no era ese auto: se prueba de nuevo con ' + (objetivo.titulo || 'sin titulo'), true);
+          cambio = { toque: 1 };
+        } else {
+          decir('no se pudo entrar a ' + (objetivo.titulo || 'sin titulo') + ': se sigue', true);
+          cambio = { cola: estado.cola.slice(1), perdidas: (estado.perdidas || 0) + 1, toque: 0 };
+        }
+        escribirCaza(Object.assign({}, estado, cambio, { intentos: 0, saltos: 0 }),
+                     () => { history.back(); });
         return;
       }
       volviendoDe = '';
@@ -851,7 +947,8 @@
              y ahi el centro cae en el vacio al lado del auto y el toque no le
              llega a nadie. La foto siempre esta adentro de lo que se puede
              tocar. */
-          const ancla = el.querySelector('img') ||
+          const ancla = (estado.toque ? elementoDelTitulo(el, d.titulo) : null) ||
+                        el.querySelector('img') ||
                         el.querySelector('[data-mcomponent="ServerTextArea"]') || el;
           const r = ancla.getBoundingClientRect();
           const x = Math.round(r.left + r.width / 2);
@@ -864,14 +961,16 @@
           for (const cand of bajoElDedo) {
             if (el.contains(cand)) { aTocar = cand; break; }
           }
+          const mio = ++toqueActual;
           aTocar.click();
           /* Si el toque no llevo a ningun lado, no se puede quedar esperando
-             para siempre: se pasa a la siguiente. Solo si sigue siendo esta:
-             ver saltearObjetivo. */
+             para siempre: se prueba con el titulo y despues se pasa a la
+             siguiente. Solo si este toque sigue siendo el ultimo: ver
+             saltearObjetivo. */
           setTimeout(() => {
-            if (idDeUrlItem(location.href)) return;
+            if (mio !== toqueActual || idDeUrlItem(location.href)) return;
             tocandoHasta = 0;
-            saltearObjetivo(objetivo.id, hechos);
+            saltearObjetivo(objetivo.id, hechos, true);
           }, 4000);
         }, 400);
         return;

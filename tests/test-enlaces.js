@@ -31,7 +31,7 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
      guardar nada de lo que se ve adentro. */
   const { srv, base } = await servir(__dirname, {
     '/marketplace/search': 'fixture-enlaces.html',
-    '/marketplace/item': 'fixture-item.html'
+    '/marketplace/item/*': 'fixture-item.html'
   });
   const navegador = await chromium.launch({
     executablePath: process.env.PLAYWRIGHT_CHROMIUM ||
