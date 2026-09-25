@@ -114,7 +114,7 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
   console.log('\nBuscar los enlaces entrando a la publicacion');
 
   const enlaceDe = (titulo) => {
-    const it = items.find((x) => x.t === titulo);
+    const it = items.find((x) => (x.lista || x.t) === titulo);
     return it ? 'https://www.facebook.com/marketplace/item/' + it.id + '/' : null;
   };
   const idsAntes = new Set(catalogo.keys());
@@ -176,6 +176,27 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
     assert.ok(!guardado.cazaEnlaces, JSON.stringify(guardado.cazaEnlaces)));
 
   prueba('sin errores de javascript', () => assert.deepStrictEqual(errores, []));
+
+  /* Con muchas que coinciden tienen que entrar TODAS a la busqueda. Habia un
+     tope de 40: arrancaba "buscando 40 enlaces" y las demas quedaban sin
+     enlace sin que nadie las intentara. */
+  await pagina.goto(base + '/marketplace/search/?query=audi%20a5&muchas=45');
+  await pagina.waitForTimeout(1000);
+  for (let i = 0; i < 40; i++) {
+    const n = await pagina.evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+      return document.querySelectorAll('.celda').length;
+    });
+    if (n >= 45) break;
+    await pagina.waitForTimeout(300);
+  }
+  await pagina.waitForTimeout(1500);
+  await pagina.evaluate(() => window.MPF.diagnostico.buscarEnlaces());
+  await pagina.waitForTimeout(300);
+  const enCola = guardado.cazaEnlaces ? guardado.cazaEnlaces.cola.length : 0;
+  await pagina.evaluate(() => window.MPF.diagnostico.pararBusquedaDeEnlaces());
+  prueba('con 45 que coinciden, las 45 entran a la busqueda', () =>
+    assert.strictEqual(enCola, 45));
 
   await navegador.close();
   srv.close();

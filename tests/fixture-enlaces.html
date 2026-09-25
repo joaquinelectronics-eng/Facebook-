@@ -24,13 +24,21 @@ const A5 = {
   9:  'Audi a5 quattro 3.2 At',
   17: 'Audi A5 Coupe 1.8 Tfsi',
   23: 'Audi A5 Cabrio 2.0',
-  28: 'Audi A5 Sportback S-line'
+  28: 'Audi A5 Sportback 2.0 S-line'
 };
+/* Como viene cortado en la lista: "2.0" queda en "2." mas "...". Adentro de la
+   publicacion esta el titulo entero. */
+const CORTADOS = { 28: 'Audi A5 Sportback 2....' };
+/* ?muchas=N arma una lista donde las N coinciden: para ver que la busqueda
+   de enlaces no deje afuera a ninguna por haber demasiadas. */
+const MUCHAS = Number(new URLSearchParams(location.search).get('muchas')) || 0;
 const items = [];
-for (let i = 0; i < 30; i++) {
+for (let i = 0; i < (MUCHAS || 30); i++) {
   items.push({
     p: '$' + (12 + i) + '.' + (100 + i * 7),
-    t: A5[i] || (OTROS[i % OTROS.length] + ' ' + (2005 + i)),
+    t: MUCHAS ? 'Audi A5 unidad ' + (i + 1)
+              : A5[i] || (OTROS[i % OTROS.length] + ' ' + (2005 + i)),
+    lista: MUCHAS ? null : CORTADOS[i] || null,
     z: ZONAS[i % ZONAS.length],
     id: String(2001 + i),
     /* Casi todas navegan POR ADENTRO -sin recargar-, que es como lo hace la
@@ -56,7 +64,7 @@ function tarjeta(it) {
   caja.innerHTML =
     '<div class="foto"><img src="' + PIX + '"></div>' +
     '<div class="t"><span>' + partes[1] + '</span><span>' + partes[2] + '</span></div>' +
-    '<div class="t">' + it.t + '</div>' +
+    '<div class="t">' + (it.lista || it.t) + '</div>' +
     '<div class="t">' + it.z + '</div>';
   return caja;
 }

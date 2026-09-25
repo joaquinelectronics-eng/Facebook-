@@ -671,13 +671,13 @@
 
      Entonces se hace eso mismo, solo con las que coinciden con el filtro: se
      entra, se anota el numero, se vuelve atras y se sigue con la siguiente. Se
-     hace solo con las que coinciden porque son pocas -las que uno de verdad
-     quiere abrir- y asi son tres entradas y no doscientas.
+     hace solo con las que coinciden, que son las que uno de verdad quiere
+     abrir. Y con TODAS: antes habia un tope de 40 y las que pasaban de ahi
+     quedaban sin enlace sin que nadie las intentara.
 
      El estado vive en el almacenamiento: entrar a una publicacion recarga la
      pagina entera y en memoria no sobrevive nada. */
   const CLAVE_CAZA = 'cazaEnlaces';
-  const TOPE_CAZA = 40;
 
   function idDeUrlItem(href) {
     const m = /\/marketplace\/item\/(\d+)/.exec(String(href || ''));
@@ -710,7 +710,7 @@
       if (d.url || !d.coincide) continue;
       out.push({ senia: senia(d), titulo: d.titulo, precio: d.precioTexto, id: d.id });
     }
-    return out.slice(0, TOPE_CAZA);
+    return out;
   }
 
   function arrancarCaza() {
@@ -798,6 +798,8 @@
   function mismoTitulo(visto, buscado) {
     // Facebook le antepone a la pestania los avisos sin leer: "(4) Audi ..."
     const a = MPF.normalizar(String(visto || '').replace(/^\(\d+\)\s*/, ''));
+    /* Con cuatro puntos -"2...."- tambien anda: queda "2.", que es el
+       comienzo de "2.0". Esta probado. */
     const b = MPF.normalizar(String(buscado || '').replace(/\s*(?:\u2026|\.\.\.)\s*$/, ''));
     if (!a || !b) return false;
     // Si en la lista vino cortado, alcanza con que empiece igual.
