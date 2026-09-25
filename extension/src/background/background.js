@@ -5,6 +5,7 @@
    script. Facebook nunca ve ni toca estos datos, y nada sale de tu maquina. */
 
 import { AUTO_POR_DEFECTO, calcularProxima } from '../lib/agenda.mjs';
+import { fusionar } from '../lib/fusion.mjs';
 
 const DB_NOMBRE = 'mpf';
 const DB_VERSION = 1;
@@ -102,7 +103,10 @@ async function guardarItems(items) {
       }
     }
 
-    store.put(Object.assign({}, previo, nuevo, {
+    /* Lo nuevo actualiza, pero un dato vacio no borra uno que ya se sabia: ver
+       fusion.mjs. Sin esto la busqueda de enlaces encontraba cada enlace y la
+       relectura siguiente lo borraba. */
+    store.put(Object.assign(fusionar(previo, nuevo), {
       vistoPrimera: previo.vistoPrimera || ahora,
       vistoUltima: ahora,
       veces: (previo.veces || 1) + 1,

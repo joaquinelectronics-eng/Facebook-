@@ -45,13 +45,22 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
      publicacion recarga la pagina entera y en memoria no queda nada. */
   let guardado = { config: CONFIG };
   const guardadosEnCatalogo = [];
+  /* El catalogo de verdad, con la MISMA regla para juntar que usa el fondo.
+     Antes esta prueba solo anotaba lo que se mandaba y nunca juntaba nada, asi
+     que no podia ver lo que pasaba en el celular: el enlace se encontraba, y la
+     relectura al volver a la lista lo borraba. */
+  const { fusionar } = await import('../extension/src/lib/fusion.mjs');
+  const catalogo = new Map();
   await pagina.exposeFunction('leerGuardado', () => guardado);
   await pagina.exposeFunction('escribirGuardado', (parche) => {
     guardado = Object.assign({}, guardado, parche);
     return true;
   });
   await pagina.exposeFunction('anotarCatalogo', (items) => {
-    for (const it of items) guardadosEnCatalogo.push(it);
+    for (const it of items) {
+      guardadosEnCatalogo.push(it);
+      catalogo.set(it.id, fusionar(catalogo.get(it.id), it));
+    }
     return true;
   });
 
@@ -104,12 +113,29 @@ const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js
   prueba('entro a las publicaciones y volvio', () =>
     assert.ok(/\/marketplace\/search/.test(pagina.url()), pagina.url()));
 
-  const conEnlace = guardadosEnCatalogo.filter((x) => x.url);
-  prueba('guardo el enlace de las que coinciden', () => {
-    assert.ok(conEnlace.length >= 2, JSON.stringify(guardadosEnCatalogo.map((x) => x.url)));
+  /* Se da tiempo a que la lista se relea despues de la ultima vuelta: es esa
+     relectura la que borraba el enlace. */
+  await pagina.waitForTimeout(4000);
+
+  /* Lo que importa es lo que QUEDA en el catalogo, no lo que se mando alguna
+     vez: se mandaba bien y despues se borraba. */
+  const finales = Array.from(catalogo.values());
+  const conEnlace = finales.filter((x) => x.url);
+  prueba('el catalogo QUEDA con el enlace de las que coinciden', () => {
+    assert.ok(conEnlace.length >= 2,
+      JSON.stringify(finales.map((x) => [x.titulo, x.url])));
     for (const x of conEnlace) {
       assert.ok(/^https:\/\/www\.facebook\.com\/marketplace\/item\/\d+\/$/.test(x.url), x.url);
     }
+  });
+
+  /* Tiene que haber llegado alguna relectura SIN enlace de una que si lo
+     tiene: si no llega ninguna, esta prueba no estaria probando el caso que
+     rompia en el celular. */
+  prueba('llego la relectura sin enlace, que es la que lo borraba', () => {
+    const relecturas = guardadosEnCatalogo.filter((x) => !x.url &&
+      conEnlace.some((c) => c.id === x.id));
+    assert.ok(relecturas.length > 0, 'no hubo relectura: la prueba no cubre el caso');
   });
 
   prueba('no entro a las que no coinciden', () => {

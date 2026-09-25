@@ -4,7 +4,7 @@
   "private": true,
   "description": "Extension de Chrome para busqueda estricta en Facebook Marketplace",
   "scripts": {
-    "test": "node tests/test-logica.js && node tests/test-agenda.mjs && node tests/test-dom.js && node tests/test-movil.js && node tests/test-generico.js && node tests/test-enlaces.js && node tests/test-celular.js && node tests/test-catalogo.js",
+    "test": "node tests/test-logica.js && node tests/test-agenda.mjs && node tests/test-fusion.mjs && node tests/test-dom.js && node tests/test-movil.js && node tests/test-generico.js && node tests/test-enlaces.js && node tests/test-celular.js && node tests/test-catalogo.js",
     "bench": "node tests/bench.js"
   },
   "devDependencies": {
