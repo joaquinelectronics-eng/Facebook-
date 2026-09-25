@@ -716,26 +716,77 @@
   function arrancarCaza() {
     const faltan = sinEnlaceQueCoinciden();
     if (!faltan.length) { decir('no falta ningun enlace de las que coinciden', false); return; }
+    /* Se arranca desde arriba: la cola va en el orden en que se leyo la
+       lista, asi que de ahi en adelante todo lo que falta queda para abajo. */
+    irAPosicion(0);
     escribirCaza({ cola: faltan, hechos: 0 }, () => {
       decir('buscando ' + faltan.length + ' enlaces', true);
-      seguirCaza();
+      programarCaza(0);
     });
   }
 
-  function pararCaza() { escribirCaza(null); }
+  function pararCaza() { clearTimeout(turnoCaza); tocandoHasta = 0; escribirCaza(null); }
+
+  /* UNA SOLA busqueda a la vez. A seguirCaza la despiertan varias cosas -la
+     vuelta atras, el cambio de direccion, la carga de la pagina- y al volver
+     de cada publicacion llegaban dos o tres avisos juntos. Cada uno arrancaba
+     su propia busqueda, y esas busquedas en paralelo tocaban dos veces la
+     misma tarjeta o volvian atras dos veces: se salian de la lista y las que
+     quedaban se daban por perdidas. Ahora cada aviso reemplaza al anterior. */
+  let turnoCaza = null;
+  function programarCaza(ms) {
+    clearTimeout(turnoCaza);
+    turnoCaza = setTimeout(seguirCaza, ms);
+  }
+
+  /* Mientras se esta por tocar una tarjeta no se busca otra. */
+  let tocandoHasta = 0;
+  /* La publicacion desde la que ya se pidio volver: volver dos veces saca de
+     la lista. */
+  let volviendoDe = '';
+
+  /* Donde esta parada la lista. Hace falta para volver al mismo lugar despues
+     de entrar a una publicacion: Facebook rearma la lista desde arriba. */
+  function posicionScroll() {
+    const c = MPF.autoscroll.cajonDeScroll();
+    return c ? c.scrollTop : window.scrollY;
+  }
+
+  function irAPosicion(y) {
+    const c = MPF.autoscroll.cajonDeScroll();
+    if (c) c.scrollTop = y; else window.scrollTo(0, y);
+  }
+
+  function bajarUnaPantalla() {
+    const c = MPF.autoscroll.cajonDeScroll();
+    const alto = c ? c.clientHeight : window.innerHeight;
+    if (c) c.scrollBy(0, Math.round(alto * 0.9));
+    else window.scrollBy(0, Math.round(alto * 0.9));
+  }
 
   /* Cuando una tarjeta no se deja abrir se sigue con la que viene. Quedarse
-     trabado en una es peor que perderla. */
-  function saltearObjetivo() {
+     trabado en una es peor que perderla.
+
+     Se dice CUAL se saltea. El vigilante del toque salta a los 4 segundos, y
+     si en ese tiempo ya se entro, se anoto el enlace y se volvio, la primera
+     de la cola ya es otra: sin esta cuenta se salteaba esa otra sin haberla
+     buscado. Una de cada dos se perdia asi. */
+  function saltearObjetivo(idEsperado, hechosEsperados) {
     leerCaza((estado) => {
       if (!estado || !estado.cola || !estado.cola.length) return;
+      if (estado.cola[0].id !== idEsperado ||
+          (estado.hechos || 0) !== hechosEsperados) return;
       const resto = estado.cola.slice(1);
       if (!resto.length) {
         escribirCaza(null);
         decir('listo: se buscaron ' + (estado.hechos || 0) + ' enlaces', false);
         return;
       }
-      escribirCaza({ cola: resto, hechos: estado.hechos || 0, intentos: 0 }, seguirCaza);
+      /* La siguiente esta debajo de la ultima donde se entro, no debajo de
+         donde termino de buscar esta: se vuelve ahi. */
+      if (estado.volverA != null) irAPosicion(estado.volverA);
+      escribirCaza(Object.assign({}, estado, { cola: resto, intentos: 0, saltos: 0 }),
+                   () => programarCaza(0));
     });
   }
 
@@ -753,26 +804,42 @@
       /* Estamos DENTRO de una publicacion: se anota el enlace y se vuelve. */
       const id = idDeUrlItem(location.href);
       if (id) {
+        tocandoHasta = 0;
+        if (volviendoDe === location.href) return;   // ya se pidio volver
+        volviendoDe = location.href;
         const objetivo = estado.cola[0];
-        const datos = cache.get(objetivo.id) || { id: objetivo.id, titulo: objetivo.titulo };
-        guardarEnlaceHallado(datos, 'https://www.facebook.com/marketplace/item/' + id + '/');
-        const resto = estado.cola.slice(1);
-        escribirCaza({ cola: resto, hechos: (estado.hechos || 0) + 1, intentos: 0 }, () => {
-          history.back();
-        });
+        const hallados = estado.hallados || [];
+        /* Un numero que ya se le dio a otra es que se entro a la equivocada:
+           no se le pega a esta un enlace que no es el suyo. */
+        if (!hallados.includes(id)) {
+          const datos = cache.get(objetivo.id) || { id: objetivo.id, titulo: objetivo.titulo };
+          guardarEnlaceHallado(datos, 'https://www.facebook.com/marketplace/item/' + id + '/');
+        }
+        /* Se conserva todo lo demas -sobre todo donde estaba la lista-: antes
+           se escribia de cero y eso se perdia. */
+        escribirCaza(Object.assign({}, estado, {
+          cola: estado.cola.slice(1), hechos: (estado.hechos || 0) + 1,
+          intentos: 0, saltos: 0, hallados: hallados.concat(id)
+        }), () => { history.back(); });
         return;
       }
+      volviendoDe = '';
+      if (Date.now() < tocandoHasta) return;   // hay un toque en curso
 
       /* Estamos en la lista: se busca la tarjeta y se la toca. */
       const objetivo = estado.cola[0];
+      const hechos = estado.hechos || 0;
       const tarjetas = MPF.scraper.elementosTarjeta();
       for (const el of tarjetas) {
         const d = MPF.scraper.extraerDeTarjeta(el);
         if (!d || senia(d) !== objetivo.senia) continue;
         decir('entrando a: ' + (objetivo.titulo || 'sin titulo') +
-              ' (' + ((estado.hechos || 0) + 1) + ' de ' +
-              ((estado.hechos || 0) + estado.cola.length) + ')', true);
+              ' (' + (hechos + 1) + ' de ' + (hechos + estado.cola.length) + ')', true);
         el.scrollIntoView({ block: 'center' });
+        tocandoHasta = Date.now() + 5000;
+        /* Se anota donde quedo la lista antes de entrar: al volver, Facebook la
+           rearma desde arriba y la siguiente tarjeta queda fuera de lo cargado. */
+        escribirCaza(Object.assign({}, estado, { volverA: posicionScroll() }));
         /* Se toca en el MEDIO de la tarjeta, como haria una persona, y no sobre
            el elemento que nosotros dedujimos. La caja que deducimos suele ser
            la de afuera, y Facebook pone el manejador mas adentro: los eventos
@@ -799,22 +866,41 @@
           }
           aTocar.click();
           /* Si el toque no llevo a ningun lado, no se puede quedar esperando
-             para siempre: se pasa a la siguiente. */
-          setTimeout(() => { if (!idDeUrlItem(location.href)) saltearObjetivo(); }, 4000);
+             para siempre: se pasa a la siguiente. Solo si sigue siendo esta:
+             ver saltearObjetivo. */
+          setTimeout(() => {
+            if (idDeUrlItem(location.href)) return;
+            tocandoHasta = 0;
+            saltearObjetivo(objetivo.id, hechos);
+          }, 4000);
         }, 400);
         return;
       }
 
-      /* Todavia no aparecio. No se descarta al primer intento: al volver atras
-         Facebook rearma la lista y tarda, asi que buscarla una sola vez la
-         perdia siempre. Se reintenta un rato y recien despues se saltea. */
-      const intentos = (estado.intentos || 0) + 1;
-      if (intentos < 8) {
-        escribirCaza({ cola: estado.cola, hechos: estado.hechos || 0, intentos },
-                     () => setTimeout(seguirCaza, 1200));
+      /* Todavia no aparecio. Esperar no alcanza: al volver atras Facebook
+         rearma la lista desde arriba y solo carga las primeras. Las que estaban
+         mas abajo no existen hasta que alguien baja, y antes aca solo se
+         esperaba: a partir de la veintena se salteaban todas sin buscarlas.
+
+         Primero se salta a donde estaba la lista cuando se entro -la que sigue
+         esta de ahi para abajo-. Si Facebook todavia no cargo hasta ahi, el
+         salto llega al fondo de lo cargado, eso le hace cargar mas, y se
+         vuelve a saltar. Recien pasando ese lugar se baja de a una pantalla. */
+      const saltos = estado.saltos || 0;
+      if (estado.volverA != null && posicionScroll() < estado.volverA - 50 && saltos < 60) {
+        irAPosicion(estado.volverA);
+        escribirCaza(Object.assign({}, estado, { saltos: saltos + 1 }),
+                     () => programarCaza(1500));
         return;
       }
-      saltearObjetivo();
+      const intentos = (estado.intentos || 0) + 1;
+      if (intentos < 25) {
+        bajarUnaPantalla();
+        escribirCaza(Object.assign({}, estado, { intentos }),
+                     () => programarCaza(1200));
+        return;
+      }
+      saltearObjetivo(objetivo.id, hechos);
     });
   }
 
@@ -921,7 +1007,7 @@
          estabamos adentro. El cambio de direccion se nota aca. */
       if (location.href !== urlPrevia) {
         urlPrevia = location.href;
-        setTimeout(seguirCaza, 900);
+        programarCaza(900);
       }
 
       // Si corresponde ir a la version de celular, se va y no se hace nada mas.
@@ -935,6 +1021,16 @@
       if (!ui) { montarPanel(); return; }   // recien entraste a Marketplace
       ui.mostrar(true);
       ui.modoEscritorio(pidieronEscritorio());
+
+      /* ADENTRO DE UNA PUBLICACION NO SE LEE NADA.
+
+         La pagina de una publicacion tiene foto, precio, titulo y zona: para
+         el lector es "una tarjeta", y la guardaba como publicacion nueva, con
+         la zona escrita de otra forma -"Publicado el viernes en ..."-. Mas las
+         de "similares" que Facebook pone abajo. Cada vez que la busqueda de
+         enlaces entraba a una, el catalogo sumaba duplicados. Aca solo se
+         juntan resultados de busqueda. */
+      if (idDeUrlItem(location.href)) return;
 
       /* PRIMERO se lee todo lo nuevo, sin tocar un solo estilo. Leer el texto
          de una tarjeta obliga al navegador a recalcular el layout, y si entre
@@ -1212,7 +1308,7 @@
         setTimeout(seguirRecorrida, 2500);
         /* Si quedo una caza de enlaces a medias -entrar a una publicacion
            recarga la pagina- sigue sola desde donde iba. */
-        setTimeout(seguirCaza, 3000);
+        programarCaza(3000);
       });
     } catch (e) {
       configCargada = true;   // sin almacenamiento se sigue con lo de fabrica
@@ -1233,8 +1329,8 @@
     /* Al volver atras el navegador puede restaurar la pagina tal cual estaba,
        sin volver a ejecutar nada. Sin esto, la busqueda de enlaces entraba a
        la primera publicacion y despues se quedaba quieta para siempre. */
-    window.addEventListener('pageshow', () => { setTimeout(seguirCaza, 1200); });
-    window.addEventListener('popstate', () => { setTimeout(seguirCaza, 1200); });
+    window.addEventListener('pageshow', () => { programarCaza(1200); });
+    window.addEventListener('popstate', () => { programarCaza(1200); });
 
     new MutationObserver(pasada).observe(document.body, { childList: true, subtree: true });
     window.addEventListener('beforeunload', vaciarColaDeIndexado);

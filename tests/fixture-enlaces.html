@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="es"><head><meta charset="utf-8"><title>Marketplace con tarjetas que navegan</title>
 <style>
-html,body{margin:0;height:100%;font-family:sans-serif;background:#fff}
+html,body{margin:0;font-family:sans-serif;background:#fff}
 .fila{display:flex}.celda{width:50%}.t{padding:4px}.foto{height:150px}
 </style></head>
 <body>
@@ -11,42 +11,82 @@ html,body{margin:0;height:100%;font-family:sans-serif;background:#fff}
      el enlace. Es la unica forma que quedaba. -->
 <div id="raiz"></div>
 <script>
-const items = [
-  {p:'$19.500', t:'Audi A5 Sportback 2.0t',    z:'Lanús Este, BA',       id:'1101', interno:true},
-  {p:'$13.800', t:'Audi A1 Sportback Único',   z:'Ciudad de Buenos Aires, CF', id:'1102'},
-  {p:'$22.000', t:'Audi a5 quattro 3.2 At',    z:'Quilmes, BA',          id:'1103', interno:true}
-];
+/* Una lista larga, como la de verdad, con las que coinciden repartidas:
+   varias quedan MAS ABAJO de lo que Facebook carga de entrada. Con tres
+   tarjetas en total la prueba no podia ver que la busqueda se cortaba a
+   partir de la veintena. */
+const OTROS = ['Audi A1 Sportback Único', 'Audi A3 1.4 Tfsi', 'Audi Q3 2.0 Quattro',
+               'Audi TT Coupe 1.8', 'Audi A4 Avant 1.8t', 'Audi Q5 3.0 Tdi'];
+const ZONAS = ['Lanús Este, BA', 'Ciudad de Buenos Aires, CF', 'Quilmes, BA', 'Rosario, SF'];
+const A5 = {
+  1:  'Audi A5 Sportback 2.0t',
+  9:  'Audi a5 quattro 3.2 At',
+  17: 'Audi A5 Coupe 1.8 Tfsi',
+  23: 'Audi A5 Cabrio 2.0',
+  28: 'Audi A5 Sportback S-line'
+};
+const items = [];
+for (let i = 0; i < 30; i++) {
+  items.push({
+    p: '$' + (12 + i) + '.' + (100 + i * 7),
+    t: A5[i] || (OTROS[i % OTROS.length] + ' ' + (2005 + i)),
+    z: ZONAS[i % ZONAS.length],
+    id: String(2001 + i),
+    /* Casi todas navegan POR ADENTRO -sin recargar-, que es como lo hace la
+       version de celular de verdad; una recarga. Las dos tienen que andar. */
+    interno: i !== 9
+  });
+}
+window.ITEMS_PRUEBA = items;
+
+const LOTE = 8;
+let cargados = 0;
 const PIX = 'data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==';
 const raiz = document.getElementById('raiz');
 
-/* La lista se vuelve a dibujar al volver atras, como hace Facebook. Sin esto
-   la navegacion por adentro dejaba la pagina vacia y la busqueda no podia
-   encontrar la tarjeta siguiente: un defecto de la prueba, no del codigo. */
-function pintar() {
-  raiz.innerHTML = '';
-  for (let i = 0; i < items.length; i += 2) {
+function tarjeta(it) {
+  const caja = document.createElement('div');
+  const partes = it.p.match(/^(\D+)(.+)$/);
+  caja.innerHTML =
+    '<div class="foto"><img src="' + PIX + '"></div>' +
+    '<div class="t"><span>' + partes[1] + '</span><span>' + partes[2] + '</span></div>' +
+    '<div class="t">' + it.t + '</div>' +
+    '<div class="t">' + it.z + '</div>';
+  return caja;
+}
+
+/* La publicacion por dentro, como la de verdad: foto, precio, titulo, la zona
+   escrita de otra forma y abajo "similares". Todo eso tiene pinta de tarjeta,
+   y leerlo llenaba el catalogo de duplicados. */
+function pintarPublicacion(it) {
+  const partes = it.p.match(/^(\D+)(.+)$/);
+  raiz.innerHTML =
+    '<div><div class="foto"><img src="' + PIX + '"></div>' +
+    '<h1>' + it.t + '</h1>' +
+    '<div><span>' + partes[1] + '</span><span>' + partes[2] + '</span></div>' +
+    '<p>Publicado hace 2 semanas en ' + it.z + '</p></div>' +
+    '<h2>Similares</h2>' +
+    '<div class="fila"><div class="celda"><div><div class="foto"><img src="' + PIX + '"></div>' +
+    '<div class="t"><span>$</span><span>21.900</span></div>' +
+    '<div class="t">Audi A5 2011 impecable</div><div class="t">Morón, BA</div></div></div></div>';
+  window.scrollTo(0, 0);
+}
+
+function agregarLote() {
+  const hasta = Math.min(items.length, cargados + LOTE);
+  for (let i = cargados; i < hasta; i += 2) {
     const fila = document.createElement('div');
     fila.className = 'fila';
-    for (const it of items.slice(i, i + 2)) {
+    for (const it of items.slice(i, Math.min(i + 2, hasta))) {
       const celda = document.createElement('div');
       celda.className = 'celda';
-      const caja = document.createElement('div');
-      const partes = it.p.match(/^(\D+)(.+)$/);
-      caja.innerHTML =
-        '<div class="foto"><img src="' + PIX + '"></div>' +
-        '<div class="t"><span>' + partes[1] + '</span><span>' + partes[2] + '</span></div>' +
-        '<div class="t">' + it.t + '</div>' +
-        '<div class="t">' + it.z + '</div>';
-      /* Tocar la tarjeta navega, igual que en Facebook: no hay href en ningun
-         lado. La primera navega POR ADENTRO -sin recargar-, que es como lo
-         hace la version de celular de verdad, y la otra recarga. Las dos
-         tienen que andar: mirando solo la recarga, la de adentro entraba y se
-         quedaba. */
+      const caja = tarjeta(it);
+      // Tocar la tarjeta navega, igual que en Facebook: no hay href en ningun lado.
       caja.addEventListener('click', () => {
         const destino = '/marketplace/item/' + it.id + '/?ref=search';
         if (it.interno) {
           history.pushState({}, '', destino);
-          raiz.innerHTML = '<h1>' + it.t + '</h1>';
+          pintarPublicacion(it);
         } else {
           location.assign(destino);
         }
@@ -56,9 +96,29 @@ function pintar() {
     }
     raiz.appendChild(fila);
   }
+  cargados = hasta;
 }
 
-pintar();
-window.addEventListener('popstate', pintar);
+/* Al volver atras Facebook rearma la lista DESDE ARRIBA y solo con el primer
+   lote: las que estaban mas abajo no existen hasta que alguien baja. */
+function pintarLista() {
+  raiz.innerHTML = '';
+  cargados = 0;
+  agregarLote();
+  window.scrollTo(0, 0);
+}
+
+window.addEventListener('scroll', () => {
+  if (/\/marketplace\/item\//.test(location.pathname)) return;
+  const el = document.documentElement;
+  if (cargados < items.length && window.scrollY + window.innerHeight >= el.scrollHeight - 200) {
+    agregarLote();
+  }
+});
+
+pintarLista();
+window.addEventListener('popstate', () => {
+  if (!/\/marketplace\/item\//.test(location.pathname)) pintarLista();
+});
 </script>
 </body></html>
