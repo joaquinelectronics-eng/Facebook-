@@ -36,11 +36,25 @@
         "https://m.facebook.com/*"
       ],
       "js": [
+        "src/content/escucha.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN",
+      "all_frames": false
+    },
+    {
+      "matches": [
+        "https://www.facebook.com/*",
+        "https://web.facebook.com/*",
+        "https://m.facebook.com/*"
+      ],
+      "js": [
         "src/lib/normalize.js",
         "src/lib/price.js",
         "src/lib/matcher.js",
         "src/lib/zonas.js",
         "src/lib/recorrida.js",
+        "src/lib/datos.js",
         "src/content/scraper.js",
         "src/content/panel.js",
         "src/content/autoscroll.js",

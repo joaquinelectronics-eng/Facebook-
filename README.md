@@ -236,31 +236,30 @@ madrugada, es un patrón que ninguna persona tiene. Por eso:
 La elección es tuya y la extensión no te la bloquea. Pero si me preguntás,
 **3 corridas por día alcanzan**: el catálogo crece igual y sos invisible.
 
-## IMPORTANTE: usá Marketplace en modo teléfono
+## IMPORTANTE: usá Marketplace en escritorio
 
-Facebook sirve **dos páginas distintas** según el dispositivo, y la diferencia
-decide si esto funciona o no:
+Antes de dibujar una tarjeta, Facebook le manda a la página los datos de la
+publicación: número, título completo, precio, precio tachado y zona. Y los
+manda también de las que todavía no dibujó. La extensión lee **una copia** de
+esos datos —no pide nada, no cambia nada de lo que recibe Facebook— y de ahí
+saca todo.
+
+Medido en la página real, buscando "audi a4" y bajando cinco pantallas:
 
 | | |
 |---|---|
-| **Escritorio** | Manda la mayoría de las tarjetas **sin título**. Ni en el texto, ni en el `aria-label`, ni en el `alt`. No hay nada que leer |
-| **Móvil** | **Manda los títulos.** Además vienen limpios y separados: precio, título, zona |
+| **Escritorio** | 48 publicaciones en los datos, **las 48 con número, título, precio, zona y fecha**. Los 48 enlaces de la pantalla estaban todos ahí |
+| **Celular** | **Ninguna.** Facebook le manda al celular las tarjetas ya armadas por un WebSocket, con título, precio y zona, pero sin el número de la publicación en ningún lado |
 
-Por eso conviene trabajar sobre la versión móvil, y es un clic:
+Por eso en escritorio cada publicación queda en el catálogo **con su enlace**,
+aunque la tarjeta no se haya llegado a dibujar o se haya dibujado sin título.
 
-1. En Marketplace, **F12**
-2. **Ctrl + Shift + M** (aparece arriba una barra con "Dimensions")
-3. Elegí cualquier teléfono
-4. **F5**
-
-La extensión reconoce las dos versiones sola y se adapta.
-
-> **Detalle de la versión móvil:** las tarjetas no son enlaces —Facebook usa ahí
-> su propio sistema de componentes— así que no expone el link de cada
-> publicación. El filtrado, el catálogo y el historial de precios funcionan
-> igual (cada publicación se reconoce por su título y su zona), pero el botón
-> *Abrir en Facebook* del catálogo no tiene adónde llevarte en esas. Para
-> abrirlas, hacés clic en la tarjeta como siempre.
+La extensión reconoce las dos versiones sola. En la de celular el filtrado,
+el catálogo y el historial de precios funcionan igual (cada publicación se
+reconoce por su título y su zona), pero esas quedan **sin enlace**: el botón
+*Abrir en Facebook* del catálogo no tiene adónde llevarte. Para tenerlas con
+enlace, recorré la búsqueda en escritorio (botón **Ir a escritorio** del
+panel).
 
 ## Cómo decide si una publicación es la que buscás
 
@@ -333,8 +332,8 @@ Está pensada para no llamar la atención, y conviene entender por qué:
 
 - **No le pide nada a Facebook.** Los datos los carga la página, con tu sesión y
   tu navegador de siempre. La extensión solo lee lo que ya está en tu pantalla y
-  esconde lo que no sirve. Desde el servidor de Facebook, eso es indistinguible
-  de vos mirando el monitor.
+  una copia de lo que la página ya recibió. Desde el servidor de Facebook, eso
+  es indistinguible de vos mirando el monitor.
 - **No usa automatización detectable.** No hay Selenium ni Playwright manejando el
   navegador, que es lo que Facebook sí detecta.
 - **No manda mensajes ni hace clics automáticos.** Eso es lo que dispara bloqueos
@@ -353,27 +352,42 @@ Es tu cuenta, tus ojos y uso personal.
 
 Facebook cambia su código seguido. La extensión está hecha para aguantarlo:
 **no usa ni una sola clase CSS de Facebook**, porque están ofuscadas y cambian
-cada pocas semanas. Se apoya únicamente en el link de cada publicación
-(`/marketplace/item/…`), que Facebook no puede cambiar sin romper su propio sitio.
+cada pocas semanas. Se apoya en el link de cada publicación
+(`/marketplace/item/…`), que Facebook no puede cambiar sin romper su propio sitio,
+y en los datos busca las publicaciones **por su forma** —un objeto con número y
+título de publicación— y no por el lugar donde vienen hoy, que es lo que
+Facebook cambia.
 
 Si algún día no detecta las tarjetas:
 
 1. Recargá la página de Marketplace.
 2. Entrá a `chrome://extensions` y tocá el botón de recargar de la extensión.
-3. Si sigue sin andar, avisá: el archivo a revisar es
-   `extension/src/content/scraper.js`.
+3. Si sigue sin andar, avisá: los archivos a revisar son
+   `extension/src/content/scraper.js` (la pantalla) y
+   `extension/src/lib/datos.js` (los datos). Para ver qué está mandando
+   Facebook, pegá `docs/diagnostico-datos.js` en la consola.
 
 ## Para desarrollar
 
 ```bash
 npm install
-npm test          # 66 pruebas de lógica y agenda + 61 de navegador real
+npm test
 ```
 
 Las pruebas levantan Chromium contra una réplica del DOM de Marketplace y
 verifican que el filtrado deje exactamente las publicaciones correctas. El
 catálogo se sirve por http porque usa módulos ES, igual que dentro de la
-extensión.
+extensión. En Windows, con el Chrome instalado:
+
+```powershell
+$env:PLAYWRIGHT_CHROMIUM = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+npm test
+```
+
+Las respuestas de `tests/datos/` son **reales**, sacadas de la página de
+verdad y anonimizadas (números de publicación, fotos, vendedores y ubicación
+del usuario cambiados). Las salidas crudas de los diagnósticos van a
+`diagnosticos/`, que no se sube.
 
 ### Estructura
 
@@ -387,7 +401,11 @@ extension/
       matcher.js      Coincidencia estricta de títulos  <- el corazón
       zonas.js        Provincias argentinas y sus abreviaturas
       agenda.mjs      Cuándo toca la próxima corrida automática
+      datos.js        Encuentra las publicaciones en los datos de Facebook
+      fusion.mjs      Juntar lo guardado con lo nuevo: un vacío no pisa un dato
     content/
+      escucha.js      Corre dentro de la página: lee una copia de las
+                      respuestas de /api/graphql/ y se las pasa a content.js
       scraper.js      Lectura del DOM sin usar clases de Facebook
       panel.js        Panel flotante (shadow DOM)
       autoscroll.js   Barrido a ritmo humano
@@ -402,7 +420,14 @@ docs/
                       extensión: sirve para diagnosticar sin adivinar.
   inspeccionar-movil.js  Lo mismo para la versión móvil, donde las tarjetas
                       no son enlaces.
+  diagnostico-datos.js  Mide qué publicaciones vienen en los datos que
+                      Facebook le manda a la página
 tests/
+  datos/              Respuestas reales anonimizadas de escritorio y una
+                      muestra de lo que le llega al celular
+  test-datos.js       Leer esas respuestas: número, título, precio, zona
+  test-datos-pagina.js  De punta a punta bajo www.facebook.com, sin salir a la
+                      red: que todas queden en el catálogo con SU enlace
   bench.js            Cuánto tarda la extensión con miles de resultados
   bench-progresivo.js Lo mismo pero con las tarjetas llegando de a poco,
                       que es como pasa de verdad al barrer

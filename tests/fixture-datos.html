@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><title>Marketplace (replica con datos)</title>
+<script>
+/* Como en la pagina real, la pagina pide la tanda siguiente a /api/graphql/
+   por XHR apenas arranca: la respuesta puede llegar ANTES de que el content
+   script este escuchando, y igual no se tiene que perder. */
+window.PAGINA = { xhr: null, fetch: null, foto: null };
+(function () {
+  var x = new XMLHttpRequest();
+  x.open('POST', '/api/graphql/');
+  x.onload = function () {
+    var j = JSON.parse(x.responseText);
+    var edges = j.data.marketplace_search.feed_units.edges;
+    window.PAGINA.xhr = edges.length;
+    window.alLlegarGraphql && window.alLlegarGraphql(edges);
+  };
+  x.send('q=1');
+})();
+</script>
+<style>body{margin:0;font-family:sans-serif;background:#fff}
+.x1n2onr6{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;padding:16px}
+.xjbqb8w{font-weight:700}</style></head>
+<body>
+<!--DATOS_DE_LA_PAGINA-->
+<div id="raiz"><div class="x78zum5 xdt5ytf"><div class="x1n2onr6" id="grilla"></div></div></div>
+<script>
+/* Las tarjetas que Facebook dibuja: pocas, y algunas sin titulo todavia
+   (solo precio y zona), como pasa en escritorio con las que estan lejos de la
+   vista. Las demas publicaciones estan en los datos pero NO se dibujan. */
+var grilla = document.getElementById('grilla');
+function tarjeta(it) {
+  var celda = document.createElement('div');
+  celda.className = 'x9f619 x1n2onr6 x1ja2u2z';
+  celda.innerHTML =
+    '<div class="x1lliihq"><div class="x78zum5">' +
+      '<a href="/marketplace/item/' + it.id + '/?ref=search" class="x1i10hfl">' +
+        '<div class="xt7dq6l">' +
+          '<div class="xjbqb8w"><span>' + it.p + '</span></div>' +
+          (it.t ? '<div class="x1lliihq"><span>' + it.t + '</span></div>' : '') +
+          '<div class="x1lliihq"><span>' + it.zona + '</span></div>' +
+        '</div>' +
+      '</a>' +
+    '</div></div>';
+  grilla.appendChild(celda);
+}
+// De las cuatro que vienen escritas en la pagina se dibujan dos.
+tarjeta({ id: '9100000000205894', t: '', p: '$7.500', zona: 'Bella Vista, BA' });
+tarjeta({ id: '9100000000245488', t: 'Audi a4 2.0 T 2011', p: '$7.500', zona: 'Ricardo Rojas, BA' });
+// De las cinco que llegan por graphql se dibujan dos, una con el titulo cortado.
+window.alLlegarGraphql = function () {
+  tarjeta({ id: '9100000000095028', t: 'Audi A4 Quattro 1.8 Turbo Integ…', p: '$14.000', zona: 'Moreno, BA' });
+  tarjeta({ id: '9100000000134624', t: '', p: '$11.000', zona: 'Ciudad de Buenos Aires, CF' });
+};
+if (window.PAGINA.xhr != null) window.alLlegarGraphql();
+
+/* Un fetch con "for (;;);" adelante y dos renglones, y una foto. La foto no
+   trae publicaciones y no se tiene que copiar; las dos respuestas le tienen
+   que llegar enteras a la pagina igual que siempre. */
+setTimeout(function () {
+  fetch('/ajax/otra/').then(function (r) { return r.text(); })
+    .then(function (t) { window.PAGINA.fetch = t.length; });
+  fetch('/foto.png').then(function (r) { return r.blob(); })
+    .then(function (b) { window.PAGINA.foto = b.size; });
+}, 800);
+</script>
+</body></html>

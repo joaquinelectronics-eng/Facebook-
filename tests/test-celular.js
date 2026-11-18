@@ -13,7 +13,7 @@ const archivo = (p) => path.join(__dirname, '..', 'extension', p);
 const PAGINA = fs.readFileSync(path.join(__dirname, 'fixture-generico.html'), 'utf8');
 const recorrida = require(path.join(__dirname, '..', 'extension', 'src', 'lib', 'recorrida.js'));
 const GUIONES = ['src/lib/normalize.js', 'src/lib/price.js', 'src/lib/matcher.js',
-                 'src/lib/zonas.js', 'src/lib/recorrida.js', 'src/content/scraper.js', 'src/content/panel.js',
+                 'src/lib/zonas.js', 'src/lib/recorrida.js', 'src/lib/datos.js', 'src/content/scraper.js', 'src/content/panel.js',
                  'src/content/autoscroll.js', 'src/content/content.js'];
 
 (async () => {

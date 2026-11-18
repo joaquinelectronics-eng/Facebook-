@@ -2,3 +2,6 @@ node_modules/
 package-lock.json
 .DS_Store
 *.log
+# Salidas de los diagnosticos corridos en la pagina real: traen numeros y
+# titulos de publicaciones de verdad, y no salen de la PC.
+diagnosticos/

@@ -256,7 +256,6 @@
              pasa de uno al otro todo el tiempo. Va en el pie, que queda fijo
              aunque el panel este scrolleado. -->
         <button class="secundario" id="releer">Releer las que faltan</button>
-        <button class="secundario" id="buscarEnlaces">Buscar los enlaces que faltan</button>
         <button class="secundario" id="escritorio">Ir a escritorio (los enlaces)</button>
       </div>
 
@@ -286,7 +285,7 @@
       cotizacion: $('cotizacion'), umbral: $('umbral'), ocultar: $('ocultar'),
       velocidad: $('velocidad'), soloBajadas: $('soloBajadas'),
       pendientes: $('pendientes'), tocarLaPagina: $('tocarLaPagina'),
-      releer: $('releer'), buscarEnlaces: $('buscarEnlaces'),
+      releer: $('releer'),
       listaBusquedas: $('listaBusquedas'), recorrer: $('recorrer'),
       recorrerEscritorio: $('recorrerEscritorio'),
       escritorio: $('escritorio'),
@@ -378,7 +377,6 @@
       callbacks.alRecorrer(el.listaBusquedas.value, el.recorrerEscritorio.checked));
     el.escritorio.addEventListener('click', () => callbacks.alIrAEscritorio());
     el.releer.addEventListener('click', () => callbacks.alReleer());
-    el.buscarEnlaces.addEventListener('click', () => callbacks.alBuscarEnlaces());
     el.catalogo.addEventListener('click', () => callbacks.alAbrirCatalogo());
     el.guardarBusq.addEventListener('click', () => callbacks.alGuardarBusqueda());
     el.frenar.addEventListener('click', (e) => { e.stopPropagation(); callbacks.alBarrer(); });

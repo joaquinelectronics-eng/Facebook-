@@ -60,7 +60,6 @@
   const cache = new Map();       // id -> datos de la tarjeta
   const porIndexar = new Map();  // id -> datos pendientes de guardar
   let temporizadorIndex = null;
-  let urlPrevia = location.href;
 
   /* Cada cambio de configuracion sube este numero. Las tarjetas recuerdan con
      que version fueron evaluadas, asi una pasada sobre miles de resultados no
@@ -362,7 +361,9 @@
        ningun selector que las junte. */
     for (const link of MPF.scraper.elementosTarjeta()) {
       if (link.hasAttribute('data-mpf-id')) continue;
-      const datos = MPF.scraper.extraerDeTarjeta(link);
+      /* Si los datos ya trajeron esta publicacion, de ahi sale el titulo
+         entero: no hace falta esperar a que Facebook lo dibuje. */
+      const datos = conLosDatos(MPF.scraper.extraerDeTarjeta(link));
       if (!datos) continue;              // todavia no se dibujo nada
       /* Sin titulo todavia: Facebook dibuja las tarjetas por partes, asi que se
          vuelve a mirar unas cuantas veces antes de darla por ilegible. */
@@ -437,7 +438,7 @@
       if (!datos) {
         /* Tarjeta marcada pero sin datos. Se relee, aunque implique un
            recalculo de layout: es un caso raro y perderla seria peor. */
-        datos = MPF.scraper.extraerDeTarjeta(link);
+        datos = conLosDatos(MPF.scraper.extraerDeTarjeta(link));
         if (!datos) continue;
         link.setAttribute('data-mpf-id', datos.id);
         cache.set(datos.id, datos);
@@ -450,7 +451,7 @@
          pantalla y la extension seguia con el dato viejo, de cuando la tarjeta
          era un esqueleto. Releerla cuesta centesimas de milisegundo. */
       if (desdeCero && datos.tituloDudoso) {
-        const frescos = MPF.scraper.extraerDeTarjeta(link);
+        const frescos = conLosDatos(MPF.scraper.extraerDeTarjeta(link));
         if (frescos) rescatarTitulo(frescos);
         if (frescos && !frescos.tituloDudoso) {
           cache.set(frescos.id, frescos);
@@ -662,359 +663,125 @@
     });
   }
 
-  /* ------------------------------------------------- buscar los enlaces que faltan
+  /* -------------------------------------------- lo que Facebook le manda a la pagina
 
-     En la version de celular las tarjetas no son enlaces y Facebook no escribe
-     la direccion de la publicacion en ningun lado -medido: cero en toda la
-     pagina-. Pero al TOCAR una tarjeta, la direccion del navegador pasa a ser
-     .../marketplace/item/<numero>/. Ahi esta el enlace.
+     Antes de dibujar una tarjeta Facebook le pasa a la pagina los datos de la
+     publicacion: numero, titulo completo, precio, precio tachado y zona. Y los
+     manda tambien de las que todavia no se dibujaron. Medido en la pagina real
+     en escritorio: 48 de 48 con numero y titulo. Leer eso es leer lo mismo que
+     la pantalla, pero entero y antes, sin entrar a ninguna publicacion y sin
+     tocar nada.
 
-     Entonces se hace eso mismo, solo con las que coinciden con el filtro: se
-     entra, se anota el numero, se vuelve atras y se sigue con la siguiente. Se
-     hace solo con las que coinciden, que son las que uno de verdad quiere
-     abrir. Y con TODAS: antes habia un tope de 40 y las que pasaban de ahi
-     quedaban sin enlace sin que nadie las intentara.
+     Llega por dos caminos: un <script type="application/json"> que ya viene en
+     la pagina (las primeras) y las respuestas de /api/graphql/ que la pagina
+     pide al bajar, que escucha.js lee desde adentro y pasa por postMessage.
 
-     El estado vive en el almacenamiento: entrar a una publicacion recarga la
-     pagina entera y en memoria no sobrevive nada. */
-  const CLAVE_CAZA = 'cazaEnlaces';
+     En el celular no llega nada por aca: Facebook le manda las tarjetas ya
+     armadas como HTML, sin el numero. Ahi las tarjetas siguen sin enlace. */
+  const MARCA_DATOS = '__mpfDatos';
+  const delosDatos = new Map();     // id -> publicacion tal como vino en los datos
+  const datosPorProcesar = [];      // lo recibido y todavia no guardado
+  const scriptsLeidos = new WeakSet();
 
   function idDeUrlItem(href) {
     const m = /\/marketplace\/item\/(\d+)/.exec(String(href || ''));
     return m ? m[1] : '';
   }
 
-  /* Como se reconoce una tarjeta despues de volver atras: por lo que se ve en
-     ella. El id que armamos nosotros no sirve si el titulo se leyo distinto. */
-  function senia(d) {
-    return MPF.normalizar((d.titulo || '') + '|' + (d.precioTexto || '') +
-                          '|' + (d.ubicacion || ''));
+  function vacio(v) {
+    return v == null || v === '';
   }
 
-  function leerCaza(cb) {
-    try {
-      chrome.storage.local.get(CLAVE_CAZA, (g) => cb((g && g[CLAVE_CAZA]) || null));
-    } catch (e) { cb(null); }
+  /* La publicacion de los datos con la misma forma que una tarjeta leida, asi
+     el filtro y el catalogo no tienen que saber de donde vino. */
+  function comoTarjeta(p) {
+    const extra = (p.subtitulos || []).join(' · ');
+    const mAnio = String(p.titulo || '').match(/\b(19[5-9]\d|20[0-4]\d)\b/);
+    return {
+      id: p.id,
+      titulo: p.titulo,
+      tituloDudoso: false,
+      tituloCortado: false,
+      textoBusqueda: [p.titulo, extra].filter(Boolean).join(' · '),
+      precioTexto: p.precioTexto,
+      precioAnteriorTexto: p.precioAnteriorTexto,
+      ubicacion: p.ubicacion,
+      km: extra ? MPF.scraper.extraerKm(extra) : null,
+      anio: mAnio ? Number(mAnio[1]) : null,
+      provincia: MPF.zonas ? MPF.zonas.detectarProvincia(p.ubicacion) : null,
+      url: p.url,
+      imagen: p.imagen,
+      deLosDatos: true
+    };
   }
 
-  function escribirCaza(estado, cb) {
-    try {
-      chrome.storage.local.set({ [CLAVE_CAZA]: estado }, () => cb && cb());
-    } catch (e) { cb && cb(); }
-  }
-
-  /* Las que coinciden con el filtro y todavia no tienen enlace. */
-  function sinEnlaceQueCoinciden() {
-    const out = [];
-    for (const d of cache.values()) {
-      if (d.url || !d.coincide) continue;
-      out.push({ senia: senia(d), titulo: d.titulo, precio: d.precioTexto, id: d.id });
+  /* Una tarjeta leida en pantalla, completada con lo que dicen los datos de
+     esa misma publicacion. Los datos mandan en lo que traen -el titulo entero
+     en vez del cortado, el enlace-, pero un dato vacio nunca pisa uno lleno. */
+  function conLosDatos(d) {
+    if (!d) return d;
+    const p = delosDatos.get(d.id);
+    if (!p) return d;
+    const t = comoTarjeta(p);
+    const r = Object.assign({}, d);
+    for (const k of ['titulo', 'precioTexto', 'precioAnteriorTexto', 'ubicacion',
+                     'url', 'km', 'anio', 'provincia', 'imagen']) {
+      if (!vacio(t[k])) r[k] = t[k];
     }
-    return out;
+    r.tituloDudoso = false;
+    r.tituloCortado = false;
+    r.deLosDatos = true;
+    r.textoBusqueda = t.textoBusqueda + (d.textoBusqueda ? ' · ' + d.textoBusqueda : '');
+    return r;
   }
 
-  function arrancarCaza() {
-    const faltan = sinEnlaceQueCoinciden();
-    if (!faltan.length) { decir('no falta ningun enlace de las que coinciden', false); return; }
-    /* Se arranca desde arriba: la cola va en el orden en que se leyo la
-       lista, asi que de ahi en adelante todo lo que falta queda para abajo. */
-    irAPosicion(0);
-    escribirCaza({ cola: faltan, hechos: 0 }, () => {
-      decir('buscando ' + faltan.length + ' enlaces', true);
-      programarCaza(0);
-    });
+  function recibirTexto(texto) {
+    const lista = MPF.datos.publicacionesDe(texto);
+    if (!lista.length) return;
+    datosPorProcesar.push(...lista);
+    pasada();
   }
 
-  function pararCaza() { clearTimeout(turnoCaza); tocandoHasta = 0; escribirCaza(null); }
-
-  /* UNA SOLA busqueda a la vez. A seguirCaza la despiertan varias cosas -la
-     vuelta atras, el cambio de direccion, la carga de la pagina- y al volver
-     de cada publicacion llegaban dos o tres avisos juntos. Cada uno arrancaba
-     su propia busqueda, y esas busquedas en paralelo tocaban dos veces la
-     misma tarjeta o volvian atras dos veces: se salian de la lista y las que
-     quedaban se daban por perdidas. Ahora cada aviso reemplaza al anterior. */
-  let turnoCaza = null;
-  function programarCaza(ms) {
-    clearTimeout(turnoCaza);
-    turnoCaza = setTimeout(seguirCaza, ms);
-  }
-
-  /* Mientras se esta por tocar una tarjeta no se busca otra. */
-  let tocandoHasta = 0;
-  /* La publicacion desde la que ya se pidio volver: volver dos veces saca de
-     la lista. */
-  let volviendoDe = '';
-  /* Desde cuando se esta adentro de la publicacion actual, para darle tiempo
-     a Facebook a dibujarla antes de decidir si es el auto buscado. */
-  let adentroDe = '';
-  let adentroDesde = 0;
-  /* Cada toque tiene su numero: el vigilante de un toque viejo no decide nada. */
-  let toqueActual = 0;
-
-  /* Donde esta parada la lista. Hace falta para volver al mismo lugar despues
-     de entrar a una publicacion: Facebook rearma la lista desde arriba. */
-  function posicionScroll() {
-    const c = MPF.autoscroll.cajonDeScroll();
-    return c ? c.scrollTop : window.scrollY;
-  }
-
-  function irAPosicion(y) {
-    const c = MPF.autoscroll.cajonDeScroll();
-    if (c) c.scrollTop = y; else window.scrollTo(0, y);
-  }
-
-  function bajarUnaPantalla() {
-    const c = MPF.autoscroll.cajonDeScroll();
-    const alto = c ? c.clientHeight : window.innerHeight;
-    if (c) c.scrollBy(0, Math.round(alto * 0.9));
-    else window.scrollBy(0, Math.round(alto * 0.9));
-  }
-
-  /* ¿ES ESTE EL AUTO QUE SE BUSCABA?
-
-     El toque puede ir a parar a otro auto, y antes se guardaba el enlace de
-     donde se cayera: habia autos que abrian cualquier otro. Ahora, antes de
-     guardar, se compara con la publicacion misma. Medido adentro de una en
-     la version de celular: el titulo de la pestania es el del auto, el titulo
-     aparece tambien solo en su renglon, la lista no queda escondida abajo y
-     el primer precio dibujado es el del auto ("$7.500 por artículo ·
-     Disponible"). Tienen que coincidir el titulo Y el precio. */
-  const ESPERA_COMPROBAR = 5000;   // Facebook dibuja la publicacion de a poco
-  const RE_MONEDA = /(?:u\$s|us\$|usd|ars|\$)/i;
-
-  function renglonesDibujados(tope) {
-    const out = [];
-    // El panel propio vive en su propia raiz y este recorrido no entra ahi.
-    const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
-    let n;
-    while ((n = w.nextNode()) && out.length < tope) {
-      const t = n.textContent.trim();
-      const el = n.parentElement;
-      if (t && el && el.getClientRects().length) out.push(t);
+  /* Las primeras publicaciones no llegan por graphql: vienen escritas en la
+     pagina. Se leen una sola vez cada una. */
+  function leerDatosDeLaPagina() {
+    for (const s of document.querySelectorAll('script[type="application/json"]')) {
+      if (scriptsLeidos.has(s)) continue;
+      scriptsLeidos.add(s);
+      const t = s.textContent || '';
+      if (t.indexOf('listing_title') >= 0) datosPorProcesar.push(...MPF.datos.publicacionesDe(t));
     }
-    return out;
   }
 
-  function mismoTitulo(visto, buscado) {
-    // Facebook le antepone a la pestania los avisos sin leer: "(4) Audi ..."
-    const a = MPF.normalizar(String(visto || '').replace(/^\(\d+\)\s*/, ''));
-    /* Con cuatro puntos -"2...."- tambien anda: queda "2.", que es el
-       comienzo de "2.0". Esta probado. */
-    const b = MPF.normalizar(String(buscado || '').replace(/\s*(?:\u2026|\.\.\.)\s*$/, ''));
-    if (!a || !b) return false;
-    // Si en la lista vino cortado, alcanza con que empiece igual.
-    return MPF.scraper.pareceCortado(buscado) ? a.startsWith(b) : a === b;
-  }
-
-  function esLaPublicacionBuscada(objetivo) {
-    const renglones = renglonesDibujados(60);
-    if (!mismoTitulo(document.title, objetivo.titulo) &&
-        !renglones.some((r) => mismoTitulo(r, objetivo.titulo))) return false;
-    const buscado = objetivo.precio ? MPF.precio.parsearPrecio(objetivo.precio).valor : null;
-    if (buscado == null) return true;
-    const i = renglones.findIndex((r) => RE_MONEDA.test(r));
-    if (i < 0) return false;
-    // A veces el signo y el numero vienen en pedazos separados.
-    const texto = /\d/.test(renglones[i]) ? renglones[i] : renglones[i] + ' ' + (renglones[i + 1] || '');
-    const visto = MPF.precio.parsearPrecio(texto).valor;
-    return visto != null && Math.abs(visto - buscado) < 0.5;
-  }
-
-  /* El renglon del titulo dentro de la tarjeta: es lo que se toca en el
-     segundo intento. La foto puede ser la del auto de al lado cuando la caja
-     que se dedujo agarro dos; el titulo es siempre el de este. */
-  function elementoDelTitulo(el, titulo) {
-    const buscado = MPF.normalizar(titulo);
-    if (!buscado) return null;
-    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    let n;
-    while ((n = w.nextNode())) {
-      if (MPF.normalizar(n.textContent) === buscado) return n.parentElement;
+  /* Pasa lo recibido al cache y a la cola del catalogo. Va dentro de la pasada,
+     despues de que se leyo la configuracion: asi se evalua contra el filtro
+     del usuario y no contra los valores de fabrica. */
+  function procesarDatos() {
+    leerDatosDeLaPagina();
+    if (!datosPorProcesar.length) return [];
+    const lote = datosPorProcesar.splice(0, datosPorProcesar.length);
+    const listas = [];
+    for (const p of lote) {
+      const previa = delosDatos.get(p.id);
+      delosDatos.set(p.id, previa ? MPF.datos.completar(p, previa) : p);
+      const enCache = cache.get(p.id);
+      const d = enCache ? conLosDatos(enCache) : comoTarjeta(delosDatos.get(p.id));
+      /* Si la tarjeta ya estaba en pantalla y evaluada, se la vuelve a evaluar:
+         ahora tiene titulo entero. */
+      if (enCache && enCache._link) enCache._link.removeAttribute('data-mpf-v');
+      const v = evaluar(d);
+      d._version = versionConfig;
+      d._veredicto = v;
+      d.coincide = v.pasa;
+      cache.set(d.id, d);
+      listas.push(d);
     }
-    return null;
+    return listas;
   }
 
-  /* Cuando una tarjeta no se deja abrir se sigue con la que viene. Quedarse
-     trabado en una es peor que perderla.
-
-     Se dice CUAL se saltea. El vigilante del toque salta a los 4 segundos, y
-     si en ese tiempo ya se entro, se anoto el enlace y se volvio, la primera
-     de la cola ya es otra: sin esta cuenta se salteaba esa otra sin haberla
-     buscado. Una de cada dos se perdia asi. */
-  function saltearObjetivo(idEsperado, hechosEsperados, reintentar) {
-    leerCaza((estado) => {
-      if (!estado || !estado.cola || !estado.cola.length) return;
-      if (estado.cola[0].id !== idEsperado ||
-          (estado.hechos || 0) !== hechosEsperados) return;
-      // Si la foto no llevo a ningun lado, antes de rendirse se toca el titulo.
-      if (reintentar && !estado.toque) {
-        escribirCaza(Object.assign({}, estado, { toque: 1 }), () => programarCaza(0));
-        return;
-      }
-      const resto = estado.cola.slice(1);
-      const perdidas = (estado.perdidas || 0) + 1;
-      if (!resto.length) {
-        escribirCaza(null);
-        decir(mensajeFinal(estado.hechos || 0, perdidas), false);
-        return;
-      }
-      /* La siguiente esta debajo de la ultima donde se entro, no debajo de
-         donde termino de buscar esta: se vuelve ahi. */
-      if (estado.volverA != null) irAPosicion(estado.volverA);
-      escribirCaza(Object.assign({}, estado, { cola: resto, perdidas, intentos: 0, saltos: 0, toque: 0 }),
-                   () => programarCaza(0));
-    });
-  }
-
-  function mensajeFinal(hechos, perdidas) {
-    return 'listo: ' + hechos + ' enlaces guardados' +
-           (perdidas ? ', ' + perdidas + ' no se pudieron abrir o no eran el auto' : '');
-  }
-
-  function seguirCaza() {
-    leerCaza((estado) => {
-      if (!estado || !estado.cola) return;
-      if (!estado.cola.length) {
-        /* Ya se busco la ultima: se limpia. Sin esto quedaba una busqueda
-           "a medias" con la cola vacia, y al volver a entrar no arrancaba. */
-        escribirCaza(null);
-        decir(mensajeFinal(estado.hechos || 0, estado.perdidas || 0), false);
-        return;
-      }
-
-      /* Estamos DENTRO de una publicacion: se comprueba que sea el auto
-         buscado, se anota el enlace y se vuelve. */
-      const id = idDeUrlItem(location.href);
-      if (id) {
-        tocandoHasta = 0;
-        toqueActual++;   // se entro: el vigilante de ese toque ya no corre
-        if (volviendoDe === location.href) return;   // ya se pidio volver
-        if (adentroDe !== location.href) { adentroDe = location.href; adentroDesde = Date.now(); }
-        const objetivo = estado.cola[0];
-        const hallados = estado.hallados || [];
-        /* Un numero que ya se le dio a otra es que se entro a la equivocada. */
-        const repetida = hallados.includes(id);
-        const esEsta = !repetida && esLaPublicacionBuscada(objetivo);
-        if (!esEsta && !repetida && Date.now() - adentroDesde < ESPERA_COMPROBAR) {
-          programarCaza(400);   // todavia se esta dibujando
-          return;
-        }
-        volviendoDe = location.href;
-        /* Se conserva todo lo demas -sobre todo donde estaba la lista-: antes
-           se escribia de cero y eso se perdia. */
-        let cambio;
-        if (esEsta) {
-          const datos = cache.get(objetivo.id) || { id: objetivo.id, titulo: objetivo.titulo };
-          guardarEnlaceHallado(datos, 'https://www.facebook.com/marketplace/item/' + id + '/');
-          cambio = { cola: estado.cola.slice(1), hechos: (estado.hechos || 0) + 1,
-                     hallados: hallados.concat(id), toque: 0 };
-        } else if (!estado.toque) {
-          /* No era este auto: no se guarda nada y se vuelve a probar con la
-             misma, esta vez tocando el titulo. */
-          decir('no era ese auto: se prueba de nuevo con ' + (objetivo.titulo || 'sin titulo'), true);
-          cambio = { toque: 1 };
-        } else {
-          decir('no se pudo entrar a ' + (objetivo.titulo || 'sin titulo') + ': se sigue', true);
-          cambio = { cola: estado.cola.slice(1), perdidas: (estado.perdidas || 0) + 1, toque: 0 };
-        }
-        escribirCaza(Object.assign({}, estado, cambio, { intentos: 0, saltos: 0 }),
-                     () => { history.back(); });
-        return;
-      }
-      volviendoDe = '';
-      if (Date.now() < tocandoHasta) return;   // hay un toque en curso
-
-      /* Estamos en la lista: se busca la tarjeta y se la toca. */
-      const objetivo = estado.cola[0];
-      const hechos = estado.hechos || 0;
-      const tarjetas = MPF.scraper.elementosTarjeta();
-      for (const el of tarjetas) {
-        const d = MPF.scraper.extraerDeTarjeta(el);
-        if (!d || senia(d) !== objetivo.senia) continue;
-        decir('entrando a: ' + (objetivo.titulo || 'sin titulo') +
-              ' (' + (hechos + 1) + ' de ' + (hechos + estado.cola.length) + ')', true);
-        el.scrollIntoView({ block: 'center' });
-        tocandoHasta = Date.now() + 5000;
-        /* Se anota donde quedo la lista antes de entrar: al volver, Facebook la
-           rearma desde arriba y la siguiente tarjeta queda fuera de lo cargado. */
-        escribirCaza(Object.assign({}, estado, { volverA: posicionScroll() }));
-        /* Se toca en el MEDIO de la tarjeta, como haria una persona, y no sobre
-           el elemento que nosotros dedujimos. La caja que deducimos suele ser
-           la de afuera, y Facebook pone el manejador mas adentro: los eventos
-           suben, no bajan, asi que un click sobre la de afuera no llega nunca
-           al que escucha. */
-        setTimeout(() => {
-          /* Se toca la FOTO, no el centro de la caja. La caja que deducimos a
-             veces es mas grande que la publicacion -puede ser la fila entera-,
-             y ahi el centro cae en el vacio al lado del auto y el toque no le
-             llega a nadie. La foto siempre esta adentro de lo que se puede
-             tocar. */
-          const ancla = (estado.toque ? elementoDelTitulo(el, d.titulo) : null) ||
-                        el.querySelector('img') ||
-                        el.querySelector('[data-mcomponent="ServerTextArea"]') || el;
-          const r = ancla.getBoundingClientRect();
-          const x = Math.round(r.left + r.width / 2);
-          const y = Math.round(r.top + r.height / 2);
-          /* elementsFromPoint y no elementFromPoint: arriba puede haber algo
-             -nuestro propio panel, sin ir mas lejos- y entonces el de mas
-             arriba no es el que hay que tocar. */
-          const bajoElDedo = document.elementsFromPoint(x, y) || [];
-          let aTocar = ancla;
-          for (const cand of bajoElDedo) {
-            if (el.contains(cand)) { aTocar = cand; break; }
-          }
-          const mio = ++toqueActual;
-          aTocar.click();
-          /* Si el toque no llevo a ningun lado, no se puede quedar esperando
-             para siempre: se prueba con el titulo y despues se pasa a la
-             siguiente. Solo si este toque sigue siendo el ultimo: ver
-             saltearObjetivo. */
-          setTimeout(() => {
-            if (mio !== toqueActual || idDeUrlItem(location.href)) return;
-            tocandoHasta = 0;
-            saltearObjetivo(objetivo.id, hechos, true);
-          }, 4000);
-        }, 400);
-        return;
-      }
-
-      /* Todavia no aparecio. Esperar no alcanza: al volver atras Facebook
-         rearma la lista desde arriba y solo carga las primeras. Las que estaban
-         mas abajo no existen hasta que alguien baja, y antes aca solo se
-         esperaba: a partir de la veintena se salteaban todas sin buscarlas.
-
-         Primero se salta a donde estaba la lista cuando se entro -la que sigue
-         esta de ahi para abajo-. Si Facebook todavia no cargo hasta ahi, el
-         salto llega al fondo de lo cargado, eso le hace cargar mas, y se
-         vuelve a saltar. Recien pasando ese lugar se baja de a una pantalla. */
-      const saltos = estado.saltos || 0;
-      if (estado.volverA != null && posicionScroll() < estado.volverA - 50 && saltos < 60) {
-        irAPosicion(estado.volverA);
-        escribirCaza(Object.assign({}, estado, { saltos: saltos + 1 }),
-                     () => programarCaza(1500));
-        return;
-      }
-      const intentos = (estado.intentos || 0) + 1;
-      if (intentos < 25) {
-        bajarUnaPantalla();
-        escribirCaza(Object.assign({}, estado, { intentos }),
-                     () => programarCaza(1200));
-        return;
-      }
-      saltearObjetivo(objetivo.id, hechos);
-    });
-  }
-
-  /* El enlace hallado se guarda en el catalogo sobre la misma ficha: el fondo
-     junta lo nuevo con lo que ya habia, asi que no se pierde nada de lo leido. */
-  function guardarEnlaceHallado(datos, url) {
-    datos.url = url;
-    cache.set(datos.id, datos);
-    try {
-      chrome.runtime.sendMessage({ tipo: 'guardar', items: [Object.assign({}, datos, {
-        _nodo: undefined, _link: undefined, _veredicto: undefined
-      })] });
-    } catch (e) {}
+  /* Cuantas publicaciones llegaron por los datos. Para el diagnostico. */
+  function cuantasDeLosDatos() {
+    return delosDatos.size;
   }
 
   // --- guardado en el catalogo, en lotes para no saturar el service worker ---
@@ -1101,21 +868,15 @@
          volvia a mirar: quedaban huerfanas, sin filtrar y sin contar. El cache
          esta indexado por id de publicacion y esos datos no cambian porque uno
          navegue, asi que no hay ninguna razon para tirarlo. */
-      /* En el celular, entrar a una publicacion NO recarga la pagina: Facebook
-         cambia la direccion por adentro. Por eso mirar la carga, pageshow y
-         popstate no alcanzaba: la busqueda de enlaces entraba a la primera y
-         se quedaba ahi para siempre, porque nadie se enteraba de que ya
-         estabamos adentro. El cambio de direccion se nota aca. */
-      if (location.href !== urlPrevia) {
-        urlPrevia = location.href;
-        programarCaza(900);
-      }
 
       // Si corresponde ir a la version de celular, se va y no se hace nada mas.
       if (irAVersionCelular()) return;
 
       // Fuera de Marketplace la extension no toca nada de la pagina.
       if (!enMarketplace()) {
+        /* Ni guarda lo que vino en los datos: en el inicio de Facebook pueden
+           llegar publicaciones sueltas que no son de ninguna busqueda. */
+        datosPorProcesar.length = 0;
         if (ui) ui.mostrar(false);
         return;
       }
@@ -1128,10 +889,16 @@
          La pagina de una publicacion tiene foto, precio, titulo y zona: para
          el lector es "una tarjeta", y la guardaba como publicacion nueva, con
          la zona escrita de otra forma -"Publicado el viernes en ..."-. Mas las
-         de "similares" que Facebook pone abajo. Cada vez que la busqueda de
-         enlaces entraba a una, el catalogo sumaba duplicados. Aca solo se
-         juntan resultados de busqueda. */
-      if (idDeUrlItem(location.href)) return;
+         de "similares" que Facebook pone abajo, que tambien llegan en los
+         datos. Aca solo se juntan resultados de busqueda. */
+      if (idDeUrlItem(location.href)) {
+        datosPorProcesar.length = 0;
+        return;
+      }
+
+      /* Lo que vino en los datos va primero: asi, cuando se lee la tarjeta de
+         la pantalla, ya se sabe su titulo entero y su enlace. */
+      const deLosDatos = procesarDatos();
 
       /* PRIMERO se lee todo lo nuevo, sin tocar un solo estilo. Leer el texto
          de una tarjeta obliga al navegador a recalcular el layout, y si entre
@@ -1143,6 +910,7 @@
          precio, moneda y provincia, asi que va antes de encolar para guardar:
          si no, el catalogo se llena de publicaciones sin precio. */
       aplicarFiltros();
+      if (deLosDatos.length) encolarParaIndexar(deLosDatos);
       if (nuevas.length) encolarParaIndexar(nuevas);
     }), espera);
   }
@@ -1218,8 +986,8 @@
     /* Arrancar la recorrida sin tocar el panel: asi se puede probar de punta a
        punta, y tambien dispararla desde la consola. */
     releer: () => releerLasQueFaltan(),
-    buscarEnlaces: () => arrancarCaza(),
-    pararBusquedaDeEnlaces: () => pararCaza(),
+    cuantasDeLosDatos,
+    conEnlace: () => cuantasConEnlace(),
     recorrer: (texto, escritorio) =>
       arrancarRecorrida(MPF.recorrida.limpiarLista(texto), escritorio),
     buscar: buscarEnLeidas,
@@ -1334,7 +1102,6 @@
         if (MPF.autoscroll.estaCorriendo()) {
           pararRecorrida();
           pararRelectura();
-          pararCaza();
           MPF.autoscroll.parar();
           return;
         }
@@ -1348,9 +1115,9 @@
       /* Un boton para llegar a escritorio, porque a mano no se podia: la
          extension manda todo al celular y volvia a traerte. Y hace falta ir:
          en el celular Facebook no manda NI UN enlace de publicacion -medido: 0
-         en toda la pagina- y en escritorio las tarjetas si son enlaces. */
+         en toda la pagina, y 0 en los datos que llegan por el WebSocket- y en
+         escritorio vienen el enlace y el titulo de todas en los datos. */
       alReleer() { releerLasQueFaltan(); },
-      alBuscarEnlaces() { arrancarCaza(); },
       alIrAEscritorio() {
         /* Ya en escritorio, el mismo boton vuelve al celular: si no, una vez
            que se entra no hay como salir sin cerrar la pestania. */
@@ -1407,9 +1174,10 @@
         /* Si quedo una recorrida a medias -aunque haya sido en otra pestania o
            antes de cerrar el navegador-, sigue sola desde donde iba. */
         setTimeout(seguirRecorrida, 2500);
-        /* Si quedo una caza de enlaces a medias -entrar a una publicacion
-           recarga la pagina- sigue sola desde donde iba. */
-        programarCaza(3000);
+        /* La version anterior podia dejar anotada una busqueda de enlaces a
+           medias. Esa busqueda ya no existe: se borra para que no quede
+           colgada en el almacenamiento. */
+        try { chrome.storage.local.remove('cazaEnlaces'); } catch (e) {}
       });
     } catch (e) {
       configCargada = true;   // sin almacenamiento se sigue con lo de fabrica
@@ -1427,11 +1195,14 @@
       }
     }, true);
 
-    /* Al volver atras el navegador puede restaurar la pagina tal cual estaba,
-       sin volver a ejecutar nada. Sin esto, la busqueda de enlaces entraba a
-       la primera publicacion y despues se quedaba quieta para siempre. */
-    window.addEventListener('pageshow', () => { programarCaza(1200); });
-    window.addEventListener('popstate', () => { programarCaza(1200); });
+    /* Lo que escucha.js lee desde adentro de la pagina llega por aca. Solo se
+       acepta de esta misma ventana y con nuestra marca. Despues se le avisa
+       que ya hay quien escuche, y manda lo que junto mientras tanto. */
+    window.addEventListener('message', (e) => {
+      if (e.source !== window || !e.data || e.data[MARCA_DATOS] !== 'respuesta') return;
+      if (typeof e.data.texto === 'string') recibirTexto(e.data.texto);
+    });
+    window.postMessage({ [MARCA_DATOS]: 'escucho' }, location.origin);
 
     new MutationObserver(pasada).observe(document.body, { childList: true, subtree: true });
     window.addEventListener('beforeunload', vaciarColaDeIndexado);
